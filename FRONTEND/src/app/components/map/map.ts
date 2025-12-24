@@ -5,8 +5,12 @@ import { StationLayer } from '../../layers/station';
 import { LayerManager } from '../../layers/layer-manager';
 import { MapRegistry } from '../../services/map-registry';
 import { TrackLayer } from '../../layers/track';
+import {KmPostLayer} from '../../layers/km-post';
+import { IndiaBoundaryLayer } from '../../layers/india-boundary';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
+import { DivisionBufferLayer } from '../../layers/division-buffer';
+
 
 
 
@@ -48,7 +52,7 @@ export class Map implements AfterViewInit {
     this.map = L.map('map').setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
-    // Tile Layer (OpenStreetMap)
+    // Tile Layer (World Topo)
     L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
       {
@@ -58,10 +62,16 @@ export class Map implements AfterViewInit {
       }
     ).addTo(this.map);
      // Register layers
+     this.layerManager.register(new IndiaBoundaryLayer(this.api));
+     this.layerManager.register(new DivisionBufferLayer(this.api));
+
     this.layerManager.register(
       new StationLayer(this.api, this.filters, this.edit)
     );
     this.layerManager.register(new TrackLayer(this.api));
+    this.layerManager.register(new KmPostLayer(this.api));
+
+
 
      // Add & load all layers
     this.layerManager.addAll(this.map);
@@ -70,9 +80,10 @@ export class Map implements AfterViewInit {
 
 
      // Reload stations when map moves
-    this.map.on('moveend', () => {
-       this.layerManager.reloadAll(this.map);
+     this.map.on('moveend zoomend', () => {
+      this.layerManager.reloadAll(this.map);
     });
+    
 
     // Fix map distortion issue
     this.map.invalidateSize();
