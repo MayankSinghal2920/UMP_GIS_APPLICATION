@@ -9,8 +9,8 @@ export class StationLayer implements MapLayer {
   title = 'Stations';
   visible = true;
 
-  // ✅ minimum zoom to show stations + labels
-  private readonly MIN_ZOOM = 8;
+  // 🔑 Label zoom threshold
+  private readonly LABEL_ZOOM = 10;
 
   legend = {
     type: 'point' as const,
@@ -20,7 +20,7 @@ export class StationLayer implements MapLayer {
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
-  private isOnMap = false; // track whether added to map
+  private isOnMap = false;
 
   constructor(
     private api: Api,
@@ -30,7 +30,7 @@ export class StationLayer implements MapLayer {
     this.layer = L.geoJSON(null, {
       pointToLayer: (feature: any, latlng: L.LatLng) => {
         const marker = L.circleMarker(latlng, {
-          radius: 5,
+          radius: 8,
           fillColor: '#d32f2f',
           color: '#ffffff',
           weight: 1,
@@ -38,17 +38,17 @@ export class StationLayer implements MapLayer {
           fillOpacity: 0.9,
         });
 
-        // ✅ Station name label (permanent)
         const p = feature?.properties || {};
         const name = (p.sttnname || '').toString().trim();
 
         if (name) {
+          // ❌ NOT permanent
           marker.bindTooltip(name, {
-            permanent: true,
+            permanent: false,
             direction: 'top',
             offset: L.point(0, -8),
             opacity: 0.95,
-            className: 'station-label', // style in CSS if you want
+            className: 'station-label',
           });
         }
 
@@ -63,20 +63,19 @@ export class StationLayer implements MapLayer {
           Code: ${p.sttncode || '-'}
         `);
 
-        layer.on('click', () => {
-          this.edit.select(feature);
-        });
+        layer.on('click', () => this.edit.select(feature));
       },
     });
   }
 
   addTo(map: L.Map) {
-    // Only add if allowed by zoom
-    if (this.visible && map.getZoom() >= this.MIN_ZOOM) {
+    if (this.visible && !this.isOnMap) {
       this.layer.addTo(map);
       this.isOnMap = true;
-    } else {
-      this.isOnMap = false;
+
+      // 🔥 attach zoom handler once
+      map.on('zoomend', () => this.updateLabels(map));
+      this.updateLabels(map);
     }
   }
 
@@ -85,32 +84,44 @@ export class StationLayer implements MapLayer {
     this.isOnMap = false;
   }
 
+  private updateLabels(map: L.Map) {
+    const showLabels = map.getZoom() >= this.LABEL_ZOOM;
+
+    this.layer.eachLayer((l: any) => {
+      if (!l.getTooltip) return;
+
+      const tooltip = l.getTooltip();
+      if (!tooltip) return;
+
+      if (showLabels) {
+        l.openTooltip();
+      } else {
+        l.closeTooltip();
+      }
+    });
+  }
+
   loadForMap(map: L.Map) {
     if (!this.visible) return;
 
-    // ✅ Zoom gate: hide layer when zoom < 8
-    const z = map.getZoom();
-    if (z < this.MIN_ZOOM) {
-      if (this.isOnMap) this.removeFrom(map);
-      return;
-    }
+    this.addTo(map);
 
-    // Ensure layer is on map at zoom >= 8
-    if (!this.isOnMap) this.addTo(map);
-
-    // Load by bbox (only when zoom >= 8)
     const bounds = map.getBounds();
     const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
 
-    this.api.getStations(bbox, this.filters.stationCode, this.filters.division).subscribe({
+    this.api.getStations(bbox).subscribe({
       next: (geojson: any) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);
+
+        // update labels after reload
+        this.updateLabels(map);
       },
       error: (err: any) => console.error('Station layer error', err),
     });
   }
 }
+
