@@ -13,4 +13,9 @@ export class UiState {
     isOpen(panel: string): boolean {
     return this.activePanel === panel;
   }
+
+close() {
+  this.activePanel = null;
+}
+
 }

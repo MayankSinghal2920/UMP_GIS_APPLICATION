@@ -1,4 +1,4 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, NgZone } from '@angular/core';
 import * as L from 'leaflet';
 import { Api } from '../../services/api';
 import { StationLayer } from '../../layers/station';
@@ -7,6 +7,7 @@ import { MapRegistry } from '../../services/map-registry';
 import { TrackLayer } from '../../layers/track';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
+
 
 
 
@@ -30,6 +31,7 @@ export class Map implements AfterViewInit {
     private api: Api,
     private filters: FilterState,
     private edit: EditState,
+     private zone: NgZone,
     private mapRegistry: MapRegistry,
     private layerManager: LayerManager
   ) {}
@@ -57,7 +59,7 @@ export class Map implements AfterViewInit {
 
      // Register layers
     this.layerManager.register(
-      new StationLayer(this.api, this.filters, this.edit)
+      new StationLayer(this.api, this.filters, this.zone)
     );
     this.layerManager.register(new TrackLayer(this.api));
 

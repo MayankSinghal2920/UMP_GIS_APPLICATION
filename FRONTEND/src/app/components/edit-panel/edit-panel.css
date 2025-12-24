@@ -33,3 +33,141 @@ input {
   margin-top: 8px;
   font-size: 12px;
 }
+
+select {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.panel {
+  position: absolute;
+  top: 60px;
+  right: 10px;
+  width: 520px;
+  background: white;
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 2000;
+  font-size: 13px;
+}
+
+/* Top bar */
+.actions-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.actions-bar input {
+  flex: 1;
+  padding: 4px;
+}
+
+/* Table */
+.table-container {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 6px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+th {
+  background: #f3f4f6;
+  position: sticky;
+  top: 0;
+}
+
+.empty {
+  text-align: center;
+  color: #888;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Buttons */
+button {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #2563eb;
+  color: white;
+  border: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.edit-form h3 {
+  margin: 0;
+}
+
+.edit-form h5 {
+  margin: 4px 0 10px;
+  color: #555;
+}
+
+.back-btn {
+  margin-bottom: 10px;
+  background: none;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.form-grid label {
+  font-size: 12px;
+}
+
+.form-grid input {
+  width: 100%;
+}
+
+.inline {
+  display: flex;
+  gap: 6px;
+}
+
+.form-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.note {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #666;
+}
+
+.error {
+  color: #b91c1c;
+  margin-top: 6px;
+  font-size: 12px;
+}

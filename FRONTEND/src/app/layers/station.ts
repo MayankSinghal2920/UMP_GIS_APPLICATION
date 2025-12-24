@@ -2,7 +2,7 @@ import * as L from 'leaflet';
 import { Api } from '../services/api';
 import { MapLayer } from './interface';
 import { FilterState } from '../services/filter-state';
-import { EditState } from '../services/edit-state';
+import { NgZone } from '@angular/core';
 
 export class StationLayer implements MapLayer {
     id = 'stations';
@@ -21,7 +21,7 @@ export class StationLayer implements MapLayer {
     constructor(
       private api: Api,
       private filters: FilterState,
-      private edit: EditState
+       private zone: NgZone
     ) {
         this.layer = L.geoJSON(null,{
              pointToLayer: (feature, latlng) => {
@@ -42,9 +42,7 @@ export class StationLayer implements MapLayer {
     Code: ${p.sttncode || '-'}
   `);
 
-  layer.on('click', () => {
-    this.edit.select(feature);
-  });
+ 
 }
     });
   }

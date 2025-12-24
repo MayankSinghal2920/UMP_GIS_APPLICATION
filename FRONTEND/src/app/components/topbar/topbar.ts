@@ -19,12 +19,17 @@ export class Topbar {
 
 
  toggle(panel: string) {
-  if (panel === 'edit') {
-    this.edit.enabled ? this.edit.disable() : this.edit.enable();
-    this.ui.activePanel = this.edit.enabled ? 'edit' : null;
-    return;
+
+   if (panel === 'edit') {
+    if (this.ui.isOpen('edit')) {
+      this.edit.disable();
+    } else {
+      this.edit.enable();
+    }
   }
 
-  this.ui.activePanel = this.ui.activePanel === panel ? null : panel;
-}
+  this.ui.toggle(panel);
+
+ }
+
 }

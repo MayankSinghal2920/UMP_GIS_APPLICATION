@@ -34,5 +34,30 @@ updateStation(id: number, payload: any) {
   );
 }
 
+getStationTable(page: number, pageSize: number, search: string) {
+  const params: any = {
+    page,
+    pageSize
+  };
+
+  if (search) {
+    params.q = search;
+  }
+
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/edit/stations`,
+    { params }
+  );
+}
+
+deleteStation(id: number) {
+  return this.http.delete(
+    `${this.BASE_URL}/api/edit/stations/${id}`
+  );
+}
+
+
+
+
   
 }

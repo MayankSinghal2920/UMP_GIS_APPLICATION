@@ -1,43 +1,188 @@
 <div class="panel" *ngIf="edit.enabled">
-  <div class="panel-header">
-    <span>Edit Station</span>
-    <button class="panel-close" (click)="close()">×</button>
+
+  <div *ngIf="mode === 'table'">
+  <h4>Edit — Stations</h4>
+
+   <!-- 🔹 Layer selection -->
+  <label>
+    Select Layer
+    <select
+      [(ngModel)]="edit.editLayer"
+      (change)="onLayerChange()"
+    >
+      <option [ngValue]="null">-- Select --</option>
+      <option value="stations">Stations</option>
+    </select>
+  </label>
   </div>
 
-  <h4>Edit Station</h4>
+   <!-- 🔹 Station Admin View -->
+  <ng-container *ngIf="edit.editLayer === 'stations'">
 
-  <div *ngIf="!edit.selectedFeature">
-    <p>Click a station on the map to edit.</p>
+    <div *ngIf="mode === 'table'">
+
+  <!-- Top actions -->
+  <div class="actions-bar">
+    <button class="primary">➕ Add New Record</button>
+
+    <input
+  type="text"
+  placeholder="Search by code / state / district"
+  [(ngModel)]="search"
+  (ngModelChange)="onSearchChange()"
+/>
   </div>
 
-  <form *ngIf="edit.selectedFeature && edit.draft">
+  <!-- Table -->
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Station Code</th>
+          <th>Dist (km)</th>
+          <th>Dist (m)</th>
+          <th>State</th>
+          <th>District</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+  <tr *ngIf="loading">
+    <td colspan="6" class="empty">Loading...</td>
+  </tr>
+
+  <tr *ngIf="!loading && rows.length === 0">
+    <td colspan="6" class="empty">No records</td>
+  </tr>
+
+  <tr *ngFor="let r of rows">
+    <td>{{ r.sttncode }}</td>
+    <td>{{ r.distkm }}</td>
+    <td>{{ r.distm }}</td>
+    <td>{{ r.state }}</td>
+    <td>{{ r.district }}</td>
+    <td>
+     <button (click)="editRow(r)">Edit</button>
+      <button
+  (click)="deleteRow(r)"
+  [disabled]="deleting"
+>
+  Delete
+</button>
+
+    </td>
+  </tr>
+</tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+  <button (click)="prevPage()" [disabled]="page === 1">
+    Prev
+  </button>
+
+  <span>
+  Page {{ page }} of {{ totalPages }}
+
+  </span>
+
+  <button
+    (click)="nextPage()"
+    [disabled]="page * pageSize >= total"
+  >
+    Next
+  </button>
+</div>
+</div>
+
+<!-- ===== EDIT MODE ===== -->
+<div *ngIf="mode === 'edit'" class="edit-form">
+
+  <h3>Asset Details</h3>
+  <h5>Selected Asset Details</h5>
+
+  <button class="back-btn" (click)="cancelEdit()">
+    ← Back to Table
+  </button>
+
+  <div class="form-grid">
 
     <label>
-      Name
-      <input type="text" [(ngModel)]="edit.draft.sttnname" name="name" />
+      Station Code
+      <div class="inline">
+        <input type="text" [value]="draft.sttncode" readonly />
+        <button disabled>Validate</button>
+      </div>
     </label>
 
     <label>
-      Code
-      <input type="text" [(ngModel)]="edit.draft.sttncode" name="code" />
+      Station Name
+      <input type="text" [value]="draft.sttnname" readonly />
     </label>
 
     <label>
-      Division
-      <input type="text" [(ngModel)]="edit.draft.division" name="division" />
+      Station Type
+      <input type="text" [(ngModel)]="draft.stationtype" />
     </label>
 
-    <div class="actions">
-      <button type="button" (click)="save()" [disabled]="saving">
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
+    <label>
+      Dist (KM)
+      <input type="number" [(ngModel)]="draft.distkm" />
+    </label>
 
-      <button type="button" (click)="cancel()" [disabled]="saving">
-        Cancel
-      </button>
-    </div>
+    <label>
+      Dist (M)
+      <input type="number" [(ngModel)]="draft.distm" />
+    </label>
 
-    <div class="error" *ngIf="error">{{ error }}</div>
-  </form>
+    <label>
+      State
+      <input type="text" [(ngModel)]="draft.state" />
+    </label>
 
+    <label>
+      District
+      <input type="text" [(ngModel)]="draft.district" />
+    </label>
+
+    <label>
+      Category
+      <input type="text" [value]="draft.category" readonly />
+    </label>
+
+    <label>
+      Constituency
+      <input type="text" [(ngModel)]="draft.constituency" />
+    </label>
+
+  </div>
+
+  <div class="form-actions">
+    <button disabled>Edit Geometry</button>
+    <button disabled>Save Geometry</button>
+  <button
+  class="primary"
+  (click)="send()"
+  [disabled]="saving"
+>
+  {{ saving ? 'Saving...' : 'Send' }}
+</button>
+
+<div class="error" *ngIf="error">
+  {{ error }}
+</div>
+
+
+  </div>
+
+  <p class="note">
+    * For Station: Dist(KM)/Dist(M) optional • For Landplan: Polygon geometry required
+  </p>
+
+</div>
+
+
+ </ng-container>
 </div>

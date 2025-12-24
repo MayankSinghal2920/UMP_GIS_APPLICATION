@@ -1,34 +1,46 @@
 import { Injectable } from '@angular/core';
 
+export type EditableLayer = 'stations' | null;
+
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class EditState {
 
-  enabled = false;        // Edit mode ON / OFF
-  selectedFeature: any = null;
-   draft: any = null;
+  enabled = false;
 
-  enable() {
-    this.enabled = true;
-    this.selectedFeature = null;
+  // NEW
+  editLayer: EditableLayer = null;
+
+  // selection & draft (will be used later)
+  selectedFeatureId: number | null = null;
+  draft: any = null;
+
+ enable() {
+  this.enabled = true;
+  this.reset();
+}
+
+disable() {
+  this.enabled = false;
+  this.reset();
+}
+
+  setLayer(layer: EditableLayer) {
+    this.editLayer = layer;
+    this.resetSelection();
   }
 
-  disable() {
-    this.enabled = false;
-    this.selectedFeature = null;
+  resetSelection() {
+    this.selectedFeatureId = null;
+    this.draft = null;
   }
 
-  select(feature: any) {
-    if (!this.enabled) return;
-    this.selectedFeature = feature;
+ reset() {
+  this.editLayer = null;
+  this.selectedFeatureId = null;
+  this.draft = null;
+}
 
-     // create editable copy of properties
-    this.draft = { ...feature.properties };
-  }
 
-  clearSelection() {
-    this.selectedFeature = null;
-  }
-  
 }
