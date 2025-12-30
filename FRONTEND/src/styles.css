@@ -407,6 +407,19 @@ display: none;
 .pager{ display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:8px; }
 
 
+.table-scroll {
+  max-height: 800px;       /* adjust as needed */
+  overflow-y: auto;        /* vertical scroll */
+  overflow-x: auto;        /* horizontal scroll if needed */
+}
+
+/* Optional: keep table header fixed */
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
 
 
 

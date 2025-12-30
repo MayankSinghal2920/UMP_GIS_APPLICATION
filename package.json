@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "concurrently \"npm --prefix BACKEND run dev\" \"npm --prefix FRONTEND start\"",
     "dev:ng": "concurrently -n BACKEND,FRONTEND \"npm --prefix BACKEND start\" \"npx --prefix FRONTEND ng serve\""
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.8"
   }
-  
 }
