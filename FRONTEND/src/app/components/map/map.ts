@@ -99,11 +99,12 @@ private highlightLayer?: L.GeoJSON; // optional highlight
     // ✅ register layers ONCE (singleton service)
     this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
     this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
-    this.layerManager.registerOnce(
-      new StationLayer(this.api, this.filters, this.edit, (geojson: any) => {
-        this.attrTable.pushFeatureCollection('Station', geojson);
-      })
-    );
+this.layerManager.registerOnce(new StationLayer(this.api, this.filters, this.edit, this.zone, (geojson: any) => {
+      this.attrTable.pushFeatureCollection('Station', geojson);
+    }
+  )
+);
+
     
     this.layerManager.registerOnce(
       new LandOffsetLayer(this.api, (geojson: any) => {

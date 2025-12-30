@@ -44,7 +44,7 @@
 
       <div id="editTableWrap" class="card">
       <!-- Table -->
-      <div>
+       <div class="table-scroll">
         <table class="tbl" id="editTbl">
           <thead>
             <tr>
@@ -73,8 +73,8 @@
               <td>{{ r.state }}</td>
               <td>{{ r.district }}</td>
               <td>
-                <button (click)="editRow(r)">Edit</button>
-                <button
+                <button class="btn" (click)="editRow(r)">Edit</button>
+                <button class="btn"
                   (click)="deleteRow(r)"
                   [disabled]="deleting"
                 >
