@@ -64,3 +64,137 @@
 .widgets i {
   font-size: 20px;
 }
+
+/* Topbar container should align items nicely */
+:host {
+  display: block;
+}
+
+.brand-wrap{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+}
+
+/* ✅ Fix logo sizing */
+.brand-logo{
+  height: 40px;        /* change to 28/32/40 as you like */
+  width: 40px;         /* keep square (good for round logo) */
+  object-fit: contain; /* keep full logo visible */
+  border-radius: 150%;  
+  flex: 0 0 auto;      /* prevent stretching */
+}
+
+/* Optional: keep title aligned */
+.brand{
+  line-height: 1;
+  font-size: 30px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ============================
+   USER INFO BOX (Top Right)
+   Angular version for topbar.html
+   ============================ */
+
+/* Wrapper that sits on right side of topbar */
+/* =========================
+   USER INFO (TOP RIGHT)
+   ========================= */
+
+   .user-info-wrapper{
+    position: relative;
+    display: inline-block;
+  }
+  
+  /* pill box */
+  .user-info-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+    pointer-events: auto;
+
+  }
+  
+  .user-info-box:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  /* avatar */
+  .user-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: white url('/assets/images/user.png') center / 60% no-repeat;
+    flex-shrink: 0;
+  }
+  
+  /* text container */
+  .user-text {
+    display: flex;
+    align-items: center;   /* vertically align text */
+    gap: 6px;              /* space between Hi and username */
+    line-height: 1;
+  }
+  
+  /* "Hi" */
+  .user-text .hello {
+    font-size: 25px;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 400;
+  }
+  
+  /* username */
+  .user-text .username {
+    font-size: 25px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+  }
+  
+  
+  /* dropdown */
+  .user-menu {
+    position: absolute;
+    top: 70px;
+    right: 0;
+    width: 160px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    display: none;
+    z-index: 9999;
+  }
+  
+  .user-menu.show {
+    display: block;
+  }
+  
+  .user-menu button {
+    width: 100%;
+    padding: 10px 14px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 20px;
+  }
+  
+  .user-menu button:hover {
+    background: #f1f5f9;
+  }
+  
+  /* mobile
+  @media (max-width: 768px) {
+    .user-text {
+      display: none;
+    }
+  }
+   */

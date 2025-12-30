@@ -6,7 +6,7 @@ export interface MapLayer {
   visible: boolean;    // UI-controlled visibility
 
    legend: {
-    type: 'point' | 'line';
+    type: 'point' | 'line' | 'polygon';
     color: string;
     label: string;
   };

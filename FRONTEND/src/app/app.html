@@ -1,20 +1,19 @@
-<app-topbar></app-topbar>
+<!-- ✅ GIS Shell: show only after login -->
+<ng-container *ngIf="!isLoginRoute">
 
-<app-layer-panel
-  *ngIf="ui.isOpen('layers')">
-</app-layer-panel>
+  <app-topbar></app-topbar>
 
-<app-legend-panel *ngIf="ui.isOpen('legend')"></app-legend-panel>
-<app-basemap-panel *ngIf="ui.isOpen('basemap')"></app-basemap-panel>
-<app-filter-panel *ngIf="ui.isOpen('filter')"></app-filter-panel>
-<app-edit-panel *ngIf="ui.activePanel === 'edit'"></app-edit-panel>
+  <app-layer-panel *ngIf="ui.isOpen('layers')"></app-layer-panel>
+  <app-legend-panel *ngIf="ui.isOpen('legend')"></app-legend-panel>
+  <app-basemap-panel *ngIf="ui.isOpen('basemap')"></app-basemap-panel>
+  <app-filter-panel *ngIf="ui.isOpen('filter')"></app-filter-panel>
 
+  <!-- Edit panel uses activePanel logic -->
+  <app-edit-panel *ngIf="ui.activePanel === 'edit'"></app-edit-panel>
 
+  <app-map></app-map>
 
+</ng-container>
 
-
-
-<app-map></app-map>
+<!-- ✅ Routes (Login / Home / etc.) -->
 <router-outlet></router-outlet>
-
-<!-- <router-outlet></router-outlet> -->

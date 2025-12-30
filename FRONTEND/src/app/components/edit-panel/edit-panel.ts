@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditState } from '../../services/edit-state';
 import { Api } from 'src/app/services/api';
+import { UiState } from '../../services/ui-state';
 
 
 
@@ -36,6 +37,7 @@ export class EditPanel {
 
 
   constructor(
+    public ui: UiState,
     public edit: EditState,
     private api: Api,
     private cdr: ChangeDetectorRef
@@ -72,6 +74,8 @@ ngDoCheck() {
     this.rows = [];
   }
 }
+
+
 
 
  load() {
@@ -197,6 +201,10 @@ deleteRow(row: any) {
     }
   });
 }
+
+ close() {
+      this.ui.activePanel = null;
+    }
 
 
 

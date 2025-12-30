@@ -1,15 +1,4 @@
-/* .panel {
-  position: absolute;
-  top: 60px;
-  right: 10px;
-  width: 260px;
-  background: white;
-  border-radius: 4px;
-  padding: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  z-index: 2000;
-  font-size: 14px;
-} */
+/* ================= BASE RESET ================= */
 
 label {
   display: block;
@@ -22,37 +11,69 @@ input {
   margin-top: 2px;
 }
 
-.actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.error {
-  color: #b91c1c;
-  margin-top: 8px;
-  font-size: 12px;
-}
-
 select {
   width: 100%;
   margin-top: 4px;
 }
 
-.panel {
-  position: absolute;
-  top: 60px;
-  right: 10px;
-  width: 520px;
-  background: white;
-  border-radius: 4px;
-  padding: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  z-index: 2000;
-  font-size: 13px;
+button {
+  padding: 4px 8px;
+  cursor: pointer;
 }
 
-/* Top bar */
+button.primary {
+  background: #2563eb;
+  color: white;
+  border: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ================= PANEL ================= */
+
+/* 🔑 CRITICAL FIX:
+   - position: fixed (not absolute)
+   - top uses real topbar height
+   - viewport-based sizing
+*/
+
+
+/* ================= HEADER ================= */
+
+/* .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 12px;
+  border-bottom: 1px solid #ddd;
+  background: #f9fafb;
+} */
+/* 
+.panel-header h4 {
+  margin: 0;
+  font-size: 14px;
+} */
+
+/* .panel-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+} */
+
+/* ================= BODY ================= */
+
+/* .panel-body {
+  padding: 10px;
+  overflow-y: auto;
+} */
+
+/* ================= ACTION BAR ================= */
+
 .actions-bar {
   display: flex;
   gap: 8px;
@@ -64,12 +85,13 @@ select {
   padding: 4px;
 }
 
-/* Table */
-.table-container {
+/* ================= TABLE ================= */
+
+/* .table-container {
   max-height: 260px;
   overflow-y: auto;
   border: 1px solid #ddd;
-}
+} */
 
 table {
   width: 100%;
@@ -93,7 +115,8 @@ th {
   color: #888;
 }
 
-/* Pagination */
+/* ================= PAGINATION ================= */
+
 .pagination {
   display: flex;
   justify-content: center;
@@ -101,22 +124,7 @@ th {
   margin-top: 8px;
 }
 
-/* Buttons */
-button {
-  padding: 4px 8px;
-  cursor: pointer;
-}
-
-button.primary {
-  background: #2563eb;
-  color: white;
-  border: none;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+/* ================= EDIT FORM ================= */
 
 .edit-form h3 {
   margin: 0;
@@ -143,10 +151,6 @@ button:disabled {
 
 .form-grid label {
   font-size: 12px;
-}
-
-.form-grid input {
-  width: 100%;
 }
 
 .inline {

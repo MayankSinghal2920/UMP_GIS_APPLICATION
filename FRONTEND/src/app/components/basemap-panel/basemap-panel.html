@@ -4,7 +4,40 @@
     <button class="panel-close" (click)="close()">×</button>
   </div>
 
-  <!-- Panel content -->
-  <button (click)="setBasemap('osm')">OSM</button>
-  <button (click)="setBasemap('satellite')">Satellite</button>
+  <div class="basemap-list">
+    <!-- OpenStreetMap -->
+    <label class="basemap-item">
+      <input
+        type="radio"
+        name="basemap"
+        [checked]="selectedBasemap === 'Open Street Map'"
+        (change)="onBasemapChange('Open Street Map')"
+      />
+      <span>Open Street Map</span>
+    </label>
+
+    <!-- Satellite -->
+    <label class="basemap-item">
+      <input
+        type="radio"
+        name="basemap"
+        [checked]="selectedBasemap === 'satellite'"
+        (change)="onBasemapChange('satellite')"
+      />
+      <span>Satellite</span>
+    </label>
+
+    <!-- Esri Topographic -->
+    <label class="basemap-item">
+      <input
+        type="radio"
+        name="basemap"
+        [checked]="selectedBasemap === 'Esri Topographic'"
+        (change)="onBasemapChange('Esri Topographic')"
+      />
+      <span>Esri Topographic</span>
+    </label>
+  </div>
 </div>
+
+

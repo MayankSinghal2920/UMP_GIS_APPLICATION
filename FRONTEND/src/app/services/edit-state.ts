@@ -42,5 +42,18 @@ disable() {
   this.draft = null;
 }
 
+select(feature: any) {
+  const id =
+    feature?.id ??
+    feature?.properties?.objectid ??
+    null;
+
+  this.selectedFeatureId = id;
+  this.draft = {
+    ...(feature.properties || {})
+  };
+}
+
+
 
 }
