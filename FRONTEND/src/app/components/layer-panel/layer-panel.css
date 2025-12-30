@@ -14,10 +14,15 @@
   margin-bottom: 6px;
 }
 
+.panel-header{
+font-size: 26px;
+font-weight: 600;
+}
+
 .layer-item label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 22px;
   cursor: pointer;
 }

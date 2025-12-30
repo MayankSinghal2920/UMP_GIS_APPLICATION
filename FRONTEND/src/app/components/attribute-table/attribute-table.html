@@ -1,0 +1,68 @@
+<div
+  class="attr-dock"
+  [class.open]="(open$ | async) === true"
+  [style.height.px]="(open$ | async) ? expandedHeight : collapsedHeight"
+>
+  <!-- Thin toggle bar (always visible) -->
+  <div class="attr-toggle-bar" (click)="toggle()">
+    <div class="attr-toggle-center">
+      <span class="attr-toggle-arrow" [class.down]="(open$ | async) === true"></span>
+    </div>
+  </div>
+
+  <!-- Expanded content -->
+  <div class="attr-body" *ngIf="open$ | async">
+    <!-- Tabs -->
+    <div class="attr-tabs">
+      <ng-container *ngIf="active$ | async as active">
+        <div
+          class="attr-tab"
+          *ngFor="let t of tabs"
+          [class.active]="t === active"
+          (click)="setTab(t, $event)"
+        >
+          {{ t }}
+        </div>
+      </ng-container>
+    </div>
+
+    <!-- Table -->
+    <div class="attr-content">
+      <ng-container *ngIf="(datasets$ | async) as d">
+        <ng-container *ngIf="(active$ | async) as a">
+          <ng-container *ngIf="getDataset(d, a) as ds">
+            <div class="attr-table-scroll" *ngIf="ds.rows.length; else empty">
+              <table class="table table-sm table-bordered table-hover mb-0 attr-table">
+                <thead>
+                  <tr>
+                    <th *ngFor="let c of ds.columns">{{ c }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    *ngFor="let r of ds.rows"
+                    (click)="onRowClick(a, r, $event)"
+                    style="cursor:pointer;"
+                  >
+                    <td *ngFor="let c of ds.columns">{{ r[c] ?? '' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ng-template #empty>
+              <div class="p-3 text-muted">No records</div>
+            </ng-template>
+          </ng-container>
+        </ng-container>
+      </ng-container>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+  

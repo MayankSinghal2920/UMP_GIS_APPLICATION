@@ -44,6 +44,33 @@ export class Api {
     });
   }
 
+  getlandboundary(bbox: string) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_boundary`, {
+      params: {
+        bbox,
+        division: this.getDivision(),   // ✅ added
+      }
+    });
+  }
+
+  getLandPlanOntrack(z: number) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_plan_on_track`, {
+      params: {
+        division: this.getDivision(), // ✅ from localStorage
+        z: z.toString(),              // zoom level
+      }
+    });
+  }
+
+  getLandOffset(bbox: string) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_offset`, {
+      params: {
+        bbox,
+        division: this.getDivision(),   // ✅ added
+      }
+    });
+  }
+
   /* ===================== DIVISION BUFFER ===================== */
 
 getDivisionBuffer(z: number) {
@@ -62,6 +89,8 @@ getIndiaBoundary(bbox: string, z: number) {
     params: { bbox, z }
   });
 }
+
+/* ===================== UPDATE STATION ===================== */
 
 
 updateStation(id: number, payload: any) {

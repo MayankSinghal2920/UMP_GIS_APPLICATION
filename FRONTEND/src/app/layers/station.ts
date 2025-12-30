@@ -10,7 +10,7 @@ export class StationLayer implements MapLayer {
   visible = true;
 
   // 🔑 Label zoom threshold
-  private readonly LABEL_ZOOM = 10;
+  private readonly LABEL_ZOOM = 12;
 
   legend = {
     type: 'point' as const,
@@ -25,7 +25,8 @@ export class StationLayer implements MapLayer {
   constructor(
     private api: Api,
     private filters: FilterState,
-    private edit: EditState
+    private edit: EditState,
+    private onData?: (geojson: any) => void
   ) {
     this.layer = L.geoJSON(null, {
       pointToLayer: (feature: any, latlng: L.LatLng) => {
@@ -116,6 +117,7 @@ export class StationLayer implements MapLayer {
       next: (geojson: any) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);
+        this.onData?.(geojson);
 
         // update labels after reload
         this.updateLabels(map);

@@ -13,4 +13,6 @@ export class UiState {
     isOpen(panel: string): boolean {
     return this.activePanel === panel;
   }
+
+  selectedBasemap: 'Open Street Map' | 'satellite' | 'Esri Topographic' | 'Bhuvan India' = 'Esri Topographic';
 }

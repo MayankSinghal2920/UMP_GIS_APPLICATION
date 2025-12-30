@@ -11,17 +11,17 @@ export class TrackLayer implements MapLayer {
 
   legend = {
   type: 'line' as const,
-  color: '#1e40af',
+  color: 'black',
   label: 'Railway Track'
 };
     
   private layer!: L.GeoJSON;
   private lastBbox = '';
 
-  constructor(private api: Api) {
+  constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
       style: {
-        color: '#1e40af',
+        color: 'black',
         weight: 2
       }
     });
@@ -50,6 +50,7 @@ export class TrackLayer implements MapLayer {
       next: (geojson: GeoJsonObject) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);
+        this.onData?.(geojson); 
       },
       error: (err: any) => console.error('Track layer error', err)
     });
