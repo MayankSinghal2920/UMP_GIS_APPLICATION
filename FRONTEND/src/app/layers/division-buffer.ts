@@ -9,7 +9,7 @@ export class DivisionBufferLayer implements MapLayer {
 
   legend = {
     type: 'polygon' as const,
-    color: '#16a34a',
+    color: 'black',
     label: 'Division Buffer',
   };
 
@@ -20,10 +20,10 @@ export class DivisionBufferLayer implements MapLayer {
   constructor(private api: Api) {
     this.layer = L.geoJSON(null, {
       style: () => ({
-        color: '#16a34a',
+        color: 'black',
         weight: 2,
-        fillColor: '#16a34a',
-        fillOpacity: 0.08,
+        fillColor: '#93c5fd',
+        fillOpacity: 0.1,
       }),
       interactive: false,
     });

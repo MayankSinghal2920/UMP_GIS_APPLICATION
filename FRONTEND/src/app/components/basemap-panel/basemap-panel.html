@@ -37,6 +37,18 @@
       />
       <span>Esri Topographic</span>
     </label>
+
+        <!-- Esri Topographic -->
+        <label class="basemap-item">
+          <input
+            type="radio"
+            name="basemap"
+            [checked]="selectedBasemap === 'Bhuvan India'"
+            (change)="onBasemapChange('Bhuvan India')"
+          />
+          <span>Bhuvan India</span>
+        </label>
+
   </div>
 </div>
 
