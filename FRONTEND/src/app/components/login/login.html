@@ -1,0 +1,80 @@
+<!-- Background image -->
+<img src="assets/images/i.jpg" class="bg-map" alt="Map background" />
+
+<!-- Main layout -->
+<div
+  class="container-fluid min-vh-100 d-flex align-items-center justify-content-center justify-content-lg-end"
+>
+  <!-- Login card -->
+  <div class="login-card shadow-lg">
+    <div class="text-center">
+
+      <!-- Title -->
+      <h1 class="login-title mb-1">
+        IR Asset Application<br>
+        <span class="login-subtitle mb-1">Login</span>
+      </h1>
+      <!-- <h2 class="login-subtitle mb-3">
+        Login
+      </h2> -->
+
+      <!-- Subtitle -->
+      <p class="login-caption mb-4">
+        Please enter your credentials below
+      </p>
+
+      <!-- FORM -->
+      <form (ngSubmit)="login()" #loginForm="ngForm">
+
+        <!-- Username -->
+        <div class="mb-3 text-center">
+          <input
+            type="text"
+            name="username"
+            class="form-control login-input"
+            placeholder="User ID"
+            required
+            [(ngModel)]="username"
+          />
+        </div>
+
+        <br />
+
+        <!-- Password -->
+        <div class="mb-3 text-center">
+          <input
+            type="password"
+            name="password"
+            class="form-control login-input"
+            placeholder="Password"
+            required
+            [(ngModel)]="password"
+          />
+        </div>
+
+        <!-- Login button -->
+        <div class="d-flex justify-content-center mt-3 mb-4">
+          <button
+            type="submit"
+            class="btn login-btn"
+            [disabled]="loading || !loginForm.valid"
+          >
+            {{ loading ? 'Logging in...' : 'LOGIN' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- Error -->
+      <div *ngIf="error" class="text-danger mt-3">
+        {{ error }}
+      </div>
+
+      <!-- Footer note -->
+      <p class="note login-note mt-4 mb-0">
+        Unable to login? Please contact the system administrator
+      </p>
+
+    </div>
+  </div>
+</div>
+

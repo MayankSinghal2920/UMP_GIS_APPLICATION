@@ -20,7 +20,7 @@ html, body {
 }
 
 /* All panels across the app */
-.panel{
+/* .panel{
   position: absolute;
   top: calc(var(--topbar-h) + var(--panel-gap));
   right: 10px;
@@ -33,7 +33,66 @@ html, body {
 
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   z-index: 1500;
+} */
+
+.panel {
+  position: fixed;
+  top: 90px;                 /* below top bar */
+  right: 12px;
+  max-height: calc(100vh - 80px);
+  width: 420px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  padding: 14px 16px 16px;
+  /* display: none;             HIDDEN by default */
+  z-index: 900;
 }
+
+.panel.show {
+  display: block;            /* Only .show makes it visible */
+}
+
+/* Phones – panels full width */
+@media (max-width: 767.98px) {
+  .panel {
+    left: 8px;
+    right: 8px;
+    top: 110px;
+    width: auto;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 110px);
+  }
+}
+
+/* Tablets */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .panel {
+    right: 12px;
+    left: auto;
+    width: 520px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 130px);
+  }
+}
+
+.panel h4 {
+  margin: 4px 0 10px 0;
+  font-size: 14px;
+  color: #111;
+}
+.panel small { color:#6b7280; }
+.panel .row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.panel label {
+  font-size:13px;
+  color:#374151;
+}
+
+
 .panel-header {
   display: flex;
   align-items: center;
@@ -42,34 +101,315 @@ html, body {
   margin-bottom: 8px;
 }
 
-/* Close button – normalized */
-.panel-close {
-  width: 24px;              /* ⬅ fixed size */
-  height: 24px;
-  line-height: 22px;
+/* Close button */
+.panel .panel-close {
+  position:absolute;
+  top:6px;
+  right:8px;
+  width: 30px;
+  height:30px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#f8fafc;
+  color:#111;
+  font-weight:700;
+  font-size:22px;
+  line-height:28px;
+  text-align:center;
+  cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);
+}
+.panel .panel-close:hover {
+  background:#eef2f7;
+}
 
+#panelEdit {
+  /* override any old inline min-width */
+  min-width: 0 !important;
+
+  /* Desktop size */
+  width: 800px;
+  max-width: calc(100vw - 32px);  /* never overflow screen */
+  max-height: calc(100vh - 140px);/* below topbar + some padding */
+}
+
+/* ============================================================
+   UNIVERSAL BUTTON STYLE inside Edit Tool (Toolbar + Actions + Pager)
+   ============================================================ */
+#editToolbar .btn,
+#editTableWrap .btn,
+.actions-cell .btn,
+.actions-cell button,
+.actions-cell a {
+    background-color: var(--ir-blue) !important;
+    color: #fff !important;
+    border: 1px solid var(--ir-blue) !important;
+    border-radius: 4px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+}
+
+
+/* Hover effect */
+#editToolbar .btn:hover,
+#editTableWrap .btn:hover,
+.actions-cell .btn:hover,
+.actions-cell button:hover,
+.actions-cell a:hover {
+    background-color: var(--ir-blue-hover) !important;
+    border-color: var(--ir-blue-hover) !important;
+}
+
+/* Toolbar and pager stay compact on small screens */
+#editToolbar,
+.pager {
+  flex-wrap: wrap;
+}
+
+.hidden{ display:none !important; }
+
+/* When hidden, force absolutely no height */
+.hidden {
+display: none !important;
+height: 0 !important;
+overflow: hidden !important;
+padding: 0 !important;
+margin: 0 !important;
+}
+
+.vertex-menu.hidden {
+display: none;
+}
+
+.toolbar{ display:flex; gap:8px; align-items:center; margin:8px 0; }
+.toolbar input[type="search"]{ height:32px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; }
+
+.toolbar input[type="search"] {
+    flex: 1 1 100%;
+    margin-top: 6px;
+}
+
+/* Buttons */
+/* Buttons – match table header color */
+/* Buttons – match table header color */
+.btn {
   display: flex;
-  align-items: center;
-  justify-content: center;
-
+  align-items: center;     /* vertically center text */
+  justify-content: center; /* horizontally center text */
+  height: 40px;            /* adjust if needed */
+  padding: 0 18px;
+  background: #1f3b7a;
+  color: white;
   border: none;
-  background: transparent;
-  font-size: 16px;          /* ⬅ reduced from 18px */
-  font-weight: 600;
-  cursor: pointer;
-
-  color: #555;
   border-radius: 6px;
-  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
-.panel-close:hover {
-  background: rgba(0, 0, 0, 0.08);
-  color: #000;
+.btn:hover {
+  background: #152755;      /* slightly darker on hover */
+  border-color: #152755;
 }
+
+.btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   IR Standard Blue (matches your table headers exactly)
+   ============================================================ */
+   :root {
+    --ir-blue: #094783;     /* You can adjust if your header is a different shade */
+    --ir-blue-hover: #063765;
+}
+
+
+
+/* ============================================================
+   Force white text for all buttons inside table actions
+   ============================================================ */
+.actions-cell button,
+.actions-cell .btn,
+.actions-cell a {
+    color: white !important;
+}
+
+/* ============================================================
+   Pagination Area (Prev / Next buttons)
+   ============================================================ */
+.pager .btn {
+    min-width: 80px;
+    font-size: 13px !important;
+    padding: 5px 14px !important;
+}
+
+/* ====== Small screens (phones) ===================================== */
+@media (max-width: 767.98px) {
+  #panelEdit {
+    left: 8px;
+    right: 8px;
+    top: 96px;                      /* still below top bar */
+    width: auto;                    /* use full available width */
+    max-height: calc(100vh - 110px);
+  }
+
+  #panelEdit h4 {
+    font-size: 14px;
+  }
+
+  
+
+  .tbl th,
+  .tbl td {
+    padding: 6px;
+  }
+
+  .toolbar input[type="search"] {
+    flex: 1 1 100%;
+    margin-top: 6px;
+  }
+
+  .pager .btn {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* Stack buttons neatly inside the Actions cell */
+#editTbl td:last-child .btn {
+  display: block;
+  width: 80px;                   /* keeps it inside the 110px column */
+  margin: 0 auto 6px auto;       /* spacing between Edit / Delete */
+}
+
+#editTbl td:last-child .btn:last-child {
+  margin-bottom: 0;
+}
+
+.topbar .spacer{ flex:1; }
+
+/* Keep Search box neutral */
+#editSearch {
+    border: 1px solid #aaa !important;
+    background: white !important;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+.toolbar input[type="search"]{ height:32px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; }
+
+.toolbar input[type="search"] {
+    flex: 1 1 100%;
+    margin-top: 6px;
+}
+
+/* Edit table */
+.tbl{ width:100%; border-collapse:collapse; font-size:15px; }
+.tbl th,.tbl td{ border:1px solid #e5e7eb; padding:8px; text-align:left; }
+.tbl th{ background:#1f3b7a; color:#fff; position:sticky; top:0; }
+
+
+
+
+  .tbl th,
+  .tbl td {
+    padding: 6px;
+  }
+
+  #editTbl {
+  width: 100%;
+  table-layout: fixed;           /* IMPORTANT: stops column jumping */
+}
+
+/* Sticky header (top row fixed during scroll) */
+#editTbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;                   /* header stays above body */
+  background: #0b2f6b;           /* match your header color */
+  color: #fff;
+}
+
+/* Fix Actions column width so buttons never overflow into other columns */
+#editTbl th:last-child,
+#editTbl td:last-child {
+  width: 110px;                  /* adjust if you want wider */
+  min-width: 110px;
+  max-width: 110px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Stack buttons neatly inside the Actions cell */
+#editTbl td:last-child .btn {
+  display: block;
+  width: 80px;                   /* keeps it inside the 110px column */
+  margin: 0 auto 6px auto;       /* spacing between Edit / Delete */
+}
+
+#editTbl td:last-child .btn:last-child {
+  margin-bottom: 0;
+}
+
+/* Make sticky header sit above rows cleanly (no overlap) */
+#editTbl thead th {
+  z-index: 5;
+}
+
+/* Optional: make header visually "attached" */
+#editTbl thead th {
+  box-shadow: 0 1px 0 #e5e7eb;
+}
+  
+/* Make table + form area scroll inside the panel instead of
+   the whole window overflowing */
+#editTableWrap,
+#editFormCard {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Remove card padding ONLY for the table container so header touches top border */
+#editTableWrap.card {
+  padding: 0 !important;
+}
+
+/* Keep nice spacing for the pager (since we removed card padding) */
+#editTableWrap .pager {
+  padding: 10px 12px;
+  margin-top: 0 !important;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Edit form card */
+.card{
+  border:1px solid #e5e7eb; border-radius:8px; padding:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
+.pager{ display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:8px; }
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Make sure the close button never inherits the big "panel button" styling */
-.panel-header .panel-close{
+/* .panel-header .panel-close{
   width: 24px !important;
   height: 24px !important;
   min-width: 24px !important;
@@ -87,7 +427,19 @@ html, body {
 
   font-size: 16px !important;
   line-height: 1 !important;
+} */
+
+/* Remove background box from station labels */
+.leaflet-tooltip.station-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  color: #111;          /* label text color */
+  font-size: 16px;
+  font-weight: 600;
 }
+
 
 
 

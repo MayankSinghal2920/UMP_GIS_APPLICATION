@@ -7,7 +7,7 @@ export class TrackLayer implements MapLayer {
 
   id = 'tracks';
   title = 'Railway Tracks';
-  visible = false; // OFF by default
+  visible = true; // OFF by default
 
   legend = {
   type: 'line' as const,
