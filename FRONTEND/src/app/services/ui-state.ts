@@ -14,8 +14,12 @@ export class UiState {
     return this.activePanel === panel;
   }
 
+
 close() {
   this.activePanel = null;
 }
+
+
+  selectedBasemap: 'Open Street Map' | 'satellite' | 'Esri Topographic' | 'Bhuvan India' = 'Esri Topographic';
 
 }

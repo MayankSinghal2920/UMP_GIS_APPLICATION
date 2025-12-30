@@ -14,20 +14,20 @@
   display: flex;
   align-items: center;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 24px;
 }
 
 .symbol {
-  margin-right: 8px;
+  margin-right: 12px;
 }
 
 .symbol.point {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 60%;
 }
 
 .symbol.line {
-  width: 18px;
-  height: 3px;
+  width: 22px;
+  height: 6px;
 }

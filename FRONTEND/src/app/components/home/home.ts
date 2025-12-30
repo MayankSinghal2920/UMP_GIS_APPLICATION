@@ -8,6 +8,7 @@ import { BasemapPanel } from '../basemap-panel/basemap-panel';
 import { FilterPanel } from '../filter-panel/filter-panel';
 import { EditPanel } from '../edit-panel/edit-panel';
 import { UiState } from '../../services/ui-state';
+import { AttributeTableComponent } from '../attribute-table/attribute-table';
 
 @Component({
   selector: 'app-home',
@@ -15,7 +16,7 @@ import { UiState } from '../../services/ui-state';
   imports: [
     CommonModule,
     Topbar, LayerPanel, LegendPanel, BasemapPanel, FilterPanel, EditPanel,
-    Map
+    Map, AttributeTableComponent
   ],
   template: `
     <app-topbar></app-topbar>
@@ -27,6 +28,8 @@ import { UiState } from '../../services/ui-state';
     <app-edit-panel *ngIf="ui.isOpen('edit')"></app-edit-panel>
 
     <app-map></app-map>
+    <app-attribute-table></app-attribute-table>
+
   `
 })
 export class HomeComponent {

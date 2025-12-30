@@ -21,11 +21,11 @@ export class KmPostLayer implements MapLayer {
   private isLoading = false;
   private isOnMap = false; // ✅ missing earlier
 
-  constructor(private api: Api) {
+  constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         L.circleMarker(latlng, {
-          radius: 4,
+          radius: 6,
           fillColor: '#2563eb',
           color: '#ffffff',
           weight: 1,
@@ -65,27 +65,42 @@ export class KmPostLayer implements MapLayer {
 
   loadForMap(map: L.Map) {
     if (!this.visible) return;
-
-    // 🚫 Do nothing below zoom 10
-    if (map.getZoom() < this.MIN_ZOOM) {
-      this.removeFrom(map);
-      return;
-    }
-
-    // ensure layer is on map
-    this.addTo(map);
-
+  
+    const z = map.getZoom();
+  
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-
-    if (bbox === this.lastBbox || this.isLoading) return;
+  
+    // ✅ Always fetch data (for attribute table) — not dependent on zoom
+    if ((bbox === this.lastBbox) || this.isLoading) {
+      // still ensure correct draw state even if not refetching
+      if (z < this.MIN_ZOOM) {
+        this.layer.clearLayers(); // hide on map
+      } else {
+        this.addTo(map);
+      }
+      return;
+    }
+  
     this.lastBbox = bbox;
     this.isLoading = true;
-
+  
     this.api.getkmposts(bbox).subscribe({
       next: (geojson: any) => {
+        // ✅ ALWAYS push to attribute table
+        this.onData?.(geojson);
+  
+        // ✅ Render on map only if zoom >= MIN_ZOOM
+        if (z < this.MIN_ZOOM) {
+          this.layer.clearLayers();
+          this.isLoading = false;
+          return;
+        }
+  
+        this.addTo(map);
         this.layer.clearLayers();
         this.layer.addData(geojson);
+  
         this.isLoading = false;
       },
       error: (err: any) => {
@@ -94,6 +109,7 @@ export class KmPostLayer implements MapLayer {
       },
     });
   }
+  
 }
 
 

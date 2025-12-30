@@ -101,6 +101,7 @@ html, body {
   margin-bottom: 8px;
 }
 
+
 /* Close button */
 .panel .panel-close {
   position:absolute;
@@ -122,6 +123,7 @@ html, body {
 .panel .panel-close:hover {
   background:#eef2f7;
 }
+
 
 #panelEdit {
   /* override any old inline min-width */
@@ -205,6 +207,14 @@ display: none;
   background: #1f3b7a;
   color: white;
   border: none;
+
+  background: transparent;
+  font-size: 20px;          /* ⬅ reduced from 18px */
+  font-weight: 600;
+  cursor: pointer;
+
+  color: #555;
+
   border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
@@ -409,11 +419,13 @@ display: none;
 
 
 /* Make sure the close button never inherits the big "panel button" styling */
-/* .panel-header .panel-close{
-  width: 24px !important;
-  height: 24px !important;
-  min-width: 24px !important;
-  max-width: 24px !important;
+
+.panel-header .panel-close{
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+
 
   padding: 0 !important;
   margin: 0 !important;
@@ -425,9 +437,30 @@ display: none;
   align-items: center !important;
   justify-content: center !important;
 
-  font-size: 16px !important;
+  font-size: 22px !important;   /* ⬅ bigger X */
   line-height: 1 !important;
-} */
+
+
+  font-weight: 700 !important;
+}
+
+
+/* height of your topbar (adjust if needed) */
+:root {
+  --topbar-height: 56px;
+}
+
+/* push leaflet controls down so they don't overlap the topbar */
+.leaflet-top.leaflet-left {
+  top: var(--topbar-height) !important;
+}
+
+/* optional: a little gap */
+.leaflet-control-zoom {
+  margin-top: 50px !important;
+}
+
+
 
 /* Remove background box from station labels */
 .leaflet-tooltip.station-label {

@@ -11,7 +11,9 @@ export class StationLayer implements MapLayer {
   title = 'Stations';
   visible = true;
 
-  private readonly LABEL_ZOOM = 10;
+
+  // 🔑 Label zoom threshold
+  private readonly LABEL_ZOOM = 12;
 
   legend = {
     type: 'point' as const,
@@ -30,7 +32,9 @@ export class StationLayer implements MapLayer {
     private api: Api,
     private filters: FilterState,
     private edit: EditState,
-    private zone: NgZone
+    private zone: NgZone,
+    private onData?: (geojson: any) => void
+
   ) {
     this.layer = L.geoJSON(null, {
 
@@ -124,13 +128,24 @@ export class StationLayer implements MapLayer {
     this.lastBbox = bbox;
 
     this.api.getStations(bbox).subscribe({
-      next: geojson => {
-        this.zone.run(() => {
+
+      // next: geojson => {
+      //   this.zone.run(() => {
+      //     this.markerIndex.clear();
+      //     this.layer.clearLayers();
+      //     this.layer.addData(geojson);
+      //     this.updateLabels(map);
+      //   });
+
+      next: (geojson: any) => {
+      this.zone.run(() => {
           this.markerIndex.clear();
           this.layer.clearLayers();
           this.layer.addData(geojson);
+          this.onData?.(geojson);
           this.updateLabels(map);
         });
+      
       },
       error: err => console.error('Station layer error', err),
     });

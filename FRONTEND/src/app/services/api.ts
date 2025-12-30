@@ -46,6 +46,33 @@ export class Api {
     });
   }
 
+  getlandboundary(bbox: string) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_boundary`, {
+      params: {
+        bbox,
+        division: this.getDivision(),   // ✅ added
+      }
+    });
+  }
+
+  getLandPlanOntrack(z: number) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_plan_on_track`, {
+      params: {
+        division: this.getDivision(), // ✅ from localStorage
+        z: z.toString(),              // zoom level
+      }
+    });
+  }
+
+  getLandOffset(bbox: string) {
+    return this.http.get<any>(`${this.BASE_URL}/api/land_offset`, {
+      params: {
+        bbox,
+        division: this.getDivision(),   // ✅ added
+      }
+    });
+  }
+
   /* ===================== DIVISION BUFFER ===================== */
 
   getDivisionBuffer(z: number) {
@@ -79,7 +106,8 @@ export class Api {
       { params }
     );
   }
-
+  
+/* ===================== UPDATE STATION ===================== */
   updateStation(id: number, payload: any) {
     return this.http.put(
       `${this.BASE_URL}/api/edit/stations/${id}`,
@@ -87,11 +115,16 @@ export class Api {
     );
   }
 
+
   deleteStation(id: number) {
     return this.http.delete(
       `${this.BASE_URL}/api/edit/stations/${id}`
     );
   }
+
+
+
+
 
   /* ===================== AUTH ===================== */
 

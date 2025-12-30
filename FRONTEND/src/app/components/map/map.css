@@ -1,14 +1,20 @@
 /* Make the map fill the screen but start below the fixed topbar */
+/* Make sure the page can stretch */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+/* If your topbar is 78px */
 #map {
-  position: fixed;
+  position: absolute;
+  top: 78px;   /* EXACT topbar height */
   left: 0;
   right: 0;
   bottom: 0;
-  top: 78px;          /* same as topbar height */
-
   width: 100%;
-  display: block;
 }
+
 
 /* phones: allow extra space for 2-row topbar */
 @media (max-width: 767.98px) {
