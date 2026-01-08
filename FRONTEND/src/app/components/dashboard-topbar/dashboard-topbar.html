@@ -1,0 +1,43 @@
+<header class="dashboard-header">
+
+  <!-- LEFT -->
+  <div class="left">
+    <img
+      src="assets/images/images.jpg"
+      class="logo"
+      alt="UMP Logo"
+    />
+    <span class="app-title">UMP GIS Application</span>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="profile" (click)="toggleMenu()">
+      <img
+        [src]="profileImage"
+        (error)="onImageError($event)"
+        class="avatar"
+        alt="User"
+      />
+      <span class="name">{{ userName }}</span>
+      <i class="fas fa-chevron-down"></i>
+
+      <!-- DROPDOWN -->
+      <div class="dropdown" *ngIf="showMenu">
+        <button>
+          <i class="fas fa-user"></i>
+          My Profile
+        </button>
+        <button>
+          <i class="fas fa-cog"></i>
+          Settings
+        </button>
+        <button (click)="logout()">
+          <i class="fas fa-power-off"></i>
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+
+</header>

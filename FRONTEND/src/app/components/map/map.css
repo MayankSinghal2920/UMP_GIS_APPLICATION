@@ -5,18 +5,23 @@ html, body {
   margin: 0;
 }
 
-/* If your topbar is 78px */
+/* map.css */
+
+/* Map fills available content area */
 #map {
-  position: absolute;
-  top: 78px;   /* EXACT topbar height */
-  left: 0;
-  right: 0;
-  bottom: 0;
   width: 100%;
+  height: 100%;
+}
+
+/* Leaflet container must stretch */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
 }
 
 
-/* phones: allow extra space for 2-row topbar */
+
+/* phones: allow extra space for 2-row topbar
 @media (max-width: 767.98px) {
   #map {
     top: 120px;
@@ -24,15 +29,10 @@ html, body {
 }
 
 /* tablets */
-@media (min-width: 768px) and (max-width: 1199.98px) {
+/* @media (min-width: 768px) and (max-width: 1199.98px) {
   #map {
     top: 96px;
   }
-}
+} */ */
 
-/* desktop */
-@media (min-width: 1200px) {
-  #map {
-    top: 78px;
-  }
-}
+

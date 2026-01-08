@@ -22,21 +22,30 @@ export class Login {
     private router: Router
   ) {}
 
-  login() {
-    this.error = '';
-    this.loading = true;
+ login() {
+  console.log('LOGIN CLICKED');
 
-    // IMPORTANT: Use auth.login2() if that is your working method,
-    // otherwise rename login2 -> login inside auth.ts
-    this.auth.login2(this.username, this.password).subscribe({
-      next: () => {
-        this.loading = false;
-        this.router.navigateByUrl('/home'); // ✅ opens GIS page
-      },
-      error: (err: any) => {
-        this.loading = false;
-        this.error = err?.message || 'Invalid user_id or password';
+  this.loading = true;
+  this.error = '';
+
+  this.auth.login2(this.username, this.password).subscribe({
+    next: (res: any) => {
+      console.log('LOGIN NEXT:', res);
+
+      this.loading = false;
+
+      if (res && res.success) {
+        this.router.navigateByUrl('/dashboard');
+      } else {
+        this.error = res?.error || 'Invalid user ID or password';
       }
-    });
-  }
+    },
+    error: (err) => {
+      console.error('LOGIN ERROR:', err);
+      this.loading = false;
+      this.error = 'Server error during login';
+    }
+  });
+}
+
 }

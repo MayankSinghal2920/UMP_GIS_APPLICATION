@@ -1,0 +1,37 @@
+<div class="sidebar" [class.collapsed]="collapsed">
+
+  <!-- HEADER -->
+  <div class="sidebar-header">
+    <span *ngIf="!collapsed">GIS Dashboard</span>
+    <button (click)="toggle()">☰</button>
+  </div>
+
+  <!-- MENU -->
+  <ul class="menu">
+    <li routerLink="/dashboard" routerLinkActive="active">
+      <i class="bi bi-speedometer2"></i>
+      <span *ngIf="!collapsed">Dashboard</span>
+    </li>
+
+    <li routerLink="/dashboard/profile">
+      <i class="bi bi-person"></i>
+      <span *ngIf="!collapsed">Profile</span>
+    </li>
+
+    <li routerLink="/dashboard/railway-assets">
+      <i class="bi bi-map"></i>
+      <span *ngIf="!collapsed">Railway Asset Editing</span>
+    </li>
+
+    <li routerLink="/dashboard/feedback">
+      <i class="bi bi-chat-left-text"></i>
+      <span *ngIf="!collapsed">Feedback</span>
+    </li>
+
+    <li routerLink="/dashboard/message-sender">
+      <i class="bi bi-envelope"></i>
+      <span *ngIf="!collapsed">Message Sender</span>
+    </li>
+  </ul>
+
+</div>

@@ -1,0 +1,41 @@
+.sidebar {
+  width: 240px;
+  background: #111827;
+  color: white;
+  height: 100vh;
+  transition: width 0.3s;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+  font-weight: 600;
+}
+
+.menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.menu li:hover,
+.menu li.active {
+  background: #1f2937;
+}
+
+.menu i {
+  font-size: 18px;
+}

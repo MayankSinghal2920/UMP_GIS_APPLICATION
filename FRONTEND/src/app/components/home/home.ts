@@ -14,13 +14,10 @@ import { AttributeTableComponent } from '../attribute-table/attribute-table';
   selector: 'app-home',
   standalone: true,
   imports: [
-    CommonModule,
-    Topbar, LayerPanel, LegendPanel, BasemapPanel, FilterPanel, EditPanel,
+    CommonModule, LayerPanel, LegendPanel, BasemapPanel, FilterPanel, EditPanel,
     Map, AttributeTableComponent
   ],
   template: `
-    <app-topbar></app-topbar>
-
     <app-layer-panel *ngIf="ui.isOpen('layers')"></app-layer-panel>
     <app-legend-panel *ngIf="ui.isOpen('legend')"></app-legend-panel>
     <app-basemap-panel *ngIf="ui.isOpen('basemap')"></app-basemap-panel>

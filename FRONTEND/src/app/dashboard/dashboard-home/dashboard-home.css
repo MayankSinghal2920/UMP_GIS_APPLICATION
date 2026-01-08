@@ -1,0 +1,126 @@
+.dashboard-home {
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+
+
+/* ================= PAGE ================= */
+.dashboard-page {
+  padding: 16px;
+  /* background: #f5f6fa; */
+  width: 100%;
+  min-height: 100%;    /* 🔑 IMPORTANT */
+  box-sizing: border-box;
+}
+
+/* ================= MAIN CARDS ================= */
+.main-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.main-card {
+  background: #fffaf5;              /* very light warm background */
+  border: 1px solid #fde2c7;        /* soft orange border */
+  border: 1px solid orange;   /* strong accent on left */
+  border-radius: 18px;
+
+  padding: 20px;
+  min-height: 360px;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* TITLE AT TOP */
+.main-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;                   /* dark gray */
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* VALUE IN CENTER */
+.main-value {
+  flex: 1;                          /* pushes value to center */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 42px;                  /* BIG value */
+  font-weight: 800;
+  color: #f97316;                   /* orange accent */
+}
+
+
+.main-card:hover {
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.18);
+  transform: translateY(-2px);
+  transition: all 0.2s ease;
+}
+
+
+/* ================= SUB CARDS ================= */
+.sub-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.sub-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border: 3px solid orange;
+  padding: 12px;
+  min-height: 150px;
+  border-radius: 20px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.sub-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+}
+
+.sub-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #222;
+  margin-top: 4px;
+}
+
+/* ================= MEDIA QUERIES ================= */
+@media (max-width: 1200px) {
+  .main-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sub-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .main-cards,
+  .sub-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
