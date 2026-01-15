@@ -1,6 +1,0 @@
-.map-wrapper {
-  position: relative;
-  width: 100%;
-  height: calc(100vh - 78px); /* subtract dashboard topbar height */
-  overflow: hidden;
-}

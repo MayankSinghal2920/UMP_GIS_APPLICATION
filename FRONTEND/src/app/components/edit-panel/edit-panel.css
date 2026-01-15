@@ -1,346 +1,134 @@
-/* ================= BASE RESET ================= */
-
-label {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 8px;
+#panelEdit {
+  width: 760px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+  position: relative;
 }
 
-input,
-select {
-  width: 100%;
-  margin-top: 4px;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-button {
-  padding: 4px 8px;
+.panel-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
   cursor: pointer;
 }
 
-button.primary {
-  background: #2563eb;
-  color: white;
-  border: none;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ================= PANEL ================= */
-
-#panelEdit {
-  width: 800px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 140px);
-}
-
-/* ================= BODY ================= */
-
 .panel-body {
-  padding: 10px;
+  padding: 12px;
 }
-
-/* ================= TOOLBAR ================= */
 
 .toolbar {
   display: flex;
-  align-items: center;
   gap: 8px;
-  margin: 8px 0;
+  margin: 10px 0;
 }
 
 .toolbar .spacer {
   flex: 1;
 }
 
-/* Toolbar label override (important) */
-.toolbar label {
-  display: inline-block;
-  margin: 0;
-  font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-}
-
-/* Search box */
-#editSearch {
-  height: 32px;
-  border: 1px solid #aaa;
-  background: white;
-  padding: 5px 8px;
-  font-size: 12px;
-  border-radius: 6px;
-  flex: 1 1 auto;
-  min-width: 200px;
-  max-width: 300px;
-}
-
-/* ================= BUTTONS ================= */
-
-.btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  padding: 0 14px;
-
-  background: #1f3b7a;          /* FIXED */
-  color: #ffffff;
-
-  border: 1px solid #1f3b7a;
-  border-radius: 6px;
-
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.btn:hover {
-  background: #152755;          /* stays blue */
-  border-color: #152755;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-}
-
-/* ================= TABLE ================= */
-
 .card {
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0;
-  box-shadow: 0 6px 18px rgba(0,0,0,.08);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .table-scroll {
-  max-height: 400px;
+  max-height: 45vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .tbl {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.tbl th {
+  position: sticky;
+  top: 0;
+  background: #0b2f6b;
+  color: #fff;
 }
 
 .tbl th,
 .tbl td {
-  border: 1px solid #e5e7eb;
-  padding: 8px;
-  text-align: left;
-}
-
-.tbl th {
-  background: #1f3b7a;
-  color: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 5;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eef2f7;
 }
 
 .empty {
   text-align: center;
-  color: #888;
+  color: #64748b;
 }
-
-/* Actions column */
-#editTbl th:last-child,
-#editTbl td:last-child {
-  width: 110px;
-  text-align: center;
-  vertical-align: middle;
-}
-
-#editTbl td:last-child .btn {
-  display: block;
-  width: 80px;
-  margin: 0 auto 6px;
-}
-
-#editTbl td:last-child .btn:last-child {
-  margin-bottom: 0;
-}
-
-/* ================= PAGER ================= */
 
 .pager {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid #e5e7eb;
+  gap: 10px;
+  padding: 10px;
 }
 
-/* ================= EDIT FORM ================= */
-
-.edit-form h3 {
-  margin: 0;
-}
-
-.edit-form h5 {
-  margin: 4px 0 10px;
-  color: #555;
+.edit-form {
+  position: relative;
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px;
 }
 
 .back-btn {
-  margin-bottom: 10px;
-  background: none;
+  position: absolute;
+  right: 16px;
+  top: 46px;
+  background: #1d3b8b;
+  color: #fff;
   border: none;
-  color: #2563eb;
+  padding: 6px 16px;
+  border-radius: 16px;
+  cursor: pointer;
 }
 
 .form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-
-/* Stack form fields vertically in edit mode */
-.edit-form .form-grid,
-.panel-body ng-container[ng-reflect-ng-if="true"] .form-grid {
-  grid-template-columns: 1fr;
-}
-
-
 
 .inline {
-  display: flex;
-  gap: 6px;
-}
-
-.form-actions {
-  margin-top: 12px;
   display: flex;
   gap: 10px;
 }
 
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .error {
+  margin-top: 10px;
   color: #b91c1c;
-  margin-top: 6px;
   font-size: 12px;
 }
 
 .note {
   margin-top: 10px;
   font-size: 11px;
-  color: #666;
-}
-
-/* ================= RESPONSIVE ================= */
-
-@media (max-width: 768px) {
-  #panelEdit {
-    width: auto;
-    max-height: calc(100vh - 110px);
-  }
-
-  #editSearch {
-    flex: 1 1 100%;
-  }
-
-  .pager .btn {
-    font-size: 11px;
-    padding: 4px 10px;
-  }
-}
-
-
-.asset-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #fff;
-}
-
-/* Asset section wrapper */
-.asset-section {
-  margin-bottom: 16px;
-}
-
-/* Pop-out title bar */
-.asset-section-title {
-  width: 100%;
-  padding: 10px 14px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #111;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-/* Actions row under title */
-.asset-section-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-/* Optional: smaller back button */
-.btn-back {
-  height: 32px;
-  padding: 0 16px;
-  font-size: 12px;
-  margin-right: 20px;
-  border-radius: 999px;
-}
-
-
-.form-grid-vertical {
-  grid-template-columns: 1fr;
-}
-
-/* Edit card layout */
-.edit-form .card {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 220px); /* adjust if needed */
-}
-
-/* Scrollable form content */
-.edit-form-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-right: 6px; /* avoid scrollbar overlap */
-}
-
-.sticky-footer {
-  position: sticky;
-  bottom: 0;
-  background: #fff;
-  padding-top: 12px;
-  margin-top: 12px;
-  border-top: 1px solid #e5e7eb;
-  z-index: 5;
-}
-
-
-/* Edit mode card must be a flex column */
-.panel-body ng-container,
-.panel-body > ng-container > .card {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 220px); /* adjust if needed */
-}
-
-.edit-card {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 220px);
-}
-
-.edit-form-body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-right: 6px;
-}
-
-/* Sticky footer actions aligned to right */
-.sticky-footer .form-actions {
-  justify-content: flex-end;
+  color: #374151;
 }

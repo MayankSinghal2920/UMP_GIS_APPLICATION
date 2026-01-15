@@ -2,11 +2,11 @@
 
   <!-- LEFT -->
   <div class="left">
-    <img
-      src="assets/images/images.jpg"
-      class="logo"
-      alt="UMP Logo"
-    />
+    <!-- <button class="menu-btn" (click)="toggleSidebar()">
+      <i class="fas fa-bars"></i>
+    </button> -->
+
+    <img src="assets/images/images.jpg" class="logo" alt="UMP Logo" />
     <span class="app-title">UMP GIS Application</span>
   </div>
 
@@ -22,7 +22,6 @@
       <span class="name">{{ userName }}</span>
       <i class="fas fa-chevron-down"></i>
 
-      <!-- DROPDOWN -->
       <div class="dropdown" *ngIf="showMenu">
         <button>
           <i class="fas fa-user"></i>

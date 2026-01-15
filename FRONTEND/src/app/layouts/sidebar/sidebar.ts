@@ -1,25 +1,25 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { Router, RouterModule } from '@angular/router';
-
+import { RouterModule } from '@angular/router';
+import { SidebarState } from 'src/app/services/sidebar-state';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-sidebar',
+  standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
 })
 export class Sidebar {
-   collapsed = false;
 
-  constructor(private router: Router) {}
+  collapsed$!: Observable<boolean>;
 
-  toggle() {
-    this.collapsed = !this.collapsed;
+  constructor(private sidebarState: SidebarState) {
+    this.collapsed$ = this.sidebarState.collapsed$;
   }
 
-  go(path: string) {
-    this.router.navigateByUrl(path);
+  toggleSidebar(): void {
+    this.sidebarState.toggle();
   }
-
 }

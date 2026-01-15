@@ -1,37 +1,67 @@
-<div class="sidebar" [class.collapsed]="collapsed">
+<div class="sidebar" [class.collapsed]="(collapsed$ | async)">
 
   <!-- HEADER -->
   <div class="sidebar-header">
-    <span *ngIf="!collapsed">GIS Dashboard</span>
-    <button (click)="toggle()">☰</button>
+
+    <!-- COLLAPSED: hamburger icon -->
+    <button
+      class="sidebar-toggle"
+      *ngIf="collapsed$ | async"
+      (click)="toggleSidebar()"
+      title="Expand sidebar"
+    >
+      <i class="bi bi-list"></i>
+    </button>
+
+    <!-- EXPANDED: title -->
+    <span class="sidebar-title" *ngIf="!(collapsed$ | async)">
+      GIS Dashboard
+    </span>
+
+    <!-- EXPANDED: collapse button on right -->
+    <button
+      class="sidebar-collapse-btn"
+      *ngIf="!(collapsed$ | async)"
+      (click)="toggleSidebar()"
+      title="Collapse sidebar"
+    >
+      <i class="bi bi-chevron-left"></i>
+    </button>
+
   </div>
 
   <!-- MENU -->
   <ul class="menu">
-    <li routerLink="/dashboard" routerLinkActive="active">
+
+    <li routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
       <i class="bi bi-speedometer2"></i>
-      <span *ngIf="!collapsed">Dashboard</span>
+      <span *ngIf="!(collapsed$ | async)">Dashboard</span>
     </li>
 
     <li routerLink="/dashboard/profile">
       <i class="bi bi-person"></i>
-      <span *ngIf="!collapsed">Profile</span>
+      <span *ngIf="!(collapsed$ | async)">Profile</span>
     </li>
 
     <li routerLink="/dashboard/railway-assets">
       <i class="bi bi-map"></i>
-      <span *ngIf="!collapsed">Railway Asset Editing</span>
+      <span *ngIf="!(collapsed$ | async)">Railway Asset Editing</span>
     </li>
 
     <li routerLink="/dashboard/feedback">
       <i class="bi bi-chat-left-text"></i>
-      <span *ngIf="!collapsed">Feedback</span>
+      <span *ngIf="!(collapsed$ | async)">Feedback</span>
     </li>
 
     <li routerLink="/dashboard/message-sender">
       <i class="bi bi-envelope"></i>
-      <span *ngIf="!collapsed">Message Sender</span>
+      <span *ngIf="!(collapsed$ | async)">Message Sender</span>
     </li>
-  </ul>
 
+    <li routerLink="/dashboard/add-shapefile" routerLinkActive="active">
+      <i class="bi bi-file-earmark-plus"></i>
+      <span *ngIf="!(collapsed$ | async)">Add Shapefile</span>
+    </li>
+
+  </ul>
 </div>

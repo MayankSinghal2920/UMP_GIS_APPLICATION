@@ -1,31 +1,37 @@
-/* Wrapper: full screen flex */
-.dashboard-wrapper {
-  display: flex;
+/* ROOT LAYOUT */
+.dashboard-layout {
   width: 100vw;
   height: 100vh;
+  display: flex;          /* 🔥 sidebar + main side-by-side */
   overflow: hidden;
 }
 
-/* Sidebar */
+/* SIDEBAR */
 app-sidebar {
   flex-shrink: 0;
+  height: 100;          /* 🔥 full screen height */
 }
 
-/* Main content area */
+/* RIGHT SIDE (TOPBAR + CONTENT) */
 .dashboard-main {
   display: flex;
   flex-direction: column;
   flex: 1;
-  height: 100%;              /* 🔑 CHANGE: was 100vh */
+  min-width: 0;  
+  height: 100%;
   overflow: hidden;
   background: #f9fafb;
 }
 
-/* Content below topbar */
+/* TOPBAR */
+app-dashboard-topbar {
+  height: 90px;           /* MUST match real height */
+  flex-shrink: 0;
+}
+
+/* CONTENT AREA */
 .dashboard-content {
-  flex: 1;                   /* 🔑 takes remaining height */
-  overflow-y: auto;
-  padding: 16px;             /* reduce padding */
-  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;          /* 🔥 critical for map */
   overflow: hidden;
 }

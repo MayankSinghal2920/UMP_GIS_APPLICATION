@@ -1,12 +1,10 @@
 .dashboard-header {
-  height: 64px;
+  height: 90px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   padding: 0 20px;
   box-sizing: border-box;
 }
@@ -18,14 +16,24 @@
   gap: 12px;
 }
 
+.menu-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: #f97316;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
 .logo {
-  height: 36px;
-  width: auto;
+  height: 90px;
 }
 
 .app-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 25px;
+  font-weight: bold;
   color: #111827;
 }
 
@@ -40,32 +48,29 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid #e5e7eb;
 }
 
 .name {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 500;
-  color: #111827;
 }
 
-/* DROPDOWN */
 .dropdown {
   position: absolute;
   right: 0;
   top: 48px;
   width: 160px;
-
-  background: #ffffff;
+  background: white;
   border-radius: 6px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.15);
   overflow: hidden;
@@ -75,14 +80,11 @@
 .dropdown button {
   width: 100%;
   padding: 10px 14px;
-  border: none;
   background: none;
-
+  border: none;
   display: flex;
   align-items: center;
   gap: 10px;
-
-  font-size: 14px;
   cursor: pointer;
 }
 

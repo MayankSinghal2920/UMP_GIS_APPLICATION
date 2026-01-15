@@ -1,15 +1,19 @@
-<div class="dashboard-wrapper">
+<div class="dashboard-layout">
 
+  <!-- SIDEBAR (full height) -->
   <app-sidebar></app-sidebar>
 
+  <!-- RIGHT SIDE -->
   <div class="dashboard-main">
-    <!-- NEW TOPBAR -->
+
+    <!-- TOPBAR -->
     <app-dashboard-topbar></app-dashboard-topbar>
 
-    <!-- MAIN CONTENT -->
+    <!-- PAGE CONTENT -->
     <div class="dashboard-content">
       <router-outlet></router-outlet>
     </div>
+
   </div>
 
 </div>

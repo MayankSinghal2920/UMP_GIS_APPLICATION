@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { Auth } from 'src/app/services/auth';
+import { SidebarState } from 'src/app/services/sidebar-state';
 
 @Component({
   selector: 'app-dashboard-topbar',
@@ -13,14 +14,19 @@ import { Auth } from 'src/app/services/auth';
 export class DashboardTopbar {
 
   userName = 'User';
-  profileImage = 'assets/images/admin.jpg'; // default
+  profileImage = 'assets/images/admin.jpg';
   showMenu = false;
 
   constructor(
     private auth: Auth,
-    private router: Router
+    private router: Router,
+    private sidebarState: SidebarState
   ) {
     this.userName = localStorage.getItem('user_name') || 'User';
+  }
+
+  toggleSidebar() {
+    this.sidebarState.toggle();
   }
 
   toggleMenu() {

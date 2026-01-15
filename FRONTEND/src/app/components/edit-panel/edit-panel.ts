@@ -1,11 +1,10 @@
-import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditState } from '../../services/edit-state';
 import { Api } from 'src/app/services/api';
 import { UiState } from '../../services/ui-state';
-
-
+import { MapZoomService } from 'src/app/services/map-zoom';
 
 @Component({
   selector: 'app-edit-panel',
@@ -15,7 +14,8 @@ import { UiState } from '../../services/ui-state';
   styleUrl: './edit-panel.css',
 })
 export class EditPanel {
-    rows: any[] = [];
+
+  rows: any[] = [];
   total = 0;
 
   page = 1;
@@ -28,68 +28,47 @@ export class EditPanel {
   draft: any = null;
 
   saving = false;
-  error: string | null = null;
-
   deleting = false;
-
-
-
-
+  validating = false;
+  error: string | null = null;
 
   constructor(
     public ui: UiState,
     public edit: EditState,
     private api: Api,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private mapZoom: MapZoomService
   ) {}
 
+  /* ================== GETTERS ================== */
   get totalPages(): number {
-  return Math.max(1, Math.ceil(this.total / this.pageSize));
-}
+    return Math.max(1, Math.ceil(this.total / this.pageSize));
+  }
 
- onLayerChange() {
-    // Reset table state when layer changes
+  /* ================== LAYER ================== */
+  onLayerChange() {
     this.mode = 'table';
     this.rows = [];
     this.total = 0;
     this.page = 1;
     this.search = '';
+    this.error = null;
+    this.draft = null;
 
     if (this.edit.editLayer === 'stations') {
       setTimeout(() => this.load(), 0);
     }
   }
 
-  onPanelOpen() {
-  this.mode = 'table';
-  this.rows = [];
-  this.total = 0;
-  this.page = 1;
-  this.search = '';
-}
+  /* ================== TABLE ================== */
+  load() {
+    this.loading = true;
 
-ngDoCheck() {
-  if (this.edit.enabled && this.edit.editLayer === null) {
-    this.mode = 'table';
-    this.rows = [];
-  }
-}
-
-
-
-
- load() {
-  this.loading = true;
-
-  this.api
-    .getStationTable(this.page, this.pageSize, this.search)
-    .subscribe({
+    this.api.getStationTable(this.page, this.pageSize, this.search).subscribe({
       next: res => {
         this.rows = res.rows || [];
         this.total = res.total || 0;
         this.loading = false;
-
-        // 🔥 FORCE VIEW UPDATE
         this.cdr.detectChanges();
       },
       error: () => {
@@ -97,9 +76,12 @@ ngDoCheck() {
         this.cdr.detectChanges();
       }
     });
-}
+  }
 
-
+  onSearchChange() {
+    this.page = 1;
+    this.load();
+  }
 
   nextPage() {
     if (this.page * this.pageSize >= this.total) return;
@@ -113,99 +95,132 @@ ngDoCheck() {
     this.load();
   }
 
-  onSearchChange() {
-    this.page = 1;
-    this.load();
-  }
-
+  /* ================== EDIT ================== */
   editRow(row: any) {
-  this.mode = 'edit';
-  this.draft = { ...row }; // copy row into form
-}
+    this.mode = 'edit';
+    this.error = null;
+    this.draft = { ...row };
 
-cancelEdit() {
-  this.mode = 'table';
-  this.draft = null;
-}
+    const id = Number(row?.objectid);
+    if (!Number.isFinite(id)) return;
 
-send() {
-  if (!this.draft || !this.draft.objectid) {
-    this.error = 'Station id missing';
-    return;
-  }
+    this.api.getStationById(id).subscribe({
+      next: full => {
+        const n = this.normalizeStation(full);
+        this.draft = { ...this.draft, ...n };
 
-  const id = this.draft.objectid;
+        if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
+          this.mapZoom.zoomTo({
+            type: 'latlng',
+            lat: n.lat,
+            lng: n.lng,
+            zoom: 17
+          });
+        }
 
-  // build payload (only editable fields)
-  const payload = {
-    stationtype: this.draft.stationtype,
-    distkm: this.draft.distkm,
-    distm: this.draft.distm,
-    state: this.draft.state,
-    district: this.draft.district,
-    constituency: this.draft.constituency
-  };
-
-  this.saving = true;
-  this.error = null;
-
-  this.api.updateStation(id, payload).subscribe({
-    next: () => {
-      this.saving = false;
-
-      // go back to table
-      this.mode = 'table';
-      this.draft = null;
-
-      // reload current page
-       setTimeout(() => {
-    this.load();
-  }, 0);
-},
-    error: () => {
-      this.saving = false;
-      this.error = 'Failed to save changes';
-    }
-  });
-}
-
-deleteRow(row: any) {
-  const ok = confirm(
-    `Are you sure you want to delete station "${row.sttncode}"?`
-  );
-
-  if (!ok) return;
-
-  if (!row.objectid) {
-    alert('Station id not found');
-    return;
-  }
-
-  this.deleting = true;
-
-  this.api.deleteStation(row.objectid).subscribe({
-    next: () => {
-      this.deleting = false;
-
-      // If current page becomes empty, go back one page
-      if (this.rows.length === 1 && this.page > 1) {
-        this.page--;
+        this.cdr.detectChanges();
       }
+    });
+  }
 
-      // Reload table
-      this.load();
-    },
-    error: () => {
-      this.deleting = false;
-      alert('Failed to delete station');
+  private normalizeStation(s: any) {
+    return {
+      objectid: s?.objectid ?? s?.OBJECTID,
+      sttncode: s?.sttncode ?? s?.station_code,
+      sttnname: s?.sttnname ?? s?.station_name,
+      stationtype: s?.stationtype,
+      category: s?.category,
+      distkm: s?.distkm,
+      distm: s?.distm,
+      state: s?.state,
+      district: s?.district,
+      constituency: s?.constituency,
+      lat: s?.lat ?? s?.latitude,
+      lng: s?.lng ?? s?.longitude,
+    };
+  }
+
+  cancelEdit() {
+    this.mode = 'table';
+    this.draft = null;
+    this.error = null;
+    this.mapZoom.clearHighlight();
+  }
+
+  send() {
+    if (!this.draft?.objectid) {
+      this.error = 'Station id missing';
+      return;
     }
-  });
-}
 
- close() {
-      this.ui.activePanel = null;
-    }
+    const payload = {
+      stationtype: this.draft.stationtype,
+      distkm: this.draft.distkm,
+      distm: this.draft.distm,
+      state: this.draft.state,
+      district: this.draft.district,
+      constituency: this.draft.constituency
+    };
 
+    this.saving = true;
 
+    this.api.updateStation(this.draft.objectid, payload).subscribe({
+      next: () => {
+        this.saving = false;
+        this.mode = 'table';
+        this.draft = null;
+        setTimeout(() => this.load(), 0);
+      },
+      error: () => {
+        this.saving = false;
+        this.error = 'Failed to save changes';
+      }
+    });
+  }
 
+  validateStationCode() {
+    if (!this.draft?.sttncode) return;
+
+    this.validating = true;
+
+    this.api.getStationByCode(this.draft.sttncode).subscribe({
+      next: row => {
+        this.draft.sttnname = row?.station_name;
+        this.draft.category = row?.category;
+        this.validating = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.validating = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  deleteRow(row: any) {
+    if (!confirm(`Delete station "${row.sttncode}"?`)) return;
+
+    this.deleting = true;
+
+    this.api.deleteStation(row.objectid).subscribe({
+      next: () => {
+        this.deleting = false;
+        if (this.rows.length === 1 && this.page > 1) this.page--;
+        this.load();
+      },
+      error: () => {
+        this.deleting = false;
+      }
+    });
+  }
+
+  close() {
+    this.ui.activePanel = null;
+    this.edit.enabled = false;
+    this.mode = 'table';
+    this.rows = [];
+    this.search = '';
+    this.error = null;
+    this.draft = null;
+  }
 }
