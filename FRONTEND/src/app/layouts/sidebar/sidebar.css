@@ -1,22 +1,58 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
 .sidebar {
-  width: 240px;
+  width: 320px;
   background: #111827;
-  color: white;
-  height: 100vh;
-  transition: width 0.3s;
+  color: #c8c9ce;
+  height: 100%;              /* ✅ FIX */
+  transition: width 0.3s ease;
+  overflow: hidden;
 }
 
 .sidebar.collapsed {
   width: 70px;
 }
 
+/* HEADER */
 .sidebar-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  font-weight: 600;
+  height: 90px;
+  padding: 0 14px;
+  border-bottom: 1px solid #374151;
 }
 
+.sidebar-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* Toggle buttons */
+.sidebar-toggle,
+.sidebar-collapse-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 22px;
+  padding: 6px;
+}
+
+.sidebar-toggle i {
+  font-size: 28px;
+}
+
+/* Center hamburger when collapsed */
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+}
+
+/* MENU */
 .menu {
   list-style: none;
   padding: 0;
@@ -27,15 +63,29 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 18px 22px;
   cursor: pointer;
+  font-size: 18px;
+  border-radius: 12px;
+  margin: 6px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar.collapsed .menu li {
+  justify-content: center;
 }
 
 .menu li:hover,
 .menu li.active {
   background: #1f2937;
+  color: #ffffff;
+}
+
+.menu li:hover i,
+.menu li.active i {
+  color: #ffffff;
 }
 
 .menu i {
-  font-size: 18px;
+  font-size: 26px;
 }

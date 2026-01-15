@@ -1,12 +1,12 @@
 /* Bottom dock container */
 .attr-dock {
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 9999;
 
-  background: #1f3f8f;          /* 🔥 fallback blue */
+  background: #111827;          /* 🔥 fallback blue */
   border-top: none;
   box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -15,7 +15,7 @@
 /* Toggle bar fills collapsed area */
 .attr-toggle-bar {
   height: 34px;                 /* ✅ SAME as collapsedHeight */
-  background: #1f3f8f;
+  background: #111827;
   cursor: pointer;
   position: relative;
 }

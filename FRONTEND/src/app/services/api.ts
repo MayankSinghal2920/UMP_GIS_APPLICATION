@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -134,4 +134,19 @@ export class Api {
       password,
     });
   }
+
+
+
+  getStationById(id: number) {
+    const params = new HttpParams().set('division', this.getDivision());
+    return this.http.get<any>(`${this.BASE_URL}/api/edit/stations/${id}`, { params });
+  }
+
+getStationByCode(code: string): Observable<any> {
+    const c = String(code || '').trim().toUpperCase();
+    return this.http.get<any>(`${this.BASE_URL}/api/station_codes/${encodeURIComponent(c)}`);
+  }
+
+
 }
+

@@ -1,3 +1,59 @@
-<div id="map"></div>
-<!-- <app-attribute-table></app-attribute-table> -->
+<div class="map-card card shadow-sm">
+  
 
+  <div class="card-body map-card-body">
+    <div class="map-container">
+
+      <!-- Leaflet -->
+      <div id="map"></div>
+
+      <!-- ================= WIDGETS ================= -->
+      <div class="map-widgets-row">
+
+        <div class="widget-item">
+          <button title="Layers" (click)="toggle('layers')">
+            <i class="bi bi-layers"></i>
+          </button>
+          <div class="widget-panel-host" *ngIf="ui.isOpen('layers')">
+            <app-layer-panel></app-layer-panel>
+          </div>
+        </div>
+
+        <div class="widget-item">
+          <button title="Legend" (click)="toggle('legend')">
+            <i class="bi bi-list-ul"></i>
+          </button>
+          <div class="widget-panel-host" *ngIf="ui.isOpen('legend')">
+            <app-legend-panel></app-legend-panel>
+          </div>
+        </div>
+
+        <div class="widget-item">
+          <button title="Basemap" (click)="toggle('basemap')">
+            <i class="bi bi-map"></i>
+          </button>
+          <div class="widget-panel-host" *ngIf="ui.isOpen('basemap')">
+            <app-basemap-panel></app-basemap-panel>
+          </div>
+        </div>
+
+        <div class="widget-item">
+          <button title="Edit" (click)="toggle('edit')">
+            <i class="bi bi-pencil-square"></i>
+          </button>
+          <div class="widget-panel-host" *ngIf="ui.isOpen('edit')">
+            <app-edit-panel></app-edit-panel>
+          </div>
+        </div>
+
+      </div>
+      <!-- =========================================== -->
+
+      <!-- ✅ ATTRIBUTE TABLE (MAP-SCOPED, SINGLE INSTANCE) -->
+      <div class="attr-dock">
+        <app-attribute-table></app-attribute-table>
+      </div>
+
+    </div>
+  </div>
+</div>
