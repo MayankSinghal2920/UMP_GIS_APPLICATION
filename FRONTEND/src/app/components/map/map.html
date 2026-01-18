@@ -1,55 +1,53 @@
 <div class="map-card card shadow-sm">
-  
-
   <div class="card-body map-card-body">
-    <div class="map-container">
+    <div class="map-container" [class.panel-open]="!!ui.activePanel">
 
       <!-- Leaflet -->
       <div id="map"></div>
 
-      <!-- ================= WIDGETS ================= -->
-      <div class="map-widgets-row">
+<div class="right-dock">
 
-        <div class="widget-item">
-          <button title="Layers" (click)="toggle('layers')">
-            <i class="bi bi-layers"></i>
-          </button>
-          <div class="widget-panel-host" *ngIf="ui.isOpen('layers')">
-            <app-layer-panel></app-layer-panel>
-          </div>
-        </div>
+  <!-- RIGHT PANEL (slides in) -->
+<div
+  class="right-panel"
+  [class.open]="!!ui.activePanel"
+  [class.edit]="ui.activePanel === 'edit'"
+>
+  <ng-container [ngSwitch]="ui.activePanel">
+    <app-layer-panel *ngSwitchCase="'layers'"></app-layer-panel>
+    <app-legend-panel *ngSwitchCase="'legend'"></app-legend-panel>
+    <app-basemap-panel *ngSwitchCase="'basemap'"></app-basemap-panel>
+    <app-edit-panel *ngSwitchCase="'edit'"></app-edit-panel>
+  </ng-container>
+</div>
 
-        <div class="widget-item">
-          <button title="Legend" (click)="toggle('legend')">
-            <i class="bi bi-list-ul"></i>
-          </button>
-          <div class="widget-panel-host" *ngIf="ui.isOpen('legend')">
-            <app-legend-panel></app-legend-panel>
-          </div>
-        </div>
 
-        <div class="widget-item">
-          <button title="Basemap" (click)="toggle('basemap')">
-            <i class="bi bi-map"></i>
-          </button>
-          <div class="widget-panel-host" *ngIf="ui.isOpen('basemap')">
-            <app-basemap-panel></app-basemap-panel>
-          </div>
-        </div>
 
-        <div class="widget-item">
-          <button title="Edit" (click)="toggle('edit')">
-            <i class="bi bi-pencil-square"></i>
-          </button>
-          <div class="widget-panel-host" *ngIf="ui.isOpen('edit')">
-            <app-edit-panel></app-edit-panel>
-          </div>
-        </div>
+  <!-- WIDGET RAIL (always extreme right, shifts left when panel opens) -->
+  <div class="widget-rail">
+    <button type="button" (click)="toggle('layers')" [class.active]="ui.isOpen('layers')">
+      <i class="bi bi-layers"></i>
+    </button>
+    <button type="button" (click)="toggle('legend')" [class.active]="ui.isOpen('legend')">
+      <i class="bi bi-list-ul"></i>
+    </button>
+    <button type="button" (click)="toggle('basemap')" [class.active]="ui.isOpen('basemap')">
+      <i class="bi bi-map"></i>
+    </button>
+    <button type="button" (click)="toggle('edit')" [class.active]="ui.isOpen('edit')">
+      <i class="bi bi-pencil-square"></i>
+    </button>
+  </div>
 
-      </div>
-      <!-- =========================================== -->
+</div>
 
-      <!-- ✅ ATTRIBUTE TABLE (MAP-SCOPED, SINGLE INSTANCE) -->
+
+<!-- /RIGHT DOCK -->
+
+
+      <!-- /RIGHT DOCK -->
+
+      <!-- Attribute table -->
       <div class="attr-dock">
         <app-attribute-table></app-attribute-table>
       </div>

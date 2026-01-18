@@ -21,9 +21,35 @@ html, body {
 }
 
 
+/* :host ::ng-deep .rightbar-panel .panel {
+  position: static !important;
+  width: 100% !important;
+  max-height: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+} */
+
+
+/* TOPBAR should always be above sidebar */
+.app-topbar, .topbar {
+  position: sticky;      /* or fixed if you use fixed topbar */
+  top: 0;
+  z-index: 2000;
+}
+
+/* Sidebar should not cover header */
+.sidebar {
+  position: relative !important;                      /* if you're using overlay sidebar */
+  top: var(--topbar-height);             /* IMPORTANT */
+  height: calc(100vh - var(--topbar-height));
+  z-index: 1500;                         /* less than topbar */
+}
+
+
+
 /* ================= PANEL ================= */
 
-.panel {
+/* .panel {
   position: fixed;
   top: 90px;
   right: 12px;
@@ -34,7 +60,7 @@ html, body {
   padding: 14px 16px 16px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
   z-index: 900;
-}
+} */
 
 /* Responsive */
 @media (max-width: 767.98px) {
@@ -95,8 +121,12 @@ html, body {
 /* ================= LEAFLET FIXES ================= */
 
 .leaflet-top.leaflet-left {
-  top: var(--topbar-height) !important;
+  left: 80px !important; /* so zoom buttons don't hide under 70px rail */
 }
+.sidebar:not(.collapsed) ~ .dashboard-content .leaflet-top.leaflet-left {
+  left: 330px !important; /* when full sidebar open */
+}
+
 
 .leaflet-control-zoom {
   margin-top: 50px !important;

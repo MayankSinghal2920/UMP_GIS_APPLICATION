@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -6,20 +7,29 @@ import { Injectable } from '@angular/core';
 export class UiState {
   activePanel: string | null = null;
 
-   toggle(panel: string) {
+  // ✅ ADD: layout change notifier (for Leaflet resize etc.)
+  private _layoutChanged = new Subject<void>();
+  layoutChanged$ = this._layoutChanged.asObservable();
+
+  notifyLayoutChanged(): void {
+    this._layoutChanged.next();
+  }
+
+  toggle(panel: string) {
     this.activePanel = this.activePanel === panel ? null : panel;
   }
 
-    isOpen(panel: string): boolean {
+  isOpen(panel: string): boolean {
     return this.activePanel === panel;
   }
 
+  close() {
+    this.activePanel = null;
+  }
 
-close() {
-  this.activePanel = null;
-}
-
-
-  selectedBasemap: 'Open Street Map' | 'satellite' | 'Esri Topographic' | 'Bhuvan India' = 'Esri Topographic';
-
+  selectedBasemap:
+    | 'Open Street Map'
+    | 'satellite'
+    | 'Esri Topographic'
+    | 'Bhuvan India' = 'Esri Topographic';
 }

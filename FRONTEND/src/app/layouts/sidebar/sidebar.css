@@ -3,18 +3,25 @@
   height: 100%;
 }
 
+/* sidebar is taken out of layout */
 .sidebar {
+  position: fixed;
+  top: 0;                 /* or below topbar: var(--topbar-height) */
+  left: 0;
+  height: 100vh;          /* or calc(100vh - var(--topbar-height)) */
   width: 320px;
-  background: #111827;
-  color: #c8c9ce;
-  height: 100%;              /* ✅ FIX */
+  z-index: 1200;
   transition: width 0.3s ease;
   overflow: hidden;
+  flex: 0 0 320px;
+  background: #111827;
+  color: #c8c9ce;
 }
 
 .sidebar.collapsed {
   width: 70px;
 }
+
 
 /* HEADER */
 .sidebar-header {

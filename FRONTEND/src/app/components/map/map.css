@@ -1,5 +1,5 @@
 /* =========================================================
-   GLOBAL SAFETY
+   SAFETY RESET
    ========================================================= */
 html,
 body {
@@ -9,34 +9,41 @@ body {
 }
 
 /* =========================================================
-   HOST (Standalone component root)
+   HOST (Map component root)
    ========================================================= */
 :host {
   display: block;
+  width: 100%;
   height: 100%;
   min-height: 0;
-  width: 100%;
 
-  /* spacing variables (can be tuned later) */
-  --top-gap: 0px;
-  --side-gap: 0px;
+  /* layout variables */
+  --widget-width: 56px;
+  --widget-gap: 10px;
+  --panel-width: 420px;
+
+  /* 0 when closed, panel-width when open */
+  --open-shift: 0px;
+
+  --panel-width: 420px;        /* default */
+  --panel-width-edit: 600px;   /* edit wider */
+
 }
 
 /* =========================================================
-   BOOTSTRAP CARD – HARD RESET (CRITICAL)
+   MAP CARD RESET
    ========================================================= */
 .map-card,
 .map-card > .card-body,
 .map-card-body {
   padding: 0 !important;
   margin: 0 !important;
-  border: 0 !important;
+  border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  background: #ffffff;
+  background: #fff;
 }
 
-/* Card wrapper */
 .map-card {
   height: 100%;
   width: 100%;
@@ -57,25 +64,42 @@ body {
 }
 
 /* =========================================================
-   MAP CONTAINER (BOUNDARY OWNER)
+   MAP CONTAINER
    ========================================================= */
 .map-container {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* 🔥 prevents pixel gaps */
+  overflow: hidden;
+  --current-panel-width: 0px;
 }
 
+/* when any right panel is open */
+.map-container.panel-open {
+  /* --open-shift: calc(var(--panel-width) + var(--widget-gap)); */
+    --current-panel-width: var(--panel-width);
+  --open-shift: calc(var(--current-panel-width) + var(--widget-gap));
+}
+
+.map-container.panel-open .right-panel.edit{
+  width: var(--panel-width-edit);
+}
+
+/* also shift rail more when edit is open */
+.map-container.panel-open:has(.right-panel.edit.open){
+  --current-panel-width: var(--panel-width-edit);
+}
+
+
 /* =========================================================
-   LEAFLET TARGET (MUST FILL EVERYTHING)
+   LEAFLET TARGET (BELOW UI)
    ========================================================= */
 #map {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 1;
 }
 
 .leaflet-container,
@@ -87,52 +111,127 @@ body {
 }
 
 /* =========================================================
-   MAP WIDGETS (TOP-RIGHT)
+   RIGHT DOCK (CONTAINS RAIL + PANEL)
    ========================================================= */
-.map-widgets-row {
+.right-dock {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 9999;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  z-index: 1000;
+  pointer-events: none; /* map clicks pass through */
+}
+
+.right-dock .widget-rail,
+.right-dock .right-panel {
+  pointer-events: auto;
+}
+
+/* =========================================================
+   WIDGET RAIL (EXTREME RIGHT, SLIDES LEFT)
+   ========================================================= */
+.widget-rail {
+  position: absolute;
+  top: 50%;
+  right: calc(12px + var(--open-shift));
+  transform: translateY(-50%);
+
+  width: var(--widget-width);
+  padding: 10px 6px;
 
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+
+  background: rgba(17, 24, 39, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  z-index: 1002;
+  transition: right 220ms ease;
 }
 
-.widget-item {
-  position: relative;
-}
-
-.widget-item > button {
+.widget-rail button {
   width: 42px;
   height: 42px;
-
   border-radius: 8px;
   border: none;
   cursor: pointer;
 
-  background: rgba(0, 0, 0, 0.65);
-  color: #ffffff;
-
   display: flex;
   align-items: center;
   justify-content: center;
+
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
-.widget-item > button:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-
-/* Dropdown panel */
-.widget-panel-host {
-  position: absolute;
-  top: 44px;
-  right: 0;
-  z-index: 750;
+.widget-rail button:hover,
+.widget-rail button.active {
+  background: #f97316;
 }
 
 /* =========================================================
-   ATTRIBUTE TABLE DOCK (MAP-SCOPED)
+   RIGHT SIDEBAR PANEL (SLIDES FROM EXTREME RIGHT)
+   ========================================================= */
+.right-panel {
+  position: absolute;
+  top: 11px;
+  bottom: 32px;
+  right: 12px;
+
+   width: var(--current-panel-width);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+
+  z-index: 1001;
+
+  /* hidden state */
+  opacity: 0;
+  transform: translateX(16px);
+  pointer-events: none;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+/* open state */
+.right-panel.open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* =========================================================
+   🔥 CRITICAL FIX
+   Disable popup behavior of global .panel inside map sidebar
+   ========================================================= */
+:host ::ng-deep .right-panel .panel {
+  position: static !important;
+  inset: auto !important;
+
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 12px 14px !important;
+
+  overflow: auto !important;
+}
+
+/* prevent sticky/fixed headers inside sidebar panels */
+:host ::ng-deep .right-panel .panel-header,
+:host ::ng-deep .right-panel .panel-close {
+  position: static !important;
+}
+
+/* =========================================================
+   ATTRIBUTE TABLE (BOTTOM DOCK)
    ========================================================= */
 .attr-dock {
   position: absolute;
@@ -141,12 +240,11 @@ body {
   bottom: 0;
 
   z-index: 900;
-  margin: 0;
-  padding: 0;
+  background: #fff;
 }
 
 /* =========================================================
-   LEAFLET UI SAFETY (Z-INDEX CONTROL)
+   LEAFLET UI SAFETY
    ========================================================= */
 :host ::ng-deep .leaflet-control {
   z-index: 600;
@@ -160,8 +258,19 @@ body {
    RESPONSIVE
    ========================================================= */
 @media (max-width: 900px) {
-  .map-widgets-row {
-    top: 8px;
-    right: 8px;
+  :host {
+    --panel-width: calc(100vw - 90px);
+  }
+
+  .right-panel {
+    top: 80px;
+    bottom: 80px;
+  }
+
+  .widget-rail {
+    top: auto;
+    bottom: 80px;
+    transform: none;
   }
 }
+

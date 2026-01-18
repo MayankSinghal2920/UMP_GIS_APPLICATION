@@ -2,12 +2,22 @@
   height: 90px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+
+  padding: 0 20px;      /* keep normal padding */
   box-sizing: border-box;
+
+  position: sticky;
+  top: 0;
+  z-index: 3000;
+
+  transition: margin-left 0.3s ease, width 0.3s ease; /* ✅ smooth */
 }
+
+
 
 /* LEFT */
 .left {
