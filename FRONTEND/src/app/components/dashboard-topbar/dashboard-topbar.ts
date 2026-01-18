@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { Observable } from 'rxjs';
+
 import { Auth } from 'src/app/services/auth';
 import { SidebarState } from 'src/app/services/sidebar-state';
 
@@ -14,8 +16,10 @@ import { SidebarState } from 'src/app/services/sidebar-state';
 export class DashboardTopbar {
 
   userName = 'User';
-  profileImage = 'assets/images/admin.jpg';
+  profileImage = 'assets/images/user.png';
   showMenu = false;
+
+  collapsed$!: Observable<boolean>;
 
   constructor(
     private auth: Auth,
@@ -23,6 +27,7 @@ export class DashboardTopbar {
     private sidebarState: SidebarState
   ) {
     this.userName = localStorage.getItem('user_name') || 'User';
+    this.collapsed$ = this.sidebarState.collapsed$;
   }
 
   toggleSidebar() {
