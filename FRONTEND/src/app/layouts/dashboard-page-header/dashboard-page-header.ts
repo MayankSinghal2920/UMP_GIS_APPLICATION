@@ -20,6 +20,9 @@ export class DashboardPageHeader implements OnInit {
   ) {}
 
   ngOnInit(): void {
+
+    this.title = this.resolveTitle(this.route);
+
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe(() => {
