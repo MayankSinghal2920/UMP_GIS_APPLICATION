@@ -31,5 +31,5 @@ app-sidebar {
 .dashboard-content {
   flex: 1;
   overflow: auto;
-  padding: 16px;
+  
 }

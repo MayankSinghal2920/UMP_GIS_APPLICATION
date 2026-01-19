@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
+import { filter, Observable } from 'rxjs';
+
 
 import { SidebarState } from 'src/app/services/sidebar-state';
 import { UiState } from 'src/app/services/ui-state';
@@ -13,15 +14,30 @@ import { UiState } from 'src/app/services/ui-state';
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.css',
 })
-export class Sidebar {
+export class Sidebar implements OnInit{
 
   collapsed$!: Observable<boolean>;
+  sidebarTitle = '';
 
   constructor(
     private sidebarState: SidebarState,
-    private ui: UiState
+    private ui: UiState,
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     this.collapsed$ = this.sidebarState.collapsed$;
+  }
+
+  ngOnInit(): void {
+    // ✅ set title immediately (page refresh case)
+    this.sidebarTitle = this.resolveTitle(this.route);
+
+    // ✅ update title on navigation
+    this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.sidebarTitle = this.resolveTitle(this.route);
+      });
   }
 
   toggleSidebar(): void {
@@ -29,5 +45,13 @@ export class Sidebar {
 
     // ✅ tell map/layout listeners to recalc after CSS transition
     setTimeout(() => this.ui.notifyLayoutChanged(), 320);
+  }
+
+   private resolveTitle(route: ActivatedRoute): string {
+    let current = route.firstChild;
+    while (current?.firstChild) {
+      current = current.firstChild;
+    }
+    return current?.snapshot.data['title'] ?? 'Dashboard';
   }
 }
