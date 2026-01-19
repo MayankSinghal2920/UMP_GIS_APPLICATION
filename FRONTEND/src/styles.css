@@ -30,20 +30,9 @@ html, body {
 } */
 
 
-/* TOPBAR should always be above sidebar */
-.app-topbar, .topbar {
-  position: sticky;      /* or fixed if you use fixed topbar */
-  top: 0;
-  z-index: 2000;
-}
 
-/* Sidebar should not cover header */
-.sidebar {
-  position: relative !important;                      /* if you're using overlay sidebar */
-  top: var(--topbar-height);             /* IMPORTANT */
-  height: calc(100vh - var(--topbar-height));
-  z-index: 1500;                         /* less than topbar */
-}
+
+
 
 
 
