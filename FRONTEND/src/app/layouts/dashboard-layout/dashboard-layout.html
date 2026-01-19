@@ -1,12 +1,19 @@
 <div class="dashboard-layout">
-  <app-sidebar></app-sidebar>
 
-  <div class="dashboard-main">
-    <app-dashboard-topbar></app-dashboard-topbar>
+  <!-- TOPBAR FULL WIDTH -->
+  <app-dashboard-topbar></app-dashboard-topbar>
 
-    <div class="dashboard-content">
-      <router-outlet></router-outlet>
+  <!-- BODY -->
+  <div class="dashboard-body">
+    <app-sidebar></app-sidebar>
+
+    <div class="dashboard-main">
+      <app-dashboard-page-header></app-dashboard-page-header>
+      
+      <div class="dashboard-content">
+        <router-outlet></router-outlet>
+      </div>
     </div>
   </div>
-</div>
 
+</div>
