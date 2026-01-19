@@ -1,11 +1,10 @@
-<header class="dashboard-header">
-
+<header
+  class="dashboard-header"
+  [style.marginLeft.px]="(collapsed$ | async) ? 70 : 320"
+  [style.width]="'calc(100% - ' + ((collapsed$ | async) ? 70 : 320) + 'px)'"
+>
   <!-- LEFT -->
   <div class="left">
-    <!-- <button class="menu-btn" (click)="toggleSidebar()">
-      <i class="fas fa-bars"></i>
-    </button> -->
-
     <img src="assets/images/images.jpg" class="logo" alt="UMP Logo" />
     <span class="app-title">UMP GIS Application</span>
   </div>
@@ -13,12 +12,12 @@
   <!-- RIGHT -->
   <div class="right">
     <div class="profile" (click)="toggleMenu()">
-      <img
+       <img
         [src]="profileImage"
         (error)="onImageError($event)"
         class="avatar"
         alt="User"
-      />
+      /> 
       <span class="name">{{ userName }}</span>
       <i class="fas fa-chevron-down"></i>
 
@@ -38,5 +37,4 @@
       </div>
     </div>
   </div>
-
 </header>

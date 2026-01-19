@@ -1,37 +1,43 @@
-/* ROOT LAYOUT */
 .dashboard-layout {
   width: 100vw;
   height: 100vh;
-  display: flex;          /* 🔥 sidebar + main side-by-side */
+
+  display: grid;
+  grid-template-columns: auto 1fr; /* sidebar column + content column */
+  grid-template-rows: 100%;
+
   overflow: hidden;
 }
 
-/* SIDEBAR */
+/* Force sidebar host to occupy column 1 fully */
 app-sidebar {
-  flex-shrink: 0;
-  height: 100;          /* 🔥 full screen height */
+  grid-column: 1;
+  grid-row: 1;
+  height: 100%;
+  align-self: stretch;
 }
 
-/* RIGHT SIDE (TOPBAR + CONTENT) */
+/* Main column */
 .dashboard-main {
+  grid-column: 2;
+  grid-row: 1;
+
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;  
+  min-width: 0;
   height: 100%;
   overflow: hidden;
   background: #f9fafb;
 }
 
-/* TOPBAR */
+/* Topbar */
 app-dashboard-topbar {
-  height: 90px;           /* MUST match real height */
-  flex-shrink: 0;
+  flex: 0 0 90px;
 }
 
-/* CONTENT AREA */
+/* Content area */
 .dashboard-content {
-  flex: 1;
-  min-height: 0;          /* 🔥 critical for map */
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }

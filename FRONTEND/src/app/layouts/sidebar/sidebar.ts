@@ -1,8 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
-import { SidebarState } from 'src/app/services/sidebar-state';
 import { Observable } from 'rxjs';
+
+import { SidebarState } from 'src/app/services/sidebar-state';
+import { UiState } from 'src/app/services/ui-state';
 
 @Component({
   selector: 'app-sidebar',
@@ -15,11 +17,17 @@ export class Sidebar {
 
   collapsed$!: Observable<boolean>;
 
-  constructor(private sidebarState: SidebarState) {
+  constructor(
+    private sidebarState: SidebarState,
+    private ui: UiState
+  ) {
     this.collapsed$ = this.sidebarState.collapsed$;
   }
 
   toggleSidebar(): void {
     this.sidebarState.toggle();
+
+    // ✅ tell map/layout listeners to recalc after CSS transition
+    setTimeout(() => this.ui.notifyLayoutChanged(), 320);
   }
 }
