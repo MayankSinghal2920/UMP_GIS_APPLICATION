@@ -1,43 +1,35 @@
 .dashboard-layout {
   width: 100vw;
   height: 100vh;
-
-  display: grid;
-  grid-template-columns: auto 1fr; /* sidebar column + content column */
-  grid-template-rows: 100%;
-
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
-/* Force sidebar host to occupy column 1 fully */
-app-sidebar {
-  grid-column: 1;
-  grid-row: 1;
-  height: 100%;
-  align-self: stretch;
+/* BODY BELOW TOPBAR */
+.dashboard-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
 }
 
-/* Main column */
-.dashboard-main {
-  grid-column: 2;
-  grid-row: 1;
+/* SIDEBAR */
+app-sidebar {
+  flex: 0 0 auto;
+}
 
+/* MAIN CONTENT */
+.dashboard-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100%;
-  overflow: hidden;
   background: #f9fafb;
 }
 
-/* Topbar */
-app-dashboard-topbar {
-  flex: 0 0 90px;
-}
-
-/* Content area */
+/* CONTENT */
 .dashboard-content {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1;
   overflow: auto;
+  padding: 16px;
 }
