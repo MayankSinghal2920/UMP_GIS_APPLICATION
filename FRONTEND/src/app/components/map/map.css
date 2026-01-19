@@ -20,14 +20,13 @@ body {
   /* layout variables */
   --widget-width: 56px;
   --widget-gap: 10px;
+
+  /* panel widths (default vs edit) */
   --panel-width: 420px;
+  --panel-width-edit: 600px;
 
-  /* 0 when closed, panel-width when open */
-  --open-shift: 0px;
-
-  --panel-width: 420px;        /* default */
-  --panel-width-edit: 600px;   /* edit wider */
-
+  /* computed at runtime via .panel-open / :has() */
+  --current-panel-width: 0px;
 }
 
 /* =========================================================
@@ -71,25 +70,20 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+
+  /* default (no panel open) */
   --current-panel-width: 0px;
 }
 
-/* when any right panel is open */
+/* when any right panel is open -> default width */
 .map-container.panel-open {
-  /* --open-shift: calc(var(--panel-width) + var(--widget-gap)); */
-    --current-panel-width: var(--panel-width);
-  --open-shift: calc(var(--current-panel-width) + var(--widget-gap));
+  --current-panel-width: var(--panel-width);
 }
 
-.map-container.panel-open .right-panel.edit{
-  width: var(--panel-width-edit);
-}
-
-/* also shift rail more when edit is open */
-.map-container.panel-open:has(.right-panel.edit.open){
+/* when edit panel is open -> wider width */
+.map-container.panel-open:has(.right-panel.edit.open) {
   --current-panel-width: var(--panel-width-edit);
 }
-
 
 /* =========================================================
    LEAFLET TARGET (BELOW UI)
@@ -112,6 +106,7 @@ body {
 
 /* =========================================================
    RIGHT DOCK (CONTAINS RAIL + PANEL)
+   NOTE: Panel styling is now GLOBAL in styles.css
    ========================================================= */
 .right-dock {
   position: absolute;
@@ -129,12 +124,12 @@ body {
 }
 
 /* =========================================================
-   WIDGET RAIL (EXTREME RIGHT, SLIDES LEFT)
+   WIDGET RAIL (EXTREME RIGHT; DOES NOT SHIFT)
    ========================================================= */
 .widget-rail {
   position: absolute;
   top: 50%;
-  right: calc(12px + var(--open-shift));
+  right: 12px;
   transform: translateY(-50%);
 
   width: var(--widget-width);
@@ -150,7 +145,6 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 
   z-index: 1002;
-  transition: right 220ms ease;
 }
 
 .widget-rail button {
@@ -166,35 +160,55 @@ body {
 
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+
+  transition: background 0.15s ease, transform 0.08s ease;
 }
 
-.widget-rail button:hover,
+.widget-rail button:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
 .widget-rail button.active {
   background: #f97316;
 }
 
 /* =========================================================
-   RIGHT SIDEBAR PANEL (SLIDES FROM EXTREME RIGHT)
+   RIGHT SIDEBAR PANEL (OPENS LEFT OF RAIL)
+   Width changes based on active widget.
+   Visual styling handled by global .panel theme in styles.css
    ========================================================= */
 .right-panel {
   position: absolute;
-  top: 11px;
-  bottom: 32px;
-  right: 12px;
 
-   width: var(--current-panel-width);
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
+  /* ⬇⬇ increase panel height */
+  top: 4px;          /* was 11px */
+  bottom: 8px;       /* was 32px */
+
+  right: calc(12px + var(--widget-width) + var(--widget-gap));
+  width: var(--current-panel-width);
 
   z-index: 1001;
 
   /* hidden state */
   opacity: 0;
-  transform: translateX(16px);
+  transform: translateX(12px);
   pointer-events: none;
+
   transition: transform 220ms ease, opacity 220ms ease;
+}
+
+
+/* =========================================================
+   Shift EDIT panel slightly more to the left
+   ========================================================= */
+.right-panel.edit {
+  right: calc(
+    12px +
+    var(--widget-width) +
+    var(--widget-gap) +
+    150px   /* ← adjust this value */
+  );
 }
 
 /* open state */
@@ -205,30 +219,10 @@ body {
 }
 
 /* =========================================================
-   🔥 CRITICAL FIX
-   Disable popup behavior of global .panel inside map sidebar
+   IMPORTANT:
+   Remove/avoid panel styling here.
+   All .panel / .panel-header / close button styling is in styles.css
    ========================================================= */
-:host ::ng-deep .right-panel .panel {
-  position: static !important;
-  inset: auto !important;
-
-  width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-
-  margin: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 12px 14px !important;
-
-  overflow: auto !important;
-}
-
-/* prevent sticky/fixed headers inside sidebar panels */
-:host ::ng-deep .right-panel .panel-header,
-:host ::ng-deep .right-panel .panel-close {
-  position: static !important;
-}
 
 /* =========================================================
    ATTRIBUTE TABLE (BOTTOM DOCK)
@@ -260,6 +254,7 @@ body {
 @media (max-width: 900px) {
   :host {
     --panel-width: calc(100vw - 90px);
+    --panel-width-edit: calc(100vw - 90px);
   }
 
   .right-panel {
@@ -273,4 +268,3 @@ body {
     transform: none;
   }
 }
-

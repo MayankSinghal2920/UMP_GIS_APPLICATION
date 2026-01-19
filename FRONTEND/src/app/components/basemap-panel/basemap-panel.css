@@ -13,39 +13,48 @@
 .basemap-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .basemap-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+
+  padding: 10px 10px;
   cursor: pointer;
+
   border: 1px solid #e5e7eb;
-  background: #f9f9f9;
-  border-radius: 4px;
+  background: #f9fafb;
+  border-radius: 18px;
+
+  font-size: 18px;
 }
 
 .basemap-item:hover {
-  background: #e5e7eb;
+  background: #eef2f7;
 }
 
 .basemap-item input[type="radio"] {
   cursor: pointer;
 }
 
-
-.panel button :not(.panel-close){
+/* FIXED selector (removed space after button)
+   This targets panel buttons except the close button */
+.panel button:not(.panel-close) {
   display: block;
   width: 100%;
   margin-bottom: 8px;
-  padding: 6px;
+  padding: 8px 10px;
+
   cursor: pointer;
-  border: 1px solid #ccc;
-  background: #f9f9f9;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 10px;
+
+  font-size: 13px;
 }
 
-.panel button:hover {
-  background: #e5e7eb;
+.panel button:not(.panel-close):hover {
+  background: #eef2f7;
 }

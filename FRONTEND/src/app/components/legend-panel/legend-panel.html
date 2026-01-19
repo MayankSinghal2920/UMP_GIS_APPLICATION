@@ -4,18 +4,17 @@
     <button class="panel-close" (click)="close()">×</button>
   </div>
 
-  <div
-    class="legend-item"
-    *ngFor="let layer of layerManager.getLayers()"
-  >
-    <div
-      class="symbol"
-      [ngClass]="layer.legend.type"
-      [style.background]="layer.legend.color"
-      [style.border-color]="layer.legend.color"
-    ></div>
+  <div class="panel-body">
+    <div class="legend-item" *ngFor="let layer of layerManager.getLayers()">
+      <div
+        class="symbol"
+        [ngClass]="layer.legend.type"
+        [style.background]="layer.legend.color"
+        [style.border-color]="layer.legend.color"
+      ></div>
 
-    <span>{{ layer.legend.label }}</span>
+      <span>{{ layer.legend.label }}</span>
+    </div>
   </div>
 </div>
 
