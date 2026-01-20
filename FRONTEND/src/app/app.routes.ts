@@ -19,8 +19,14 @@ export const routes: Routes = [
     component: DashboardLayout,
     canActivate: [authGuard],
     children: [
-      { path: '', component: DashboardHome },
-      { path: 'railway-assets', component: HomeComponent },
+      { path: '', 
+        component: DashboardHome,
+        data: { title: 'Dashboard' }
+       },
+      { path: 'railway-assets', 
+        component: HomeComponent,
+        data: {title: 'Railway Asset Editing'}
+      },
     ]
   },
 

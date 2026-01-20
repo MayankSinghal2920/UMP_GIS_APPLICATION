@@ -5,11 +5,13 @@ import { Observable } from 'rxjs';
 import { SidebarState } from 'src/app/services/sidebar-state';
 import { DashboardTopbar } from "src/app/components/dashboard-topbar/dashboard-topbar";
 import { Sidebar } from "../sidebar/sidebar";
+import { DashboardPageHeader } from '../dashboard-page-header/dashboard-page-header';
+
 
 @Component({
   selector: 'app-dashboard-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, DashboardTopbar, Sidebar],
+  imports: [CommonModule, RouterOutlet, DashboardTopbar, Sidebar, DashboardPageHeader],
   templateUrl: './dashboard-layout.html',
   styleUrl: './dashboard-layout.css',
 })
