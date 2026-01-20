@@ -27,40 +27,10 @@ html, body {
   --panel-body-pad: 12px 14px;
 }
 
-
-/* TOPBAR should always be above sidebar */
-.app-topbar, .topbar {
-  position: sticky;      /* or fixed if you use fixed topbar */
-  top: 0;
-  z-index: 2000;
-}
-
-/* Sidebar should not cover header */
-.sidebar {
-  position: relative !important; /* if you're using overlay sidebar */
-  top: var(--topbar-height);
-  height: calc(100vh - var(--topbar-height));
-  z-index: 1500; /* less than topbar */
-}
-
-
-/* :host ::ng-deep .rightbar-panel .panel {
-  position: static !important;
-  width: 100% !important;
-  max-height: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-} */
-
-
-
-
-
-
-
 /* =========================================================
    ✅ GLOBAL UNIFORM PANEL STYLE (ALL PANELS)
    Applies to Layers / Legend / Basemap / Edit — everywhere.
+   Only look/skin, NOT edit-tool logic.
    ========================================================= */
 
 /* Base panel frame */
@@ -70,21 +40,16 @@ html, body {
   box-shadow: var(--panel-shadow);
   border: none;
 
-  /* Make all panels behave consistently */
   overflow: hidden;
 
-  /* Standardize internal layout */
   display: flex;
   flex-direction: column;
 
-  /* Important: remove default spacing differences between panels */
   padding: 0;
   margin: 0;
 }
 
-/* =========================================================
-   PANEL HEADER (blue bar + white bold title)
-   ========================================================= */
+/* HEADER BAR */
 .panel-header {
   display: flex;
   align-items: center;
@@ -102,27 +67,21 @@ html, body {
   border-top-right-radius: var(--panel-radius);
 }
 
-.panel-header span {
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 18px;
-}
-
-/* Title inside header (BOLD WHITE) */
+/* Title in header (covers span and h4) */
+.panel-header span,
 .panel-header h4,
 .panel-header .panel-title {
   margin: 0;
   padding: 0;
 
-  font-size: 14px;
-  font-weight: 800;
   color: #ffffff;
-
+  font-weight: 800;
+  font-size: 18px; /* you can set 14px if you want smaller */
   line-height: 1.2;
   letter-spacing: 0.2px;
 }
 
-/* Close button in header (white) */
+/* Close button (white) */
 .panel .panel-close,
 .panel .close,
 .panel button[aria-label="Close"] {
@@ -155,11 +114,7 @@ html, body {
   transform: translateY(-1px);
 }
 
-/* =========================================================
-   PANEL BODY (uniform padding + scroll)
-   ========================================================= */
-
-/* If your panels have a body wrapper */
+/* BODY (uniform padding + scroll) */
 .panel .panel-body,
 .panel .panel-content {
   flex: 1 1 auto;
@@ -168,52 +123,20 @@ html, body {
   margin: 0;
 }
 
-/* Fallback:
-   If panels do NOT have .panel-body/.panel-content,
-   make all children except header behave like body */
+/* Fallback if body wrapper missing */
 .panel > :not(.panel-header) {
   flex: 1 1 auto;
   overflow: auto;
   padding: var(--panel-body-pad);
 }
 
-/* Typography inside panel */
+/* Default typography */
 .panel label {
   font-size: 13px;
   color: #374151;
 }
 
-/* IMPORTANT:
-   Some of your panels have <h4> outside panel-header.
-   This fallback forces it to look like a header bar too. */
-.panel > h4:first-child {
-  height: var(--panel-header-h);
-  min-height: var(--panel-header-h);
-
-  display: flex;
-  align-items: center;
-
-  margin: 0;
-  padding: 0 10px 0 14px;
-
-  background: var(--panel-header-bg);
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 14px;
-
-  border-top-left-radius: var(--panel-radius);
-  border-top-right-radius: var(--panel-radius);
-}
-
-/* If close button is not inside .panel-header, force it to top-right */
-.panel > .panel-close:first-child,
-.panel > .close:first-child {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-}
-
-/* Scrollbar consistent (optional) */
+/* Scrollbar (optional) */
 .panel::-webkit-scrollbar,
 .panel .panel-body::-webkit-scrollbar,
 .panel .panel-content::-webkit-scrollbar {
@@ -234,7 +157,7 @@ html, body {
 }
 
 /* =========================================================
-   RESPONSIVE (keep your existing rules)
+   RESPONSIVE (kept, but these only matter if panels are fixed-position)
    ========================================================= */
 @media (max-width: 767.98px) {
   .panel {
@@ -257,11 +180,11 @@ html, body {
 /* ================= LEAFLET FIXES ================= */
 
 .leaflet-top.leaflet-left {
-  left: 80px !important; /* so zoom buttons don't hide under 70px rail */
+  left: 80px !important;
 }
 
 .sidebar:not(.collapsed) ~ .dashboard-content .leaflet-top.leaflet-left {
-  left: 330px !important; /* when full sidebar open */
+  left: 330px !important;
 }
 
 .leaflet-control-zoom {
@@ -288,22 +211,20 @@ html, body {
 }
 
 /* =========================================================
-   FORCE all widget panels to take full height of their container
-   (your .right-panel height changes will then actually show)
+   OPTIONAL: If you still want ALL widget panels taller
+   (this is NOT edit-specific; affects all widgets)
+   Remove if you want height controlled only in map.css.
    ========================================================= */
-
 .right-panel {
-  top: 4px !important;      /* more height */
-  bottom: 35px !important;   /* more height */
+  top: 4px !important;
+  bottom: 35px !important;
 }
 
-/* Make the panel fill full available height */
 .right-panel .panel {
   height: 100% !important;
   max-height: none !important;
 }
 
-/* Body should fill remaining height below header */
 .right-panel .panel .panel-body,
 .right-panel .panel .panel-content,
 .right-panel .panel > :not(.panel-header) {
