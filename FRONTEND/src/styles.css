@@ -27,6 +27,7 @@ html, body {
   --panel-body-pad: 12px 14px;
 }
 
+
 /* TOPBAR should always be above sidebar */
 .app-topbar, .topbar {
   position: sticky;      /* or fixed if you use fixed topbar */
@@ -41,6 +42,21 @@ html, body {
   height: calc(100vh - var(--topbar-height));
   z-index: 1500; /* less than topbar */
 }
+
+
+/* :host ::ng-deep .rightbar-panel .panel {
+  position: static !important;
+  width: 100% !important;
+  max-height: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+} */
+
+
+
+
+
+
 
 /* =========================================================
    ✅ GLOBAL UNIFORM PANEL STYLE (ALL PANELS)
