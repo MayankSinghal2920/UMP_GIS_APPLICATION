@@ -2,7 +2,13 @@
 
   <!-- ================= MAIN CARDS ================= -->
   <div class="main-cards">
-    <div class="main-card" *ngFor="let card of mainCards">
+    <div
+      class="main-card"
+      *ngFor="let card of mainCards"
+      [attr.data-color]="card.color"
+      [class.active]="selectedMain === card.key"
+      (click)="selectMain(card.key)"
+    >
       <div class="main-title">{{ card.title }}</div>
       <div class="main-value">{{ card.value }}</div>
     </div>
@@ -10,7 +16,11 @@
 
   <!-- ================= SUB CARDS ================= -->
   <div class="sub-cards">
-    <div class="sub-card" *ngFor="let card of subCards">
+    <div
+      class="sub-card"
+      *ngFor="let card of activeSubCards"
+      [attr.data-color]="activeColor"
+    >
       <div class="sub-title">{{ card.title }}</div>
       <div class="sub-value">{{ card.value }}</div>
     </div>
