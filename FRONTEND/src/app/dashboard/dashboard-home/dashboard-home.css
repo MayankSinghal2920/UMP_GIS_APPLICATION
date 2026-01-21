@@ -44,9 +44,15 @@
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: white;
+  text-align: center;
 }
 
 .main-value {
+  flex: 1;                      /* 👈 takes remaining space */
+  display: flex;
+  align-items: center;          /* 👈 vertical center */
+  justify-content: center;      /* 👈 horizontal center */
+
   font-size: 60px;
   font-weight: 800;
   text-align: center;
@@ -67,22 +73,30 @@
 
   display: flex;
   flex-direction: column;
-  justify-content: center;
 
-  border-bottom: 6px solid transparent;
+  border: 6px solid transparent;
   animation: fadeIn 0.25s ease;
 }
+
 
 .sub-title {
   font-size: 22px;
   font-weight: 600;
   color: #4b5563;
+  text-align: center;
+
+  margin-bottom: 8px;   /* 👈 small spacing */
 }
 
 .sub-value {
+  flex: 1;                          /* 👈 takes remaining space */
+  display: flex;
+  align-items: center;              /* 👈 vertical center */
+  justify-content: center;          /* 👈 horizontal center */
+
   font-size: 32px;
   font-weight: 700;
-  margin-top: 6px;
+  text-align: center;
 }
 
 /* ================= COLOR THEMES ================= */
@@ -95,7 +109,7 @@
   color: white;
 }
 .sub-card[data-color="blue"] {
-  border-bottom-color: #20a8d8;
+  border-color: #20a8d8;
 }
 
 /* PINK */
@@ -106,7 +120,7 @@
   color: white;
 }
 .sub-card[data-color="pink"] {
-  border-bottom-color: #f86c6b;
+  border-color: #f86c6b;
 }
 
 /* GREEN */
@@ -117,7 +131,7 @@
   color: white;
 }
 .sub-card[data-color="green"] {
-  border-bottom-color: #078f34;
+  border-color: #078f34;
 }
 
 /* YELLOW */
@@ -128,7 +142,7 @@
   color: white;
 }
 .sub-card[data-color="yellow"] {
-  border-bottom-color: #ffc107;
+  border-color: #ffc107;
 }
 
 /* TEAL */
@@ -139,7 +153,7 @@
   color: white;
 }
 .sub-card[data-color="teal"] {
-  border-bottom-color: #20c997;
+  border-color: #20c997;
 }
 
 /* ================= ANIMATION ================= */
