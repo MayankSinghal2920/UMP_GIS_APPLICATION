@@ -18,40 +18,147 @@ html, body {
   --topbar-h: 78px;
   --topbar-height: 56px;
   --panel-gap: 10px;
+
+  /* ===== PANEL THEME (GLOBAL) ===== */
+  --panel-radius: 14px;
+  --panel-header-h: 46px;
+  --panel-header-bg: #0b2d6b; /* dark blue */
+  --panel-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+  --panel-body-pad: 12px 14px;
 }
 
+/* =========================================================
+   ✅ GLOBAL UNIFORM PANEL STYLE (ALL PANELS)
+   Applies to Layers / Legend / Basemap / Edit — everywhere.
+   Only look/skin, NOT edit-tool logic.
+   ========================================================= */
 
-/* :host ::ng-deep .rightbar-panel .panel {
-  position: static !important;
-  width: 100% !important;
-  max-height: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-} */
+/* Base panel frame */
+.panel {
+  background: #ffffff;
+  border-radius: var(--panel-radius);
+  box-shadow: var(--panel-shadow);
+  border: none;
 
+  overflow: hidden;
 
+  display: flex;
+  flex-direction: column;
 
+  padding: 0;
+  margin: 0;
+}
 
+/* HEADER BAR */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
+  height: var(--panel-header-h);
+  min-height: var(--panel-header-h);
 
+  margin: 0;
+  padding: 0 10px 0 14px;
 
+  background: var(--panel-header-bg);
 
-/* ================= PANEL ================= */
+  border-top-left-radius: var(--panel-radius);
+  border-top-right-radius: var(--panel-radius);
+}
 
-/* .panel {
-  position: fixed;
-  top: 90px;
-  right: 12px;
-  width: 420px;
-  max-height: calc(100vh - 80px);
-  background: #fff;
-  border-radius: 6px;
-  padding: 14px 16px 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-  z-index: 900;
-} */
+/* Title in header (covers span and h4) */
+.panel-header span,
+.panel-header h4,
+.panel-header .panel-title {
+  margin: 0;
+  padding: 0;
 
-/* Responsive */
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 18px; /* you can set 14px if you want smaller */
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+}
+
+/* Close button (white) */
+.panel .panel-close,
+.panel .close,
+.panel button[aria-label="Close"] {
+  width: 34px;
+  height: 34px;
+
+  border-radius: 10px;
+  border: none;
+
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: background 0.15s ease, transform 0.08s ease;
+}
+
+.panel .panel-close:hover,
+.panel .close:hover,
+.panel button[aria-label="Close"]:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+/* BODY (uniform padding + scroll) */
+.panel .panel-body,
+.panel .panel-content {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--panel-body-pad);
+  margin: 0;
+}
+
+/* Fallback if body wrapper missing */
+.panel > :not(.panel-header) {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--panel-body-pad);
+}
+
+/* Default typography */
+.panel label {
+  font-size: 13px;
+  color: #374151;
+}
+
+/* Scrollbar (optional) */
+.panel::-webkit-scrollbar,
+.panel .panel-body::-webkit-scrollbar,
+.panel .panel-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel::-webkit-scrollbar-thumb,
+.panel .panel-body::-webkit-scrollbar-thumb,
+.panel .panel-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.20);
+  border-radius: 8px;
+}
+
+.panel::-webkit-scrollbar-track,
+.panel .panel-body::-webkit-scrollbar-track,
+.panel .panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =========================================================
+   RESPONSIVE (kept, but these only matter if panels are fixed-position)
+   ========================================================= */
 @media (max-width: 767.98px) {
   .panel {
     left: 8px;
@@ -70,52 +177,15 @@ html, body {
   }
 }
 
-/* ================= PANEL HEADER ================= */
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
-  margin-bottom: 8px;
-}
-
-.panel h4 {
-  margin: 4px 0 10px;
-  font-size: 14px;
-  color: #111;
-}
-
-.panel label {
-  font-size: 13px;
-  color: #374151;
-}
-
-/* Close button */
-.panel .panel-close {
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: none;
-  background: transparent;
-  font-size: 22px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.panel .panel-close:hover {
-  background: #eef2f7;
-}
-
 /* ================= LEAFLET FIXES ================= */
 
 .leaflet-top.leaflet-left {
-  left: 80px !important; /* so zoom buttons don't hide under 70px rail */
-}
-.sidebar:not(.collapsed) ~ .dashboard-content .leaflet-top.leaflet-left {
-  left: 330px !important; /* when full sidebar open */
+  left: 80px !important;
 }
 
+.sidebar:not(.collapsed) ~ .dashboard-content .leaflet-top.leaflet-left {
+  left: 330px !important;
+}
 
 .leaflet-control-zoom {
   margin-top: 50px !important;
@@ -138,4 +208,27 @@ html, body {
 
 @media (min-width: 768px) and (max-width: 1199.98px) {
   :root { --topbar-h: 96px; }
+}
+
+/* =========================================================
+   OPTIONAL: If you still want ALL widget panels taller
+   (this is NOT edit-specific; affects all widgets)
+   Remove if you want height controlled only in map.css.
+   ========================================================= */
+.right-panel {
+  top: 4px !important;
+  bottom: 35px !important;
+}
+
+.right-panel .panel {
+  height: 100% !important;
+  max-height: none !important;
+}
+
+.right-panel .panel .panel-body,
+.right-panel .panel .panel-content,
+.right-panel .panel > :not(.panel-header) {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  overflow: auto !important;
 }

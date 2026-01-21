@@ -1,54 +1,51 @@
-<div class="panel-content">
+<div class="panel">
   <div class="panel-header">
     <span>Basemap</span>
     <button class="panel-close" (click)="close()">×</button>
   </div>
 
-  <div class="basemap-list">
-    <!-- OpenStreetMap -->
-    <label class="basemap-item">
-      <input
-        type="radio"
-        name="basemap"
-        [checked]="selectedBasemap === 'Open Street Map'"
-        (change)="onBasemapChange('Open Street Map')"
-      />
-      <span>Open Street Map</span>
-    </label>
+  <div class="panel-body">
+    <div class="basemap-list">
+      <label class="basemap-item">
+        <input
+          type="radio"
+          name="basemap"
+          [checked]="selectedBasemap === 'Open Street Map'"
+          (change)="onBasemapChange('Open Street Map')"
+        />
+        <span>Open Street Map</span>
+      </label>
 
-    <!-- Satellite -->
-    <label class="basemap-item">
-      <input
-        type="radio"
-        name="basemap"
-        [checked]="selectedBasemap === 'satellite'"
-        (change)="onBasemapChange('satellite')"
-      />
-      <span>Satellite</span>
-    </label>
+      <label class="basemap-item">
+        <input
+          type="radio"
+          name="basemap"
+          [checked]="selectedBasemap === 'satellite'"
+          (change)="onBasemapChange('satellite')"
+        />
+        <span>Satellite</span>
+      </label>
 
-    <!-- Esri Topographic -->
-    <label class="basemap-item">
-      <input
-        type="radio"
-        name="basemap"
-        [checked]="selectedBasemap === 'Esri Topographic'"
-        (change)="onBasemapChange('Esri Topographic')"
-      />
-      <span>Esri Topographic</span>
-    </label>
+      <label class="basemap-item">
+        <input
+          type="radio"
+          name="basemap"
+          [checked]="selectedBasemap === 'Esri Topographic'"
+          (change)="onBasemapChange('Esri Topographic')"
+        />
+        <span>Esri Topographic</span>
+      </label>
 
-        <!-- Esri Topographic -->
-        <label class="basemap-item">
-          <input
-            type="radio"
-            name="basemap"
-            [checked]="selectedBasemap === 'Bhuvan India'"
-            (change)="onBasemapChange('Bhuvan India')"
-          />
-          <span>Bhuvan India</span>
-        </label>
-
+      <label class="basemap-item">
+        <input
+          type="radio"
+          name="basemap"
+          [checked]="selectedBasemap === 'Bhuvan India'"
+          (change)="onBasemapChange('Bhuvan India')"
+        />
+        <span>Bhuvan India</span>
+      </label>
+    </div>
   </div>
 </div>
 
