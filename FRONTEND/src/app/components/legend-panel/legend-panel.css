@@ -13,21 +13,23 @@
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-  font-size: 24px;
+  margin-bottom: 10px;
+
+  font-size: 20px; /* consistent with other panels */
 }
 
 .symbol {
-  margin-right: 12px;
+  margin-right: 10px;
 }
 
 .symbol.point {
-  width: 14px;
-  height: 14px;
-  border-radius: 60%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
 }
 
 .symbol.line {
   width: 22px;
-  height: 6px;
+  height: 4px;
 }
+
