@@ -1,247 +1,408 @@
-/* Edit panel sizing/behavior (EDIT ONLY) */
-#panelEdit {
+/* =========================================================
+   EDIT PANEL (EDIT ONLY)
+   ========================================================= */
+
+/* Panel shell */
+#panelEdit{
   width: 760px;
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 120px);
-  overflow-y: auto;
+
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(0,0,0,.25);
+
   position: relative;
-}
-
-/* (Global styles.css already styles panel-header + close)
-   Keep only edit-specific overrides if needed */
-#panelEdit .panel-header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+
+  overflow: hidden; /* header fixed, body scrolls */
+}
+
+/* =========================================================
+   HEADER (ALWAYS VISIBLE)
+   ========================================================= */
+#panelEdit .panel-header{
+  position: relative;
+  height: 52px;
+  padding: 0 16px;
+  display: flex;
   align-items: center;
+  background: #0b2f6b;
 }
 
-/* Close button positioning (if you want absolute in edit only) */
-#panelEdit .panel-close {
+#panelEdit .panel-header h4{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* subtle underline */
+#panelEdit .panel-header::after{
+  content: "";
   position: absolute;
-  top: 8px;
-  right: 10px;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
 }
 
-/* Panel body padding */
-#panelEdit .panel-body {
-  padding: 12px;
+/* Close button */
+#panelEdit .panel-close{
+  position: absolute;
+  right: 12px;
+  top: 10px;
+
+  width: 32px;
+  height: 32px;
+
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+
+  background: rgba(255,255,255,0.15);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* ✅ Bigger label + dropdown for Select Assigned Layer */
-#panelEdit .panel-body > div > label {
-  margin-top: 20px;
+#panelEdit .panel-close:hover{
+  background: rgba(255,255,255,0.28);
+}
+
+/* =========================================================
+   BODY (scroll area)
+   ========================================================= */
+#panelEdit .panel-body{
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+/* =========================================================
+   TABLE MODE: Layer selection
+   ========================================================= */
+#panelEdit .panel-body > div > label{
+  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 12px;
 
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: #1f2937;
 }
 
-#panelEdit .panel-body select {
+#panelEdit .panel-body select{
   min-width: 450px;
-  height: 38px;
-  padding: 4px 12px;
+  height: 40px;
+  padding: 6px 12px;
 
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
 
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   background: #fff;
-
   cursor: pointer;
 }
 
-#panelEdit .panel-body select:hover {
-  border-color: #1d4ed8;
-}
-
-#panelEdit .panel-body select:focus {
+#panelEdit .panel-body select:hover{ border-color: #1d4ed8; }
+#panelEdit .panel-body select:focus{
   outline: none;
   border-color: #1d4ed8;
   box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.20);
 }
 
-/* Vertical separation after layer selection block */
-#panelEdit .panel-body > div:first-child {
-  margin-bottom: 24px;   /* ⬅ main vertical gap */
-  padding-bottom: 16px;
+/* separation line below layer selection */
+#panelEdit .panel-body > div:first-child{
+  margin-bottom: 70px;
+  padding-bottom: 80px
 }
-
-#panelEdit .panel-body > div:first-child::after {
+#panelEdit .panel-body > div:first-child::after{
   content: "";
   display: block;
-  margin-top: 16px;
+  margin-top: 30px;
   border-bottom: 1px solid #e5e7eb;
 }
 
-#panelEdit .toolbar {
-  margin-top: 70px;
-}
-
-
-/* Toolbar */
-.toolbar {
+/* =========================================================
+   TABLE TOOLBAR
+   ========================================================= */
+#panelEdit .toolbar{
   display: flex;
-  gap: 8px;
-  margin: 10px 0;
+  align-items: center;
+  margin-top: 28px;
+  gap: 10px;
+  margin: 8px 0 12px;
 }
 
-.toolbar .spacer {
-  flex: 1;
+#panelEdit .toolbar .spacer{ flex: 1; }
+
+#panelEdit .toolbar .search{
+  font-weight: 700;
+  color: #111827;
 }
 
-.card {
+#panelEdit .toolbar input[type="search"]{
+  height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+/* =========================================================
+   CARD + TABLE
+   ========================================================= */
+#panelEdit .card{
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   overflow: hidden;
+  background: #fff;
 }
 
-.table-scroll {
+#panelEdit .table-scroll{
   max-height: 45vh;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
-.tbl {
+#panelEdit .tbl{
   width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
 }
 
-.tbl th {
+#panelEdit .tbl thead th{
   position: sticky;
   top: 0;
+  z-index: 2;
+
   background: #0b2f6b;
   color: #fff;
+
+  padding: 10px 10px;
+  font-weight: 800;
 }
 
-.tbl th,
-.tbl td {
-  padding: 8px 10px;
-  border-bottom: 1px solid #eef2f7;
+#panelEdit .tbl tbody td{
+  padding: 10px 10px;
+  color: #111827;
 }
 
-/* Actions column: space between Edit & Delete buttons */
-.tbl td:last-child {
+/* zebra + hover */
+#panelEdit .tbl tbody tr:nth-child(even){ background: #f8fafc; }
+#panelEdit .tbl tbody tr:hover{ background: #eaf1ff; }
+
+/* stronger row separator */
+#panelEdit .tbl tbody tr{
+  box-shadow: inset 0 -2px 0 #b7c6e6;
+}
+
+/* actions spacing */
+#panelEdit .tbl td:last-child{
   display: flex;
-  gap: 8px;              /* ⬅ space between buttons */
+  gap: 10px;
   align-items: center;
 }
 
-/* Stronger row separation */
-/* Stronger separators between rows */
-.tbl tbody tr {
-  border-bottom: 2px solid #cfd8ea;  /* more visible */
-}
-
-.tbl tbody td {
-  border-bottom: none; /* avoid double borders with tr border */
-}
-
-
-/* Zebra striping */
-.tbl tbody tr:nth-child(even) {
-  background: #f8fafc;
-}
-
-/* Hover highlight */
-.tbl tbody tr:hover {
-  background: #eaf1ff;
-}
-
-.tbl td {
-  padding: 10px 10px;
-}
-
-
-.empty {
+#panelEdit .empty{
   text-align: center;
   color: #64748b;
 }
 
-.pager {
+/* =========================================================
+   PAGER
+   ========================================================= */
+#panelEdit .pager{
   display: flex;
   align-items: center;
   gap: 10px;
 
-  padding: 14px 10px;        /* more breathing room */
-  margin-top: 16px;          /* space from last table row */
+  padding: 16px 12px;
+  margin-top: 14px;
 
-  border-top: 2px solid #cfd8ea;  /* visible separator line */
+  border-top: 2px solid #b7c6e6;
   background: #ffffff;
 }
 
-.edit-form {
-  position: relative;
-  background: #fff;
-  border-radius: 10px;
-  padding: 14px;
-}
-
-.add-btn {
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+#panelEdit .add-btn,
+#panelEdit .btn{
   background: #1d3b8b;
   color: #fff;
   border: none;
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 600;
-}
-
-.btn {
-  background: #1d3b8b;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.back-btn {
-  position: absolute;
-  right: 16px;
-  top: 46px;
-  background: #1d3b8b;
-  color: #fff;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 16px;
-  cursor: pointer;
-}
-
-.form-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.inline {
-  display: flex;
-  gap: 10px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.error {
-  margin-top: 10px;
-  color: #b91c1c;
+  font-weight: 800;
   font-size: 12px;
 }
 
-.note {
-  margin-top: 10px;
-  font-size: 11px;
-  color: #374151;
+#panelEdit .btn:disabled{
+  opacity: 0.6;
+  cursor: not-allowed;
 }
+
+/* Variants for your new form buttons */
+#panelEdit .btn.primary{ background: #111827; }
+#panelEdit .btn.ghost{
+  background: #eef2f7;
+  color: #64748b;
+  border: 1px solid #dbe3f0;
+}
+#panelEdit .btn.secondary{
+  background: #0b2f6b;
+  border: 1px solid #0b2f6b;
+}
+
+/* =========================================================
+   EDIT MODE (FORM)
+   ========================================================= */
+#panelEdit .edit-form{
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* ✅ TOP ROW: Asset Details left, Back right (SAME LINE) */
+#panelEdit .edit-top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* pushes back button to right */
+  gap: 12px;
+  margin-bottom: 60px; /* space between title area and form */
+}
+
+#panelEdit .edit-title{
+  margin: 0;
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+/* ✅ Back button on right */
+#panelEdit .back-btn{
+  position: static;
+  margin: 0;
+
+  background: #0b2f6b;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* Fields layout */
+#panelEdit .form-grid{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Field wrapper */
+#panelEdit .field{
+  display: flex;
+  flex-direction: column;
+}
+
+/* Labels */
+#panelEdit .field-label{
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+/* Input */
+#panelEdit .field-input{
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+
+  font-size: 14px;
+}
+
+#panelEdit .field-input[readonly]{
+  background: #f8fafc;
+  color: #334155;
+}
+
+/* ✅ Station code row: input left + validate right (SAME LINE) */
+#panelEdit .field-inline{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#panelEdit .field-inline .field-input{
+  flex: 1 1 auto;     /* take remaining width */
+  width: auto;        /* IMPORTANT: remove 100% forcing wrap */
+  margin: 0;
+  min-width: 0;
+}
+
+#panelEdit .field-inline .btn{
+  flex: 0 0 auto;     /* do NOT wrap under */
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* Actions row */
+#panelEdit .form-actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Error + note */
+#panelEdit .error{
+  margin-top: 12px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+#panelEdit .note{
+  margin-top: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 900px){
+  #panelEdit .panel-body select{
+    min-width: 0;
+    width: 100%;
+  }
+}
+

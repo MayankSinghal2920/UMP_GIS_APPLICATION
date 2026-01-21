@@ -119,26 +119,58 @@ export class EditPanel {
         }
 
         this.cdr.detectChanges();
-      }
+      },
+        error: (err) => {
+    console.error('getStationById failed:', err);
+    this.error = err?.error?.error || 'Failed to load station details';
+    this.cdr.detectChanges();
+  }
     });
   }
 
-  private normalizeStation(s: any) {
-    return {
-      objectid: s?.objectid ?? s?.OBJECTID,
-      sttncode: s?.sttncode ?? s?.station_code,
-      sttnname: s?.sttnname ?? s?.station_name,
-      stationtype: s?.stationtype,
-      category: s?.category,
-      distkm: s?.distkm,
-      distm: s?.distm,
-      state: s?.state,
-      district: s?.district,
-      constituency: s?.constituency,
-      lat: s?.lat ?? s?.latitude,
-      lng: s?.lng ?? s?.longitude,
-    };
-  }
+private normalizeStation(s: any) {
+  return {
+    objectid: s?.objectid ?? s?.OBJECTID,
+    sttncode: s?.sttncode ?? s?.station_code,
+    sttnname: s?.sttnname ?? s?.station_name,
+    stationtype: s?.sttntype ?? s?.stationtype,   // ✅ include sttntype
+    category: s?.category,
+    distkm: s?.distkm,
+    distm: s?.distm,
+    state: s?.state,
+    district: s?.district,
+    constituency: s?.constituncy ?? s?.constituency, // ✅ backend has constituncy
+    lat: s?.lat ?? s?.latitude,
+    lng: s?.lon ?? s?.lng ?? s?.longitude,          // ✅ backend alias is lon
+  };
+}
+
+private resetPanelState() {
+  this.mode = 'table';
+  this.rows = [];
+  this.total = 0;
+
+  this.page = 1;
+  this.pageSize = 12;
+
+  this.search = '';
+  this.loading = false;
+
+  this.draft = null;
+
+  this.saving = false;
+  this.deleting = false;
+  this.validating = false;
+
+  this.error = null;
+
+  // reset selection to start screen
+  this.edit.editLayer = null as any;
+
+  // clear map highlight (if any)
+  this.mapZoom.clearHighlight();
+}
+
 
   cancelEdit() {
     this.mode = 'table';
@@ -216,6 +248,7 @@ export class EditPanel {
 
   close() {
     this.ui.activePanel = null;
+    this.resetPanelState();
     this.edit.enabled = false;
     this.mode = 'table';
     this.rows = [];
