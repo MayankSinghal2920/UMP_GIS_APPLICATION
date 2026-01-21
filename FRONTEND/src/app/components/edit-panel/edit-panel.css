@@ -396,6 +396,76 @@
   color: #64748b;
 }
 
+/* Actions column layout */
+#panelEdit .tbl td:last-child{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Base action button */
+#panelEdit .tbl td:last-child button.action-btn{
+  width: 30px;
+  height: 30px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  padding: 0;
+  border-radius: 6px;
+
+  cursor: pointer;
+
+  background: transparent; /* default: no background */
+  font-size: 0;
+}
+
+/* Icon base */
+#panelEdit .tbl td:last-child button.action-btn::before{
+  content: "";
+  width: 36px;
+  height: 36px;
+
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* 🟣 EDIT button — violet background */
+#panelEdit .tbl td:last-child button:first-of-type{
+  background: #1d3b8b; /* violet */
+}
+
+#panelEdit .tbl td:last-child button:first-of-type::before{
+  background-image: url("../../../assets/images/icon.png");
+}
+
+/* 🗑 DELETE button — icon only (NO background) */
+#panelEdit .tbl td:last-child button:last-of-type{
+  background: transparent;
+}
+
+#panelEdit .tbl td:last-child button:last-of-type::before{
+  background-image: url("../../../assets/images/delete.png");
+}
+
+/* Hover effects */
+#panelEdit .tbl td:last-child button:hover{
+  transform: scale(1.08);
+  filter: brightness(1.1);
+}
+
+/* Disabled state */
+#panelEdit .tbl td:last-child button:disabled{
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+
+
 /* =========================================================
    RESPONSIVE
    ========================================================= */
