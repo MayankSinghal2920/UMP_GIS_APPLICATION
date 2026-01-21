@@ -73,14 +73,8 @@
                 <td>{{ r.state }}</td>
                 <td>{{ r.district }}</td>
                 <td>
-                  <button class="btn" (click)="editRow(r)">Edit</button>
-                  <button
-                    class="btn"
-                    (click)="deleteRow(r)"
-                    [disabled]="deleting"
-                  >
-                    Delete
-                  </button>
+                  <button class="action-btn" (click)="editRow(r)">Edit</button>
+                  <button class="action-btn" (click)="deleteRow(r)" [disabled]="deleting">Delete</button>
                 </td>
               </tr>
             </tbody>
