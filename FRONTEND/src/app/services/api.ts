@@ -94,33 +94,38 @@ export class Api {
 
   /* ===================== STATION ADMIN ===================== */
 
-  getStationTable(page: number, pageSize: number, search: string) {
-    const params: any = { page, pageSize };
+getStationTable(page: number, pageSize: number, search: string) {
+  const params: any = {
+    page,
+    pageSize,
+    division: this.getDivision(),   // ✅ MANDATORY
+  };
 
-    if (search) {
-      params.q = search;
-    }
-
-    return this.http.get<any>(
-      `${this.BASE_URL}/api/edit/stations`,
-      { params }
-    );
+  if (search) {
+    params.q = search;
   }
-  
+
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/edit/stations`,
+    { params }
+  );
+}
+
 /* ===================== UPDATE STATION ===================== */
-  updateStation(id: number, payload: any) {
-    return this.http.put(
-      `${this.BASE_URL}/api/edit/stations/${id}`,
-      payload
-    );
-  }
+updateStation(id: number, payload: any) {
+  return this.http.put(
+    `${this.BASE_URL}/api/edit/stations/${id}`,
+    payload,
+    { params: { division: this.getDivision() } }
+  );
+}
 
-
-  deleteStation(id: number) {
-    return this.http.delete(
-      `${this.BASE_URL}/api/edit/stations/${id}`
-    );
-  }
+deleteStation(id: number) {
+  return this.http.delete(
+    `${this.BASE_URL}/api/edit/stations/${id}`,
+    { params: { division: this.getDivision() } }
+  );
+}
 
 
 

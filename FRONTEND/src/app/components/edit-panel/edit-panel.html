@@ -1,10 +1,14 @@
 <div class="panel" id="panelEdit" *ngIf="edit.enabled">
 
   <!-- ================= HEADER ================= -->
-  <div class="panel-header" *ngIf="mode === 'table'">
-    <h4>Edit Tool</h4>
-    <button class="panel-close" aria-label="Close" (click)="close()">×</button>
-  </div>
+ <!-- ================= HEADER (ALWAYS VISIBLE) ================= -->
+<!-- ================= HEADER (ALWAYS VISIBLE, STATIC TITLE) ================= -->
+<div class="panel-header">
+  <h4>Edit Tool</h4>
+  <button class="panel-close" aria-label="Close" (click)="close()">×</button>
+</div>
+
+
 
   <!-- ================= BODY ================= -->
   <div class="panel-body">
@@ -69,14 +73,8 @@
                 <td>{{ r.state }}</td>
                 <td>{{ r.district }}</td>
                 <td>
-                  <button class="btn" (click)="editRow(r)">Edit</button>
-                  <button
-                    class="btn"
-                    (click)="deleteRow(r)"
-                    [disabled]="deleting"
-                  >
-                    Delete
-                  </button>
+                  <button class="action-btn" (click)="editRow(r)">Edit</button>
+                  <button class="action-btn" (click)="deleteRow(r)" [disabled]="deleting">Delete</button>
                 </td>
               </tr>
             </tbody>
@@ -101,93 +99,96 @@
     </ng-container>
 
     <!-- ================= EDIT MODE ================= -->
-    <div *ngIf="mode === 'edit'" class="edit-form">
+<!-- ================= EDIT MODE ================= -->
+<div *ngIf="mode === 'edit'" class="edit-form">
 
-      <h3>Asset Details</h3>
-      <h5>Selected Asset Details</h5>
+  <div class="edit-top">
+    <div>
+      <h3 class="edit-title">Asset Details</h3>
+      <!-- <div class="edit-subtitle">Selected Asset Details</div> -->
+    </div>
 
-      <button class="back-btn" (click)="cancelEdit()">← Back</button>
+    <button class="back-btn" (click)="cancelEdit()">← Back</button>
+  </div>
 
-      <div class="form-grid">
+  <div class="form-grid">
 
-        <label>
-          Station Code
-          <div class="inline">
-            <input type="text" [value]="draft?.sttncode" readonly />
-            <button
-              type="button"
-              (click)="validateStationCode()"
-              [disabled]="validating"
-            >
-              {{ validating ? 'Validating...' : 'Validate' }}
-            </button>
-          </div>
-        </label>
-
-        <label>
-          Station Name
-          <input type="text" [value]="draft?.sttnname" readonly />
-        </label>
-
-        <label>
-          Station Type
-          <input type="text" [(ngModel)]="draft.stationtype" />
-        </label>
-
-        <label>
-          Dist (KM)
-          <input type="number" [(ngModel)]="draft.distkm" />
-        </label>
-
-        <label>
-          Dist (M)
-          <input type="number" [(ngModel)]="draft.distm" />
-        </label>
-
-        <label>
-          State
-          <input type="text" [(ngModel)]="draft.state" />
-        </label>
-
-        <label>
-          District
-          <input type="text" [(ngModel)]="draft.district" />
-        </label>
-
-        <label>
-          Category
-          <input type="text" [value]="draft?.category" readonly />
-        </label>
-
-        <label>
-          Constituency
-          <input type="text" [(ngModel)]="draft.constituency" />
-        </label>
-
-      </div>
-
-      <div class="form-actions">
-        <button disabled>Edit Geometry</button>
-        <button disabled>Save Geometry</button>
-
+    <!-- Station Code + Validate -->
+    <div class="field full">
+      <label class="field-label">Station Code</label>
+      <div class="field-inline">
+        <input class="field-input" type="text" [value]="draft?.sttncode" />
         <button
-          class="primary"
-          (click)="send()"
-          [disabled]="saving"
+          class="btn secondary"
+          type="button"
+          (click)="validateStationCode()"
+          [disabled]="validating"
         >
-          {{ saving ? 'Saving...' : 'Send' }}
+          {{ validating ? 'Validating...' : 'Validate' }}
         </button>
       </div>
-
-      <div class="error" *ngIf="error">
-        {{ error }}
-      </div>
-
-      <p class="note">
-        * For Station: Dist(KM)/Dist(M) optional • For Landplan: Polygon geometry required
-      </p>
-
     </div>
+
+    <div class="field">
+      <label class="field-label">Station Name</label>
+      <input class="field-input" type="text" [value]="draft?.sttnname" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">Station Type</label>
+      <input class="field-input" type="text" [(ngModel)]="draft.stationtype" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">Dist (KM)</label>
+      <input class="field-input" type="number" [(ngModel)]="draft.distkm" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">Dist (M)</label>
+      <input class="field-input" type="number" [(ngModel)]="draft.distm" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">State</label>
+      <input class="field-input" type="text" [(ngModel)]="draft.state" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">District</label>
+      <input class="field-input" type="text" [(ngModel)]="draft.district" />
+    </div>
+
+    <div class="field">
+      <label class="field-label">Category</label>
+      <input class="field-input" type="text" [value]="draft?.category" />
+    </div>
+
+    <div class="field full">
+      <label class="field-label">Constituency</label>
+      <input class="field-input" type="text" [(ngModel)]="draft.constituency" />
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn ghost" disabled>Edit Geometry</button>
+    <button class="btn ghost" disabled>Save Geometry</button>
+
+    <button class="btn primary" (click)="send()" [disabled]="saving">
+      {{ saving ? 'Saving...' : 'Send' }}
+    </button>
+  </div>
+
+  <div class="error" *ngIf="error">
+    {{ error }}
+  </div>
+
+  <p class="note">
+    * For Station: Dist(KM)/Dist(M) optional • For Landplan: Polygon geometry required
+  </p>
+
+</div>
+
 
   </div>
 </div>
