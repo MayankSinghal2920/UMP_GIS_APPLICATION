@@ -1,4 +1,15 @@
 /* Bottom dock container */
+/* Always stay above right-side widget panels */
+:host {
+  position: fixed;          /* or absolute, but fixed is safest for overlay */
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  z-index: 3000 !important; /* higher than right-panel (1001) */
+  pointer-events: auto;
+}
+
 .attr-dock {
   position: absolute;
   left: 0;
