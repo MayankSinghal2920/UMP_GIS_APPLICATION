@@ -7,7 +7,7 @@
       *ngFor="let card of mainCards"
       [attr.data-color]="card.color"
       [class.active]="selectedMain === card.key"
-      (click)="selectMain(card.key)"
+      (click)="onMainCardClick(card.key)"
     >
       <div class="main-title">{{ card.title }}</div>
       <div class="main-value">{{ card.value }}</div>
