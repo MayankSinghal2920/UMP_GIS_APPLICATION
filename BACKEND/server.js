@@ -95,6 +95,51 @@ app.get('/api/stations', async (req, res) => {
   }
 });
 
+// station count
+
+app.get('/api/dashboard/stations/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.station_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0].count });
+
+  } catch (e) {
+    console.error('❌ station count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 
 // GET /api/edit/stations?bbox=minx,miny,maxx,maxy&page=1&pageSize=10&q=ndls&division=DLI
 app.get('/api/edit/stations', async (req, res) => {
@@ -1434,6 +1479,9 @@ app.listen(port, () => {
 -- CREATE INDEX IF NOT EXISTS station_1_code_station_code_idx
 --   ON sde.station_1_code (UPPER(station_code));
 ----------------------------------------------------------- */
+
+
+
 
 
 
