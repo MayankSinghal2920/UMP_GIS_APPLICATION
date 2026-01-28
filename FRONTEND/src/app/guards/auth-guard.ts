@@ -6,11 +6,15 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(Auth);
   const router = inject(Router);
 
-  if (auth.isLoggedIn()) {
-    return true; // ✅ allow access
+  const isLoggedIn = auth.isLoggedIn();
+  const division = localStorage.getItem('division');
+
+  // ✅ Allow dashboard ONLY when full user context exists
+  if (isLoggedIn && division) {
+    return true;
   }
 
-  // ❌ not logged in → redirect
+  // ❌ Missing context → force re-login
   router.navigateByUrl('/login');
   return false;
 };
