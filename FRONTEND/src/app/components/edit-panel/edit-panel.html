@@ -171,10 +171,10 @@
   </div>
 
   <div class="form-actions">
-    <button class="btn ghost" disabled>Edit Geometry</button>
-    <button class="btn ghost" disabled>Save Geometry</button>
+    <button class="btn primary">Edit Geometry</button>
+    <button class="btn primary" disabled>Save Geometry</button>
 
-    <button class="btn primary" (click)="send()" [disabled]="saving">
+    <button class="btn primary" (click)="send()">
       {{ saving ? 'Saving...' : 'Send' }}
     </button>
   </div>
