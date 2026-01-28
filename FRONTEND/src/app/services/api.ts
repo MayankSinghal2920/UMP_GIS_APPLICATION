@@ -153,5 +153,21 @@ getStationByCode(code: string): Observable<any> {
   }
 
 
+  /* ===================== DASHBOARD ===================== */
+
+getStationCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/stations/count`,
+    {
+      params: {
+        division: this.getDivision(),  // ✅ from localStorage
+        type: type                     // TOTAL / MAKER / CHECKER / etc.
+      }
+    }
+  );
+}
+
+
+
 }
 
