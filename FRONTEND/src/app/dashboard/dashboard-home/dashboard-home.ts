@@ -1,8 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { Api } from 'src/app/services/api';
 
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
+
+interface MainCard {
+  key: CardType;
+  title: string;
+  value: number;
+  color: string;
+}
+
+interface SubCard {
+  title: string;
+  value: number;
+}
 
 @Component({
   selector: 'app-dashboard-home',
@@ -15,8 +28,7 @@ export class DashboardHome implements OnInit {
 
   selectedMain: CardType = 'TOTAL';
 
-  /* ================= MAIN CARDS ================= */
-  mainCards: { key: CardType; title: string; value: number; color: string }[] = [
+  mainCards: MainCard[] = [
     { key: 'TOTAL', title: 'TOTAL', value: 0, color: 'blue' },
     { key: 'MAKER', title: 'MAKER', value: 0, color: 'pink' },
     { key: 'CHECKER', title: 'CHECKER', value: 0, color: 'green' },
@@ -24,91 +36,100 @@ export class DashboardHome implements OnInit {
     { key: 'FINALIZED', title: 'FINALIZED', value: 0, color: 'teal' },
   ];
 
-  /* ================= SUB CARDS ================= */
-  subCardMap: Record<CardType, any[]> = {
-    TOTAL: this.createEmptySubCards(),
-    MAKER: this.createEmptySubCards(),
-    CHECKER: this.createEmptySubCards(),
-    APPROVER: this.createEmptySubCards(),
-    FINALIZED: this.createEmptySubCards(),
+  subCardMap: Record<CardType, SubCard[]> = {
+    TOTAL: this.emptySubCards(),
+    MAKER: this.emptySubCards(),
+    CHECKER: this.emptySubCards(),
+    APPROVER: this.emptySubCards(),
+    FINALIZED: this.emptySubCards(),
   };
 
-  constructor(private api: Api) {}
+  constructor(
+    private api: Api,
+    private cdr: ChangeDetectorRef   // 🔑 IMPORTANT
+  ) {}
 
-  /* ================= INIT ================= */
   ngOnInit(): void {
-    this.preloadStationCounts();
+    this.loadDashboard();
   }
 
-  /* ================= PRELOAD STATION COUNTS ================= */
-  private preloadStationCounts(): void {
-    const types: CardType[] = [
-      'TOTAL',
-      'MAKER',
-      'CHECKER',
-      'APPROVER',
-      'FINALIZED',
-    ];
+  /* ================= LOAD EVERYTHING TOGETHER ================= */
+  private loadDashboard(): void {
 
-    types.forEach(type => {
-      this.api.getStationCount(type).subscribe({
-        next: (res) => {
-          // update Station subcard
-          const updatedSubCards = this.subCardMap[type].map(card =>
-            card.title === 'Station'
-              ? { ...card, value: res.count }
-              : card
-          );
+    const stationCalls = {
+      TOTAL: this.api.getStationCount('TOTAL'),
+      MAKER: this.api.getStationCount('MAKER'),
+      CHECKER: this.api.getStationCount('CHECKER'),
+      APPROVER: this.api.getStationCount('APPROVER'),
+      FINALIZED: this.api.getStationCount('FINALIZED'),
+    };
 
-          this.subCardMap = {
-            ...this.subCardMap,
-            [type]: updatedSubCards
-          };
+    forkJoin({
+      stations: forkJoin(stationCalls),
+      landPlan: this.api.getLandPlanOntrack(0),
+    }).subscribe({
+      next: ({ stations, landPlan }) => {
 
-          // update main card total
-          this.updateMainCardValue(type);
+        /* ---------- STATIONS ---------- */
+        (Object.keys(stations) as CardType[]).forEach(type => {
+          this.setSubCard(type, 'Station', stations[type].count);
+        });
 
-          // 🔥 CRITICAL FIX: force initial TOTAL render
-          if (type === 'TOTAL') {
-            this.selectedMain = 'TOTAL';
-          }
-        },
-        error: (err) => {
-          console.error(`❌ Failed to load station count for ${type}`, err);
-        }
-      });
+        /* ---------- LAND PLAN ON TRACK ---------- */
+        const features = landPlan?.features ?? [];
+
+        const lpCounts: Record<CardType, number> = {
+          TOTAL: features.length,
+          MAKER: features.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
+          CHECKER: features.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
+          APPROVER: features.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
+          FINALIZED: features.filter((f: any) => f.properties?.status === 'Approved').length,
+        };
+
+        (Object.keys(lpCounts) as CardType[]).forEach(type => {
+          this.setSubCard(type, 'Land Plan Ontrack', lpCounts[type]);
+        });
+
+        /* ---------- FORCE RENDER ---------- */
+        this.selectedMain = 'TOTAL';
+        this.cdr.detectChanges();   // 🔥 THIS FIXES REFRESH
+
+      },
+      error: err => console.error('❌ Dashboard load failed', err)
     });
   }
 
-  /* ================= MAIN CARD TOTAL ================= */
-  private updateMainCardValue(type: CardType): void {
-    const total = this.subCardMap[type].reduce(
-      (sum, card) => sum + (Number(card.value) || 0),
-      0
-    );
+  /* ================= HELPERS ================= */
+  private setSubCard(type: CardType, title: string, value: number): void {
+    this.subCardMap = {
+      ...this.subCardMap,
+      [type]: this.subCardMap[type].map(c =>
+        c.title === title ? { ...c, value } : c
+      )
+    };
+    this.updateMain(type);
+  }
 
-    this.mainCards = this.mainCards.map(card =>
-      card.key === type
-        ? { ...card, value: total }
-        : card
+  private updateMain(type: CardType): void {
+    const sum = this.subCardMap[type].reduce((a, b) => a + b.value, 0);
+    this.mainCards = this.mainCards.map(c =>
+      c.key === type ? { ...c, value: sum } : c
     );
   }
 
-  /* ================= UI ================= */
-  selectMain(key: CardType): void {
+  onMainCardClick(key: CardType): void {
     this.selectedMain = key;
   }
 
-  get activeSubCards() {
+  get activeSubCards(): SubCard[] {
     return this.subCardMap[this.selectedMain];
   }
 
-  get activeColor() {
+  get activeColor(): string | undefined {
     return this.mainCards.find(c => c.key === this.selectedMain)?.color;
   }
 
-  /* ================= HELPERS ================= */
-  private createEmptySubCards() {
+  private emptySubCards(): SubCard[] {
     return [
       { title: 'KM Post', value: 0 },
       { title: 'Road Over Bridge', value: 0 },
@@ -117,7 +138,7 @@ export class DashboardHome implements OnInit {
       { title: 'Station', value: 0 },
       { title: 'Level Xing', value: 0 },
       { title: 'Land Parcel', value: 0 },
-      { title: 'Land Plan Offtrack', value: 0 },
+      { title: 'Land Plan Ontrack', value: 0 },
     ];
   }
 }
