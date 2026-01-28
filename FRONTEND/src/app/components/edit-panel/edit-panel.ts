@@ -19,7 +19,7 @@ export class EditPanel {
   total = 0;
 
   page = 1;
-  pageSize = 12;
+  pageSize = 8;
 
   search = '';
   loading = false;
@@ -172,12 +172,15 @@ private resetPanelState() {
 }
 
 
-  cancelEdit() {
-    this.mode = 'table';
-    this.draft = null;
-    this.error = null;
-    this.mapZoom.clearHighlight();
-  }
+cancelEdit() {
+  this.mode = 'table';
+  this.draft = null;
+  this.error = null;
+
+  this.mapZoom.zoomHome();        // ✅ zoom out to original division view
+  this.mapZoom.clearHighlight();  // optional
+}
+
 
   send() {
     if (!this.draft?.objectid) {
@@ -195,19 +198,23 @@ private resetPanelState() {
     };
 
     this.saving = true;
+this.api.updateStation(this.draft.objectid, payload).subscribe({
+  next: () => {
+    this.saving = false;
+    this.mode = 'table';
+    this.draft = null;
 
-    this.api.updateStation(this.draft.objectid, payload).subscribe({
-      next: () => {
-        this.saving = false;
-        this.mode = 'table';
-        this.draft = null;
-        setTimeout(() => this.load(), 0);
-      },
-      error: () => {
-        this.saving = false;
-        this.error = 'Failed to save changes';
-      }
-    });
+    this.mapZoom.zoomHome();        // ✅ zoom out after save
+    this.mapZoom.clearHighlight();
+
+    setTimeout(() => this.load(), 0);
+  },
+  error: () => {
+    this.saving = false;
+    this.error = 'Failed to save changes';
+  }
+});
+
   }
 
   validateStationCode() {
@@ -246,14 +253,18 @@ private resetPanelState() {
     });
   }
 
-  close() {
-    this.ui.activePanel = null;
-    this.resetPanelState();
-    this.edit.enabled = false;
-    this.mode = 'table';
-    this.rows = [];
-    this.search = '';
-    this.error = null;
-    this.draft = null;
-  }
+close() {
+  this.mapZoom.zoomHome();        // ✅ zoom out on close
+  this.mapZoom.clearHighlight();
+
+  this.ui.activePanel = null;
+  this.resetPanelState();
+  this.edit.enabled = false;
+  this.mode = 'table';
+  this.rows = [];
+  this.search = '';
+  this.error = null;
+  this.draft = null;
+}
+
 }
