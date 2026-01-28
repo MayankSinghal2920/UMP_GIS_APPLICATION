@@ -20,6 +20,8 @@ import { EditState } from '../../services/edit-state';
 import { AttributeTableService } from '../../services/attribute-table';
 import { UiState } from '../../services/ui-state';
 
+import { MapZoomService, ZoomTarget } from 'src/app/services/map-zoom';
+
 /* Widget panels */
 import { LayerPanel } from '../layer-panel/layer-panel';
 import { LegendPanel } from '../legend-panel/legend-panel';
@@ -45,10 +47,19 @@ type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
 })
 export class Map implements AfterViewInit, OnDestroy {
   private map?: L.Map;
+
   private zoomSub?: Subscription;
   private highlightLayer?: L.GeoJSON;
   private onMoveOrZoom?: () => void;
   private sidebarSub?: Subscription;
+
+  private mapZoomSub?: Subscription;
+  private zoomHighlight?: L.Layer;
+
+  // ✅ Division “home view”
+  private homeCenter?: L.LatLng;
+  private homeZoom?: number;
+  private homeCaptured = false; // ✅ important
 
   constructor(
     private api: Api,
@@ -57,34 +68,19 @@ export class Map implements AfterViewInit, OnDestroy {
     private zone: NgZone,
     private mapRegistry: MapRegistry,
     private layerManager: LayerManager,
-    private attrTable: AttributeTableService, // ✅ existing table logic
-    public ui: UiState
+    private attrTable: AttributeTableService,
+    public ui: UiState,
+    private mapZoom: MapZoomService
   ) {}
 
-// private updateRightPanelWidth(): void {
-//   const host = document.querySelector('app-map') as HTMLElement;
-//   if (!host) return;
+  toggle(panel: WidgetPanel): void {
+    const next = this.ui.activePanel === panel ? null : panel;
+    this.ui.activePanel = next;
+    this.edit.enabled = next === 'edit';
 
-//   const open = this.ui.activePanel !== null;
-//   host.style.setProperty('--right-panel-width', open ? '420px' : '0px');
-
-//   setTimeout(() => this.map?.invalidateSize(), 260);
-// }
-
-  /* Widget toggle */
-toggle(panel: WidgetPanel): void {
-  console.log('widget clicked:', panel);
-  const next = this.ui.activePanel === panel ? null : panel;
-  this.ui.activePanel = next;
-  this.edit.enabled = next === 'edit';
-
-  setTimeout(() => this.forceMapResize(), 0);
-  setTimeout(() => this.forceMapResize(), 260);
-}
-
-
-
-
+    setTimeout(() => this.forceMapResize(), 0);
+    setTimeout(() => this.forceMapResize(), 260);
+  }
 
   ngAfterViewInit(): void {
     this.zone.runOutsideAngular(() => {
@@ -92,20 +88,36 @@ toggle(panel: WidgetPanel): void {
     });
   }
 
-  /** ✅ Fix refresh-gap: force Leaflet to recompute size after layout settles */
   private forceMapResize(): void {
     if (!this.map) return;
-
-    // 1) immediate
     this.map.invalidateSize();
-
-    // 2) after DOM paint
     requestAnimationFrame(() => this.map?.invalidateSize());
-
-    // 3) after sidebar/layout transition settles
     setTimeout(() => this.map?.invalidateSize(), 350);
   }
 
+  // ✅ capture home only once
+  private captureHomeOnce(): void {
+    if (!this.map) return;
+    if (this.homeCaptured) return;
+
+    this.homeCenter = this.map.getCenter();
+    this.homeZoom = this.map.getZoom();
+    this.homeCaptured = true;
+
+    console.log('✅ HOME CAPTURED:', this.homeCenter, this.homeZoom);
+  }
+
+  private zoomToHome(): void {
+    if (!this.map) return;
+
+    if (this.homeCenter && typeof this.homeZoom === 'number') {
+      this.map.invalidateSize();
+      this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
+      console.log('✅ ZOOM HOME TRIGGERED');
+    } else {
+      console.warn('⚠️ Home view not captured yet.');
+    }
+  }
 
   private initializeMapSafely(): void {
     const el = document.getElementById('map');
@@ -118,17 +130,13 @@ toggle(panel: WidgetPanel): void {
 
     const anyEl = el as any;
     if (anyEl._leaflet_id) {
-      try {
-        anyEl._leaflet_id = undefined;
-      } catch {}
+      try { anyEl._leaflet_id = undefined; } catch {}
     }
 
     this.map = L.map(el, { preferCanvas: true }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
-    // ✅ Resize Leaflet after sidebar open/close or any layout changes
     this.sidebarSub = this.ui.layoutChanged$.subscribe(() => {
-      // wait a bit because sidebar uses width transition
       setTimeout(() => this.forceMapResize(), 320);
     });
 
@@ -137,10 +145,8 @@ toggle(panel: WidgetPanel): void {
       { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles © Esri' }
     ).addTo(this.map);
 
-    // ✅ When tiles first load, Leaflet container size is fully settled
     base.once('load', () => this.forceMapResize());
 
-    /* Register layers once */
     this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
     this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
 
@@ -181,18 +187,86 @@ toggle(panel: WidgetPanel): void {
     );
 
     this.map.whenReady(() => {
-      // ✅ do multi-pass resize (fixes right-gap after refresh)
       this.forceMapResize();
 
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
 
+      // ✅ Capture home immediately (current view)
+      this.captureHomeOnce();
+
+      // ✅ Capture home again after the first real map movement settles (division fitBounds etc.)
+      // BUT still only once due to guard.
+      this.map!.once('moveend', () => {
+        // if division auto-zoom happens, we capture that final view as home
+        this.captureHomeOnce();
+      });
+
       this.onMoveOrZoom = () => this.layerManager.reloadAll(this.map!);
       this.map!.on('moveend', this.onMoveOrZoom);
       this.map!.on('zoomend', this.onMoveOrZoom);
-      // this.updateRightPanelWidth();
 
+      // ✅ Listen to zoom commands
+      this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => {
+        if (!this.map) return;
 
+        // clear highlight
+        if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) {
+          this.map.removeLayer(this.zoomHighlight as any);
+        }
+        this.zoomHighlight = undefined;
+
+        if (t.type === 'clear') return;
+
+        if (t.type === 'home') {
+          this.zoomToHome();
+          return;
+        }
+
+        if (t.type === 'latlng') {
+          const z = t.zoom ?? 17;
+          const ll = L.latLng(t.lat, t.lng);
+
+          this.map.invalidateSize();
+          this.map.setView(ll, z, { animate: true });
+
+          this.zoomHighlight = L.circleMarker(ll, {
+            radius: 10,
+            weight: 3,
+            fillOpacity: 0.2,
+          }).addTo(this.map);
+
+          return;
+        }
+
+        if (t.type === 'xy') {
+          const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y));
+          const z = t.zoom ?? 17;
+
+          this.map.invalidateSize();
+          this.map.setView(ll, z, { animate: true });
+
+          this.zoomHighlight = L.circleMarker(ll, {
+            radius: 10,
+            weight: 3,
+            fillOpacity: 0.2,
+          }).addTo(this.map);
+
+          return;
+        }
+
+        if (t.type === 'bounds') {
+          const b = L.latLngBounds(
+            L.latLng(t.south, t.west),
+            L.latLng(t.north, t.east)
+          );
+          this.map.invalidateSize();
+          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: true });
+          return;
+        }
+      });
+
+      // Existing attribute table zoom
       this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => {
         if (!this.map) return;
 
@@ -203,7 +277,6 @@ toggle(panel: WidgetPanel): void {
 
           const gj = L.geoJSON(feature);
           const bounds = gj.getBounds();
-
           if (bounds?.isValid()) {
             this.map.fitBounds(bounds.pad(0.2), { animate: true });
           }
@@ -216,10 +289,17 @@ toggle(panel: WidgetPanel): void {
 
   ngOnDestroy(): void {
     this.zoomSub?.unsubscribe();
-    this.zoomSub = undefined;
-
     this.sidebarSub?.unsubscribe();
+    this.mapZoomSub?.unsubscribe();
+
+    this.zoomSub = undefined;
     this.sidebarSub = undefined;
+    this.mapZoomSub = undefined;
+
+    if (this.map && this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) {
+      this.map.removeLayer(this.zoomHighlight as any);
+    }
+    this.zoomHighlight = undefined;
 
     if (!this.map) return;
 
@@ -237,6 +317,9 @@ toggle(panel: WidgetPanel): void {
       this.map = undefined;
       this.onMoveOrZoom = undefined;
       this.highlightLayer = undefined;
+      this.homeCenter = undefined;
+      this.homeZoom = undefined;
+      this.homeCaptured = false;
     }
   }
 }
