@@ -1,6 +1,8 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+
 import { EditState } from '../../services/edit-state';
 import { Api } from 'src/app/services/api';
 import { UiState } from '../../services/ui-state';
@@ -13,8 +15,7 @@ import { MapZoomService } from 'src/app/services/map-zoom';
   templateUrl: './edit-panel.html',
   styleUrl: './edit-panel.css',
 })
-export class EditPanel {
-
+export class EditPanel implements OnDestroy {
   rows: any[] = [];
   total = 0;
 
@@ -32,6 +33,10 @@ export class EditPanel {
   validating = false;
   error: string | null = null;
 
+  // ================== GEOMETRY EDIT STATE ==================
+  geomEditing = false; // Save Geometry enabled only when true
+  private dragSub?: Subscription;
+
   constructor(
     public ui: UiState,
     public edit: EditState,
@@ -39,6 +44,11 @@ export class EditPanel {
     private cdr: ChangeDetectorRef,
     private mapZoom: MapZoomService
   ) {}
+
+  ngOnDestroy(): void {
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+  }
 
   /* ================== GETTERS ================== */
   get totalPages(): number {
@@ -55,6 +65,12 @@ export class EditPanel {
     this.error = null;
     this.draft = null;
 
+    // geometry state reset
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.clearHighlight();
+
     if (this.edit.editLayer === 'stations') {
       setTimeout(() => this.load(), 0);
     }
@@ -65,7 +81,7 @@ export class EditPanel {
     this.loading = true;
 
     this.api.getStationTable(this.page, this.pageSize, this.search).subscribe({
-      next: res => {
+      next: (res) => {
         this.rows = res.rows || [];
         this.total = res.total || 0;
         this.loading = false;
@@ -74,7 +90,7 @@ export class EditPanel {
       error: () => {
         this.loading = false;
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
@@ -101,90 +117,126 @@ export class EditPanel {
     this.error = null;
     this.draft = { ...row };
 
+    // geometry state reset for fresh open
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.clearHighlight();
+
     const id = Number(row?.objectid);
     if (!Number.isFinite(id)) return;
 
     this.api.getStationById(id).subscribe({
-      next: full => {
+      next: (full) => {
         const n = this.normalizeStation(full);
         this.draft = { ...this.draft, ...n };
 
+        // ensure draft always has latest lat/lng (used by geometry + send)
+        this.draft.lat = n.lat;
+        this.draft.lng = n.lng;
+
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
+          // just zoom + show non-draggable highlight by default
           this.mapZoom.zoomTo({
             type: 'latlng',
             lat: n.lat,
             lng: n.lng,
-            zoom: 17
-          });
+            zoom: 17,
+            draggable: false,
+          } as any);
         }
 
         this.cdr.detectChanges();
       },
-        error: (err) => {
-    console.error('getStationById failed:', err);
-    this.error = err?.error?.error || 'Failed to load station details';
-    this.cdr.detectChanges();
-  }
+      error: (err) => {
+        console.error('getStationById failed:', err);
+        this.error = err?.error?.error || 'Failed to load station details';
+        this.cdr.detectChanges();
+      },
     });
   }
 
-private normalizeStation(s: any) {
-  return {
-    objectid: s?.objectid ?? s?.OBJECTID,
-    sttncode: s?.sttncode ?? s?.station_code,
-    sttnname: s?.sttnname ?? s?.station_name,
-    stationtype: s?.sttntype ?? s?.stationtype,   // ✅ include sttntype
-    category: s?.category,
-    distkm: s?.distkm,
-    distm: s?.distm,
-    state: s?.state,
-    district: s?.district,
-    constituency: s?.constituncy ?? s?.constituency, // ✅ backend has constituncy
-    lat: s?.lat ?? s?.latitude,
-    lng: s?.lon ?? s?.lng ?? s?.longitude,          // ✅ backend alias is lon
-  };
-}
+  private normalizeStation(s: any) {
+    return {
+      objectid: s?.objectid ?? s?.OBJECTID,
+      sttncode: s?.sttncode ?? s?.station_code,
+      sttnname: s?.sttnname ?? s?.station_name,
+      stationtype: s?.sttntype ?? s?.stationtype, // backend variations
+      category: s?.category,
+      distkm: s?.distkm,
+      distm: s?.distm,
+      state: s?.state,
+      district: s?.district,
+      constituency: s?.constituncy ?? s?.constituency,
+      lat: s?.lat ?? s?.latitude,
+      lng: s?.lon ?? s?.lng ?? s?.longitude,
+    };
+  }
 
-private resetPanelState() {
-  this.mode = 'table';
-  this.rows = [];
-  this.total = 0;
+  // ================== GEOMETRY FLOW ==================
 
-  this.page = 1;
-  this.pageSize = 12;
+  /** Edit Geometry is ALWAYS enabled */
+  startGeometryEdit() {
+    if (!this.draft) return;
 
-  this.search = '';
-  this.loading = false;
+    const lat = Number(this.draft?.lat);
+    const lng = Number(this.draft?.lng);
 
-  this.draft = null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      this.error = 'Lat/Lng not available for this station';
+      this.cdr.detectChanges();
+      return;
+    }
 
-  this.saving = false;
-  this.deleting = false;
-  this.validating = false;
+    // enable Save Geometry
+    this.geomEditing = true;
 
-  this.error = null;
+    // show draggable marker on map
+    this.mapZoom.zoomTo({
+      type: 'latlng',
+      lat,
+      lng,
+      zoom: 17,
+      draggable: true,
+    } as any);
 
-  // reset selection to start screen
-  this.edit.editLayer = null as any;
+    // subscribe once to drag-end updates
+    this.dragSub?.unsubscribe();
+    this.dragSub = this.mapZoom.dragEnd$?.subscribe?.(({ lat: newLat, lng: newLng }: any) => {
+      // store in draft so Send uses latest position
+      this.draft.lat = newLat;
+      this.draft.lng = newLng;
+      this.cdr.detectChanges();
+    });
+  }
 
-  // clear map highlight (if any)
-  this.mapZoom.clearHighlight();
-}
+  /** Save Geometry locks marker + disables itself */
+  saveGeometry() {
+    // lock drag & disable button
+    this.geomEditing = false;
+    this.mapZoom.lockDrag?.();
+    this.cdr.detectChanges();
+  }
 
+  cancelEdit() {
+    this.mode = 'table';
+    this.draft = null;
+    this.error = null;
 
-cancelEdit() {
-  this.mode = 'table';
-  this.draft = null;
-  this.error = null;
+    // reset geometry state
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
 
-  this.mapZoom.zoomHome();        // ✅ zoom out to original division view
-  this.mapZoom.clearHighlight();  // optional
-}
-
+    // zoom back to home/division + clear highlight
+    this.mapZoom.zoomHome();
+    this.mapZoom.clearHighlight();
+  }
 
   send() {
     if (!this.draft?.objectid) {
       this.error = 'Station id missing';
+      this.cdr.detectChanges();
       return;
     }
 
@@ -194,27 +246,41 @@ cancelEdit() {
       distm: this.draft.distm,
       state: this.draft.state,
       district: this.draft.district,
-      constituency: this.draft.constituency
+      constituency: this.draft.constituency,
+
+      // ✅ NEW GEOMETRY
+      lat: this.draft.lat,
+      lng: this.draft.lng,
     };
 
     this.saving = true;
-this.api.updateStation(this.draft.objectid, payload).subscribe({
-  next: () => {
-    this.saving = false;
-    this.mode = 'table';
-    this.draft = null;
 
-    this.mapZoom.zoomHome();        // ✅ zoom out after save
-    this.mapZoom.clearHighlight();
+    this.api.updateStation(this.draft.objectid, payload).subscribe({
+      next: () => {
+        this.saving = false;
 
-    setTimeout(() => this.load(), 0);
-  },
-  error: () => {
-    this.saving = false;
-    this.error = 'Failed to save changes';
-  }
-});
+        // reset view
+        this.mode = 'table';
+        this.draft = null;
 
+        // reset geometry
+        this.geomEditing = false;
+        this.dragSub?.unsubscribe();
+        this.dragSub = undefined;
+
+        // zoom home + clear highlight
+        this.mapZoom.zoomHome();
+        this.mapZoom.clearHighlight();
+
+        setTimeout(() => this.load(), 0);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.saving = false;
+        this.error = 'Failed to save changes';
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   validateStationCode() {
@@ -223,7 +289,7 @@ this.api.updateStation(this.draft.objectid, payload).subscribe({
     this.validating = true;
 
     this.api.getStationByCode(this.draft.sttncode).subscribe({
-      next: row => {
+      next: (row) => {
         this.draft.sttnname = row?.station_name;
         this.draft.category = row?.category;
         this.validating = false;
@@ -232,7 +298,7 @@ this.api.updateStation(this.draft.objectid, payload).subscribe({
       error: () => {
         this.validating = false;
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
@@ -246,25 +312,53 @@ this.api.updateStation(this.draft.objectid, payload).subscribe({
         this.deleting = false;
         if (this.rows.length === 1 && this.page > 1) this.page--;
         this.load();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.deleting = false;
-      }
+        this.cdr.detectChanges();
+      },
     });
   }
 
-close() {
-  this.mapZoom.zoomHome();        // ✅ zoom out on close
-  this.mapZoom.clearHighlight();
+  private resetPanelState() {
+    this.mode = 'table';
+    this.rows = [];
+    this.total = 0;
 
-  this.ui.activePanel = null;
-  this.resetPanelState();
-  this.edit.enabled = false;
-  this.mode = 'table';
-  this.rows = [];
-  this.search = '';
-  this.error = null;
-  this.draft = null;
-}
+    this.page = 1;
+    this.pageSize = 8;
 
+    this.search = '';
+    this.loading = false;
+
+    this.draft = null;
+
+    this.saving = false;
+    this.deleting = false;
+    this.validating = false;
+
+    // geometry reset
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+
+    this.error = null;
+
+    // reset selection to start screen
+    this.edit.editLayer = null as any;
+
+    // clear map highlight (if any)
+    this.mapZoom.clearHighlight();
+  }
+
+  close() {
+    // zoom out on close
+    this.mapZoom.zoomHome();
+    this.mapZoom.clearHighlight();
+
+    this.ui.activePanel = null;
+    this.resetPanelState();
+    this.edit.enabled = false;
+  }
 }
