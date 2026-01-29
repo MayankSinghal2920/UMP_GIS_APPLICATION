@@ -95,29 +95,71 @@ export class Map implements AfterViewInit, OnDestroy {
     setTimeout(() => this.map?.invalidateSize(), 350);
   }
 
-  // ✅ capture home only once
-  private captureHomeOnce(): void {
-    if (!this.map) return;
-    if (this.homeCaptured) return;
+// ✅ Capture home AFTER the map has moved away from initial India view
+private captureHomeAfterFirstSettle(): void {
+  if (!this.map) return;
+  if (this.homeCaptured) return;
+
+  const initialCenter = L.latLng(22.5, 79);
+  const initialZoom = 5;
+
+  const isInitialView = () => {
+    if (!this.map) return true;
+    const z = this.map.getZoom();
+    const c = this.map.getCenter();
+    return z === initialZoom && c.distanceTo(initialCenter) < 50_000; // 50 km
+  };
+
+  const trySave = () => {
+    if (!this.map || this.homeCaptured) return;
+    if (isInitialView()) return; // ✅ do NOT capture India view
 
     this.homeCenter = this.map.getCenter();
     this.homeZoom = this.map.getZoom();
     this.homeCaptured = true;
 
     console.log('✅ HOME CAPTURED:', this.homeCenter, this.homeZoom);
-  }
 
-  private zoomToHome(): void {
-    if (!this.map) return;
+    this.map.off('moveend', trySave);
+    this.map.off('zoomend', trySave);
+  };
 
-    if (this.homeCenter && typeof this.homeZoom === 'number') {
-      this.map.invalidateSize();
-      this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
-      console.log('✅ ZOOM HOME TRIGGERED');
-    } else {
-      console.warn('⚠️ Home view not captured yet.');
+  // listen for real movement (division fitBounds/setView)
+  this.map.on('moveend', trySave);
+  this.map.on('zoomend', trySave);
+
+  // fallback polling (does NOT capture initial view)
+  let tries = 0;
+  const timer = setInterval(() => {
+    if (!this.map || this.homeCaptured) {
+      clearInterval(timer);
+      return;
     }
+    tries++;
+    trySave();
+
+    if (tries >= 30) { // 6 seconds
+      clearInterval(timer);
+      this.map.off('moveend', trySave);
+      this.map.off('zoomend', trySave);
+      console.warn('⚠️ Home not captured yet (division zoom may not have happened).');
+    }
+  }, 200);
+}
+
+
+
+private zoomToHome(): void {
+  if (!this.map) return;
+
+  if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') {
+    console.warn('⚠️ Home not captured yet. Skipping zoomHome.');
+    return;
   }
+
+  this.map.invalidateSize();
+  this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
+}
 
   private initializeMapSafely(): void {
     const el = document.getElementById('map');
@@ -193,14 +235,15 @@ export class Map implements AfterViewInit, OnDestroy {
       this.layerManager.reloadAll(this.map!);
 
       // ✅ Capture home immediately (current view)
-      this.captureHomeOnce();
+      this.captureHomeAfterFirstSettle();
 
       // ✅ Capture home again after the first real map movement settles (division fitBounds etc.)
       // BUT still only once due to guard.
-      this.map!.once('moveend', () => {
-        // if division auto-zoom happens, we capture that final view as home
-        this.captureHomeOnce();
-      });
+      // this.map!.once('moveend', () => {
+      //   // if division auto-zoom happens, we capture that final view as home
+      //   this.captureHomeAfterFirstSettle();
+
+      // });
 
       this.onMoveOrZoom = () => this.layerManager.reloadAll(this.map!);
       this.map!.on('moveend', this.onMoveOrZoom);
@@ -230,11 +273,14 @@ export class Map implements AfterViewInit, OnDestroy {
           this.map.invalidateSize();
           this.map.setView(ll, z, { animate: true });
 
-          this.zoomHighlight = L.circleMarker(ll, {
-            radius: 10,
-            weight: 3,
-            fillOpacity: 0.2,
-          }).addTo(this.map);
+this.zoomHighlight = L.circleMarker(ll, {
+  radius: 15,
+  weight: 5,
+  color: '#7c3aed',    // violet highlight (matches edit theme)
+  fillColor: '#a78bfa',
+  fillOpacity: 0.6,
+}).addTo(this.map);
+
 
           return;
         }
