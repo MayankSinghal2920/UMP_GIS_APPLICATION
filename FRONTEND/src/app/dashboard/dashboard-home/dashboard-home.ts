@@ -46,54 +46,93 @@ export class DashboardHome implements OnInit {
 
   constructor(
     private api: Api,
-    private cdr: ChangeDetectorRef   // 🔑 IMPORTANT
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.loadDashboard();
   }
 
-  /* ================= LOAD EVERYTHING TOGETHER ================= */
+  /* ================= LOAD DASHBOARD ================= */
   private loadDashboard(): void {
 
-    const stationCalls = {
-      TOTAL: this.api.getStationCount('TOTAL'),
-      MAKER: this.api.getStationCount('MAKER'),
-      CHECKER: this.api.getStationCount('CHECKER'),
-      APPROVER: this.api.getStationCount('APPROVER'),
-      FINALIZED: this.api.getStationCount('FINALIZED'),
-    };
+    const types: CardType[] = ['TOTAL', 'MAKER', 'CHECKER', 'APPROVER', 'FINALIZED'];
+
+    const stationCalls: any = {};
+    const bridgeStartCalls: any = {};
+    const bridgeStopCalls: any = {};
+    const bridgeMinorCalls: any = {};
+
+    types.forEach(type => {
+      stationCalls[type]     = this.api.getStationCount(type);
+      bridgeStartCalls[type] = this.api.getBridgeStartCount(type);
+      bridgeStopCalls[type]  = this.api.getBridgeStopCount(type);
+      bridgeMinorCalls[type] = this.api.getBridgeMinorCount(type);
+    });
 
     forkJoin({
       stations: forkJoin(stationCalls),
+      bridgeStart: forkJoin(bridgeStartCalls),
+      bridgeStop: forkJoin(bridgeStopCalls),
+      bridgeMinor: forkJoin(bridgeMinorCalls),
       landPlan: this.api.getLandPlanOntrack(0),
+      kmPosts: this.api.getkmposts('68,6,97,37'),
     }).subscribe({
-      next: ({ stations, landPlan }) => {
+      next: ({ stations, bridgeStart, bridgeStop, bridgeMinor, landPlan, kmPosts }: any) => {
 
         /* ---------- STATIONS ---------- */
-        (Object.keys(stations) as CardType[]).forEach(type => {
-          this.setSubCard(type, 'Station', stations[type].count);
-        });
+        types.forEach(type =>
+          this.setSubCard(type, 'Station', stations[type].count)
+        );
+
+        /* ---------- BRIDGE START ---------- */
+        types.forEach(type =>
+          this.setSubCard(type, 'Bridge Start', bridgeStart[type].count)
+        );
+
+        /* ---------- BRIDGE STOP ---------- */
+        types.forEach(type =>
+          this.setSubCard(type, 'Bridge Stop', bridgeStop[type].count)
+        );
+
+        /* ---------- BRIDGE MINOR ---------- */
+        types.forEach(type =>
+          this.setSubCard(type, 'Bridge Minor', bridgeMinor[type].count)
+        );
 
         /* ---------- LAND PLAN ON TRACK ---------- */
-        const features = landPlan?.features ?? [];
+        const lpFeatures = landPlan?.features ?? [];
 
         const lpCounts: Record<CardType, number> = {
-          TOTAL: features.length,
-          MAKER: features.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
-          CHECKER: features.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
-          APPROVER: features.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
-          FINALIZED: features.filter((f: any) => f.properties?.status === 'Approved').length,
+          TOTAL: lpFeatures.length,
+          MAKER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
+          CHECKER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
+          APPROVER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
+          FINALIZED: lpFeatures.filter((f: any) => f.properties?.status === 'Approved').length,
         };
 
-        (Object.keys(lpCounts) as CardType[]).forEach(type => {
-          this.setSubCard(type, 'Land Plan Ontrack', lpCounts[type]);
-        });
+        types.forEach(type =>
+          this.setSubCard(type, 'Land Plan Ontrack', lpCounts[type])
+        );
 
-        /* ---------- FORCE RENDER ---------- */
+        /* ---------- KM POSTS ---------- */
+        const kmFeatures = kmPosts?.features ?? [];
+
+        const kmCounts: Record<CardType, number> = {
+          TOTAL: kmFeatures.length,
+          MAKER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
+          CHECKER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
+          APPROVER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
+          FINALIZED: kmFeatures.filter((f: any) => f.properties?.status === 'Approved').length,
+        };
+
+        types.forEach(type =>
+          this.setSubCard(type, 'KM Post', kmCounts[type])
+        );
+
+        /* ---------- FINAL RENDER FIX ---------- */
         this.selectedMain = 'TOTAL';
-        this.cdr.detectChanges();   // 🔥 THIS FIXES REFRESH
-
+        this.cdr.detectChanges();
       },
       error: err => console.error('❌ Dashboard load failed', err)
     });
@@ -137,7 +176,9 @@ export class DashboardHome implements OnInit {
       { title: 'Road Under Bridge', value: 0 },
       { title: 'Station', value: 0 },
       { title: 'Level Xing', value: 0 },
-      { title: 'Land Parcel', value: 0 },
+      { title: 'Bridge Start', value: 0 },
+      { title: 'Bridge Stop', value: 0 },
+      { title: 'Bridge Minor', value: 0 },
       { title: 'Land Plan Ontrack', value: 0 },
     ];
   }
