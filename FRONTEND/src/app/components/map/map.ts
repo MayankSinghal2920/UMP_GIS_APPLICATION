@@ -53,13 +53,17 @@ export class Map implements AfterViewInit, OnDestroy {
   private onMoveOrZoom?: () => void;
   private sidebarSub?: Subscription;
 
+  // ✅ draggable geometry marker
+  private dragMarker?: L.Marker;
+  private lockDragSub?: Subscription;
+
   private mapZoomSub?: Subscription;
   private zoomHighlight?: L.Layer;
 
   // ✅ Division “home view”
   private homeCenter?: L.LatLng;
   private homeZoom?: number;
-  private homeCaptured = false; // ✅ important
+  private homeCaptured = false;
 
   constructor(
     private api: Api,
@@ -95,71 +99,118 @@ export class Map implements AfterViewInit, OnDestroy {
     setTimeout(() => this.map?.invalidateSize(), 350);
   }
 
-// ✅ Capture home AFTER the map has moved away from initial India view
-private captureHomeAfterFirstSettle(): void {
-  if (!this.map) return;
-  if (this.homeCaptured) return;
+  // ✅ Capture home AFTER the map has moved away from initial India view
+  private captureHomeAfterFirstSettle(): void {
+    if (!this.map) return;
+    if (this.homeCaptured) return;
 
-  const initialCenter = L.latLng(22.5, 79);
-  const initialZoom = 5;
+    const initialCenter = L.latLng(22.5, 79);
+    const initialZoom = 5;
 
-  const isInitialView = () => {
-    if (!this.map) return true;
-    const z = this.map.getZoom();
-    const c = this.map.getCenter();
-    return z === initialZoom && c.distanceTo(initialCenter) < 50_000; // 50 km
-  };
+    const isInitialView = () => {
+      if (!this.map) return true;
+      const z = this.map.getZoom();
+      const c = this.map.getCenter();
+      return z === initialZoom && c.distanceTo(initialCenter) < 50_000; // 50 km
+    };
 
-  const trySave = () => {
-    if (!this.map || this.homeCaptured) return;
-    if (isInitialView()) return; // ✅ do NOT capture India view
+    const trySave = () => {
+      if (!this.map || this.homeCaptured) return;
+      if (isInitialView()) return; // ✅ do NOT capture India view
 
-    this.homeCenter = this.map.getCenter();
-    this.homeZoom = this.map.getZoom();
-    this.homeCaptured = true;
+      this.homeCenter = this.map.getCenter();
+      this.homeZoom = this.map.getZoom();
+      this.homeCaptured = true;
 
-    console.log('✅ HOME CAPTURED:', this.homeCenter, this.homeZoom);
+      console.log('✅ HOME CAPTURED:', this.homeCenter, this.homeZoom);
 
-    this.map.off('moveend', trySave);
-    this.map.off('zoomend', trySave);
-  };
-
-  // listen for real movement (division fitBounds/setView)
-  this.map.on('moveend', trySave);
-  this.map.on('zoomend', trySave);
-
-  // fallback polling (does NOT capture initial view)
-  let tries = 0;
-  const timer = setInterval(() => {
-    if (!this.map || this.homeCaptured) {
-      clearInterval(timer);
-      return;
-    }
-    tries++;
-    trySave();
-
-    if (tries >= 30) { // 6 seconds
-      clearInterval(timer);
       this.map.off('moveend', trySave);
       this.map.off('zoomend', trySave);
-      console.warn('⚠️ Home not captured yet (division zoom may not have happened).');
-    }
-  }, 200);
-}
+    };
 
+    // listen for real movement (division fitBounds/setView)
+    this.map.on('moveend', trySave);
+    this.map.on('zoomend', trySave);
 
+    // fallback polling (does NOT capture initial view)
+    let tries = 0;
+    const timer = setInterval(() => {
+      if (!this.map || this.homeCaptured) {
+        clearInterval(timer);
+        return;
+      }
+      tries++;
+      trySave();
 
-private zoomToHome(): void {
-  if (!this.map) return;
-
-  if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') {
-    console.warn('⚠️ Home not captured yet. Skipping zoomHome.');
-    return;
+      if (tries >= 30) {
+        clearInterval(timer);
+        this.map.off('moveend', trySave);
+        this.map.off('zoomend', trySave);
+        console.warn('⚠️ Home not captured yet (division zoom may not have happened).');
+      }
+    }, 200);
   }
 
-  this.map.invalidateSize();
-  this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
-}
+  private zoomToHome(): void {
+    if (!this.map) return;
+
+    if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') {
+      console.warn('⚠️ Home not captured yet. Skipping zoomHome.');
+      return;
+    }
+
+    this.map.invalidateSize();
+    this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
+  }
+
+  // ✅ remove highlight + drag marker
+  private clearZoomArtifacts(): void {
+    if (!this.map) return;
+
+    if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) {
+      this.map.removeLayer(this.zoomHighlight as any);
+    }
+    this.zoomHighlight = undefined;
+
+    if (this.dragMarker && this.map.hasLayer(this.dragMarker as any)) {
+      this.dragMarker.off();
+      this.map.removeLayer(this.dragMarker as any);
+    }
+    this.dragMarker = undefined;
+  }
+
+  // ✅ create draggable "circle" marker (circleMarker is NOT draggable)
+  private createDraggableCircleMarker(ll: L.LatLng): L.Marker {
+    const size = 34;  // circle diameter
+    const border = 5; // border thickness
+
+    const icon = L.divIcon({
+      className: 'drag-circle-icon',
+      html: `
+        <div style="
+          width:${size}px;height:${size}px;
+          border:${border}px solid #7c3aed;
+          background: rgba(167,139,250,0.60);
+          border-radius: 50%;
+          box-sizing: border-box;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+        "></div>
+      `,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+
+    const m = L.marker(ll, {
+      draggable: true,
+      icon,
+      keyboard: false,
+      autoPan: true,
+      autoPanPadding: L.point(40, 40),
+    });
+
+    (m as any).setZIndexOffset?.(9999);
+    return m;
+  }
 
   private initializeMapSafely(): void {
     const el = document.getElementById('map');
@@ -189,6 +240,7 @@ private zoomToHome(): void {
 
     base.once('load', () => this.forceMapResize());
 
+    /* Register layers once */
     this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
     this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
 
@@ -234,30 +286,36 @@ private zoomToHome(): void {
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
 
-      // ✅ Capture home immediately (current view)
+      // ✅ capture home after division zoom settles
       this.captureHomeAfterFirstSettle();
-
-      // ✅ Capture home again after the first real map movement settles (division fitBounds etc.)
-      // BUT still only once due to guard.
-      // this.map!.once('moveend', () => {
-      //   // if division auto-zoom happens, we capture that final view as home
-      //   this.captureHomeAfterFirstSettle();
-
-      // });
 
       this.onMoveOrZoom = () => this.layerManager.reloadAll(this.map!);
       this.map!.on('moveend', this.onMoveOrZoom);
       this.map!.on('zoomend', this.onMoveOrZoom);
 
+      // ✅ Lock drag requests (from EditState)
+      this.lockDragSub?.unsubscribe();
+this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
+  if (!this.dragMarker) return;
+
+  // hard lock
+  this.dragMarker.dragging?.disable();
+  this.dragMarker.off('drag');
+  this.dragMarker.off('dragend');
+
+  // optional: visually confirm it locked
+  console.log('✅ Drag locked');
+});
+
+
+
       // ✅ Listen to zoom commands
+      this.mapZoomSub?.unsubscribe();
       this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => {
         if (!this.map) return;
 
-        // clear highlight
-        if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) {
-          this.map.removeLayer(this.zoomHighlight as any);
-        }
-        this.zoomHighlight = undefined;
+        // always clear previous highlight/drag marker first
+        this.clearZoomArtifacts();
 
         if (t.type === 'clear') return;
 
@@ -270,17 +328,41 @@ private zoomToHome(): void {
           const z = t.zoom ?? 17;
           const ll = L.latLng(t.lat, t.lng);
 
+          // NOTE: draggable is a custom flag you pass from edit-panel
+          const draggable = !!(t as any).draggable;
+
           this.map.invalidateSize();
           this.map.setView(ll, z, { animate: true });
 
-this.zoomHighlight = L.circleMarker(ll, {
-  radius: 15,
-  weight: 5,
-  color: '#7c3aed',    // violet highlight (matches edit theme)
-  fillColor: '#a78bfa',
-  fillOpacity: 0.6,
-}).addTo(this.map);
+          if (draggable) {
+            // ✅ draggable “circle” marker
+            this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map);
 
+this.dragMarker.on('drag', () => {
+  const p = this.dragMarker!.getLatLng();
+  console.log('MAP DRAG =>', p.lat, p.lng);
+  this.edit.emitDragEnd(p.lat, p.lng);
+});
+
+this.dragMarker.on('dragend', () => {
+  const p = this.dragMarker!.getLatLng();
+  console.log('MAP DRAG END =>', p.lat, p.lng);
+  this.edit.emitDragEnd(p.lat, p.lng);
+});
+
+
+            // keep reference for clearing
+            this.zoomHighlight = this.dragMarker;
+          } else {
+            // ✅ non-draggable highlight
+            this.zoomHighlight = L.circleMarker(ll, {
+              radius: 15,
+              weight: 5,
+              color: '#7c3aed',
+              fillColor: '#a78bfa',
+              fillOpacity: 0.6,
+            }).addTo(this.map);
+          }
 
           return;
         }
@@ -313,6 +395,7 @@ this.zoomHighlight = L.circleMarker(ll, {
       });
 
       // Existing attribute table zoom
+      this.zoomSub?.unsubscribe();
       this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => {
         if (!this.map) return;
 
@@ -337,15 +420,14 @@ this.zoomHighlight = L.circleMarker(ll, {
     this.zoomSub?.unsubscribe();
     this.sidebarSub?.unsubscribe();
     this.mapZoomSub?.unsubscribe();
+    this.lockDragSub?.unsubscribe();
 
     this.zoomSub = undefined;
     this.sidebarSub = undefined;
     this.mapZoomSub = undefined;
+    this.lockDragSub = undefined;
 
-    if (this.map && this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) {
-      this.map.removeLayer(this.zoomHighlight as any);
-    }
-    this.zoomHighlight = undefined;
+    if (this.map) this.clearZoomArtifacts();
 
     if (!this.map) return;
 
@@ -366,6 +448,8 @@ this.zoomHighlight = L.circleMarker(ll, {
       this.homeCenter = undefined;
       this.homeZoom = undefined;
       this.homeCaptured = false;
+      this.dragMarker = undefined;
+      this.zoomHighlight = undefined;
     }
   }
 }

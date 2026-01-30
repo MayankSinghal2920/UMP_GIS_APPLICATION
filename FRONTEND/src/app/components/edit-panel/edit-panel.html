@@ -170,14 +170,28 @@
     </div>
   </div>
 
-  <div class="form-actions">
-    <button class="btn primary">Edit Geometry</button>
-    <button class="btn primary" disabled>Save Geometry</button>
+<div class="form-actions">
+  <!-- Edit Geometry always enabled -->
+<button class="btn primary" type="button" (click)="startGeometryEdit()">
+  Edit Geometry
+</button>
 
-    <button class="btn primary" (click)="send()">
-      {{ saving ? 'Saving...' : 'Send' }}
-    </button>
-  </div>
+<button
+  class="btn primary"
+  type="button"
+  (click)="saveGeometry()"
+  [disabled]="!geomEditing"
+>
+  Save Geometry
+</button>
+
+
+  <button class="btn primary" type="button" (click)="send()" [disabled]="saving">
+    {{ saving ? 'Saving...' : 'Send' }}
+  </button>
+</div>
+
+
 
   <div class="error" *ngIf="error">
     {{ error }}
