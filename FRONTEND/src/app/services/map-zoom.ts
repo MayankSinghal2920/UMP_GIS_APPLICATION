@@ -6,8 +6,7 @@ export type ZoomTarget =
   | { type: 'xy'; x: number; y: number; zoom?: number }
   | { type: 'bounds'; west: number; south: number; east: number; north: number; pad?: number }
   | { type: 'home' }
-  | { type: 'clear' }
-  | { type: 'lock' };
+  | { type: 'clear' };
 
 @Injectable({ providedIn: 'root' })
 export class MapZoomService {
@@ -17,6 +16,10 @@ export class MapZoomService {
   // ✅ drag-end callback channel
   private readonly _dragEnd$ = new Subject<{ lat: number; lng: number }>();
   readonly dragEnd$ = this._dragEnd$.asObservable();
+
+  // ✅ lock-drag channel (separate from ZoomTarget)
+  private readonly _lockDrag$ = new Subject<void>();
+  readonly lockDrag$ = this._lockDrag$.asObservable();
 
   zoomTo(t: ZoomTarget) {
     this._zoomTo$.next(t);
@@ -37,12 +40,12 @@ export class MapZoomService {
 
   // ✅ called from edit-panel.ts
   onDragEnd(fn: (lat: number, lng: number) => void) {
-    const sub = this.dragEnd$.subscribe(({ lat, lng }) => fn(lat, lng));
-    return sub;
+    return this.dragEnd$.subscribe(({ lat, lng }) => fn(lat, lng));
   }
 
+  // ✅ called from edit-panel.ts to lock marker dragging
   lockDrag() {
-    this._zoomTo$.next({ type: 'lock' });
+    this._lockDrag$.next();
   }
 }
 
