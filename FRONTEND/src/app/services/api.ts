@@ -169,6 +169,93 @@ getStationCount(type: string) {
   );
 }
 
+getBridgeStartCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/bridge-start/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getBridgeStopCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/bridge-end/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getBridgeMinorCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/bridge-minor/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+/* ===================== DASHBOARD – OTHER ASSETS ===================== */
+
+getLevelXingCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/levelxing/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getRoadOverBridgeCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/road-over-bridge/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getRubLhsCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/rub-lhs/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getRorCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/ror/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+
 
 
 }
