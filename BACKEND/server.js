@@ -141,6 +141,334 @@ app.get('/api/dashboard/stations/count', async (req, res) => {
 
 
 
+/* -----------------------------------------------------------
+   DASHBOARD – BRIDGE START COUNT
+   GET /api/dashboard/bridge-start/count
+----------------------------------------------------------- */
+app.get('/api/dashboard/bridge-start/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    const params = [division];
+    let statusCondition = '';
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.bridge_start_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (err) {
+    console.error('❌ bridge-start count error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+/* -----------------------------------------------------------
+   DASHBOARD – BRIDGE END COUNT
+   GET /api/dashboard/bridge-end/count
+----------------------------------------------------------- */
+app.get('/api/dashboard/bridge-end/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    const params = [division];
+    let statusCondition = '';
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.bridge_end_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (err) {
+    console.error('❌ bridge-end count error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// -----------------------------------------------------------
+// BRIDGE MINOR COUNT
+// -----------------------------------------------------------
+app.get('/api/dashboard/bridge-minor/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.bridge_minor_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (e) {
+    console.error('❌ bridge minor count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// -----------------------------------------------------------
+// LEVEL XING COUNT
+// -----------------------------------------------------------
+app.get('/api/dashboard/level-xing/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.levelxing_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (e) {
+    console.error('❌ level xing count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// -----------------------------------------------------------
+// ROAD OVER BRIDGE COUNT
+// -----------------------------------------------------------
+app.get('/api/dashboard/road-over-bridge/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.road_over_bridge_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (e) {
+    console.error('❌ road over bridge count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// -----------------------------------------------------------
+// RUB LHS COUNT
+// -----------------------------------------------------------
+app.get('/api/dashboard/rub-lhs/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.rub_lhs_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (e) {
+    console.error('❌ rub lhs count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// -----------------------------------------------------------
+// ROR COUNT
+// -----------------------------------------------------------
+app.get('/api/dashboard/ror/count', async (req, res) => {
+  try {
+    const division = String(req.query.division || '').trim();
+    const type = String(req.query.type || 'TOTAL').toUpperCase();
+
+    if (!division) {
+      return res.status(400).json({ error: 'division is required' });
+    }
+
+    let statusCondition = '';
+    const params = [division];
+
+    if (type === 'MAKER') {
+      params.push('Sent to Maker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'CHECKER') {
+      params.push('Sent to Checker');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'APPROVER') {
+      params.push('Sent to Approver');
+      statusCondition = `AND status = $2`;
+    } else if (type === 'FINALIZED') {
+      params.push('Approved');
+      statusCondition = `AND status = $2`;
+    }
+
+    const sql = `
+      SELECT COUNT(*)::int AS count
+      FROM sde.ror_test
+      WHERE UPPER(division) = UPPER($1)
+      ${statusCondition};
+    `;
+
+    const { rows } = await pool.query(sql, params);
+    res.json({ count: rows[0]?.count || 0 });
+
+  } catch (e) {
+    console.error('❌ ror count error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+
 // GET /api/edit/stations?bbox=minx,miny,maxx,maxy&page=1&pageSize=10&q=ndls&division=DLI
 app.get('/api/edit/stations', async (req, res) => {
   try {
@@ -561,7 +889,8 @@ app.get('/api/km_posts', async (req, res) => {
             'properties', jsonb_build_object(
               'kmpostno', kmpostno,
               'line',     line,
-              'railway',  railway
+              'railway',  railway,
+               'status',   status
             ),
             'geometry', ST_AsGeoJSON(shape)::jsonb
           )
@@ -573,6 +902,7 @@ app.get('/api/km_posts', async (req, res) => {
           kmpostno,
           line,
           railway,
+          status,
           shape
         FROM sde.km_post_test
         WHERE ${where}${divSql}
