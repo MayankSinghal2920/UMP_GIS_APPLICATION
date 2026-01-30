@@ -207,7 +207,7 @@ getBridgeMinorCount(type: string) {
 
 getLevelXingCount(type: string) {
   return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/levelxing/count`,
+    `${this.BASE_URL}/api/dashboard/level-xing/count`,
     {
       params: {
         division: this.getDivision(),
