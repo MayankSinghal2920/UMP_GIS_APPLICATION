@@ -62,53 +62,55 @@ export class DashboardHome implements OnInit {
     const bridgeStartCalls: any = {};
     const bridgeStopCalls: any = {};
     const bridgeMinorCalls: any = {};
+    const levelXingCalls: any = {};
+    const robCalls: any = {};
+    const rubLhsCalls: any = {};
+    const rorCalls: any = {};
 
     types.forEach(type => {
       stationCalls[type]     = this.api.getStationCount(type);
       bridgeStartCalls[type] = this.api.getBridgeStartCount(type);
       bridgeStopCalls[type]  = this.api.getBridgeStopCount(type);
       bridgeMinorCalls[type] = this.api.getBridgeMinorCount(type);
+      levelXingCalls[type]   = this.api.getLevelXingCount(type);
+      robCalls[type]         = this.api.getRoadOverBridgeCount(type);
+      rubLhsCalls[type]      = this.api.getRubLhsCount(type);
+      rorCalls[type]         = this.api.getRorCount(type);
     });
 
     forkJoin({
-      stations: forkJoin(stationCalls),
-      bridgeStart: forkJoin(bridgeStartCalls),
-      bridgeStop: forkJoin(bridgeStopCalls),
-      bridgeMinor: forkJoin(bridgeMinorCalls),
-      landPlan: this.api.getLandPlanOntrack(0),
-      kmPosts: this.api.getkmposts('68,6,97,37'),
+      stations:     forkJoin(stationCalls),
+      bridgeStart:  forkJoin(bridgeStartCalls),
+      bridgeStop:   forkJoin(bridgeStopCalls),
+      bridgeMinor:  forkJoin(bridgeMinorCalls),
+      levelXing:    forkJoin(levelXingCalls),
+      rob:          forkJoin(robCalls),
+      rubLhs:       forkJoin(rubLhsCalls),
+      ror:          forkJoin(rorCalls),
+      landPlan:     this.api.getLandPlanOntrack(0),
+      kmPosts:      this.api.getkmposts('68,6,97,37'),
     }).subscribe({
-      next: ({ stations, bridgeStart, bridgeStop, bridgeMinor, landPlan, kmPosts }: any) => {
+      next: (res: any) => {
 
-        /* ---------- STATIONS ---------- */
-        types.forEach(type =>
-          this.setSubCard(type, 'Station', stations[type].count)
-        );
-
-        /* ---------- BRIDGE START ---------- */
-        types.forEach(type =>
-          this.setSubCard(type, 'Bridge Start', bridgeStart[type].count)
-        );
-
-        /* ---------- BRIDGE STOP ---------- */
-        types.forEach(type =>
-          this.setSubCard(type, 'Bridge Stop', bridgeStop[type].count)
-        );
-
-        /* ---------- BRIDGE MINOR ---------- */
-        types.forEach(type =>
-          this.setSubCard(type, 'Bridge Minor', bridgeMinor[type].count)
-        );
+        types.forEach(type => {
+          this.setSubCard(type, 'Station',        res.stations[type].count);
+          this.setSubCard(type, 'Bridge Start',   res.bridgeStart[type].count);
+          this.setSubCard(type, 'Bridge Stop',    res.bridgeStop[type].count);
+          this.setSubCard(type, 'Bridge Minor',   res.bridgeMinor[type].count);
+          this.setSubCard(type, 'Level Xing',     res.levelXing[type].count);
+          this.setSubCard(type, 'Road Over Bridge', res.rob[type].count);
+          this.setSubCard(type, 'Road Under Bridge', res.rubLhs[type].count);
+          this.setSubCard(type, 'Rail Over Rail', res.ror[type].count);
+        });
 
         /* ---------- LAND PLAN ON TRACK ---------- */
-        const lpFeatures = landPlan?.features ?? [];
-
+        const lp = res.landPlan?.features ?? [];
         const lpCounts: Record<CardType, number> = {
-          TOTAL: lpFeatures.length,
-          MAKER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
-          CHECKER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
-          APPROVER: lpFeatures.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
-          FINALIZED: lpFeatures.filter((f: any) => f.properties?.status === 'Approved').length,
+          TOTAL: lp.length,
+          MAKER: lp.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
+          CHECKER: lp.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
+          APPROVER: lp.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
+          FINALIZED: lp.filter((f: any) => f.properties?.status === 'Approved').length,
         };
 
         types.forEach(type =>
@@ -116,21 +118,19 @@ export class DashboardHome implements OnInit {
         );
 
         /* ---------- KM POSTS ---------- */
-        const kmFeatures = kmPosts?.features ?? [];
-
+        const km = res.kmPosts?.features ?? [];
         const kmCounts: Record<CardType, number> = {
-          TOTAL: kmFeatures.length,
-          MAKER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
-          CHECKER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
-          APPROVER: kmFeatures.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
-          FINALIZED: kmFeatures.filter((f: any) => f.properties?.status === 'Approved').length,
+          TOTAL: km.length,
+          MAKER: km.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
+          CHECKER: km.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
+          APPROVER: km.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
+          FINALIZED: km.filter((f: any) => f.properties?.status === 'Approved').length,
         };
 
         types.forEach(type =>
           this.setSubCard(type, 'KM Post', kmCounts[type])
         );
 
-        /* ---------- FINAL RENDER FIX ---------- */
         this.selectedMain = 'TOTAL';
         this.cdr.detectChanges();
       },
