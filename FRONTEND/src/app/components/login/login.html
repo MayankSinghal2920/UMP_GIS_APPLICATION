@@ -1,80 +1,154 @@
-<!-- Background image -->
+<!-- ===============================
+     BACKGROUND MAP (GIS CONTEXT)
+================================ -->
 <img src="assets/images/i.jpg" class="bg-map" alt="Map background" />
 
-<!-- Main layout -->
-<div
-  class="container-fluid min-vh-100 d-flex align-items-center justify-content-center justify-content-lg-end"
->
-  <!-- Login card -->
-  <div class="login-card shadow-lg">
-    <div class="text-center">
+<!-- ===============================
+     LANGUAGE PILL (TOP RIGHT)
+================================ -->
+<div class="lang-pill">
+  <span class="lang-icon">A</span>
+  <span>English</span>
+</div>
 
-      <!-- Title -->
-      <h1 class="login-title mb-1">
-        IR Asset Application<br>
-        <span class="login-subtitle mb-1">Login</span>
-      </h1>
-      <!-- <h2 class="login-subtitle mb-3">
-        Login
-      </h2> -->
+<!-- ===============================
+     LOGIN WRAPPER
+================================ -->
+<div class="login-wrapper">
 
-      <!-- Subtitle -->
-      <p class="login-caption mb-4">
-        Please enter your credentials below
-      </p>
+  <!-- ===============================
+       PORTAL CARD
+  ================================ -->
+  <div class="portal-card">
 
-      <!-- FORM -->
-      <form (ngSubmit)="login()" #loginForm="ngForm">
+    <!-- ===============================
+         HEADER (LOGOS STRIP)
+    ================================ -->
+<div class="portal-header">
 
-        <!-- Username -->
-        <div class="mb-3 text-center">
+  <div class="header-seg">
+    <img src="assets/images/indian-national-emblem-ashoka.webp" class="logo" alt="overnment of India" />
+  </div>
+
+  <div class="header-seg">
+    <img src="assets/images/amofficialcris_logo.jpg" class="logo" alt="CRIS Logo" />
+  </div>
+
+  <div class="header-seg">
+    <img src="assets/images/Indian_Railways.svg" class="logo" alt="IR Logo" />
+  </div>
+
+  <!-- Optional last segment for arrow
+  <div class="header-seg header-seg--arrow">
+    <button class="mini-arrow" type="button" aria-label="Next panel">»</button>
+  </div> -->
+
+</div>
+
+
+    <!-- ===============================
+         BODY (TEAL PANEL)
+    ================================ -->
+    <div class="portal-body">
+
+      <!-- BRAND ROW -->
+      <div class="brand-row">
+<div class="brand-row">
+
+  <!-- Engine as first letter -->
+<div class="brand-title">
+  <span class="engine-letter">
+    <span class="engine"></span>
+  </span>
+  <span class="engine-I">I</span>ndian Railways Geo Application
+</div>
+
+
+</div>
+      </div>
+
+      <!-- INSTRUCTION -->
+      <div class="hint">Please enter details to proceed</div>
+
+      <!-- ===============================
+           LOGIN FORM
+      ================================ -->
+      <form
+        class="form-area"
+        (ngSubmit)="login()"
+        #loginForm="ngForm"
+      >
+
+        <!-- USER ID -->
+        <div class="field">
           <input
             type="text"
             name="username"
-            class="form-control login-input"
-            placeholder="User ID"
+            class="line-input"
+            placeholder="Enter User ID"
             required
             [(ngModel)]="username"
           />
         </div>
 
-        <br />
-
-        <!-- Password -->
-        <div class="mb-3 text-center">
+        <!-- PASSWORD -->
+        <div class="field pw-field">
           <input
             type="password"
             name="password"
-            class="form-control login-input"
-            placeholder="Password"
+            class="line-input"
+            placeholder="Enter Password"
             required
             [(ngModel)]="password"
           />
-        </div>
-
-        <!-- Login button -->
-        <div class="d-flex justify-content-center mt-3 mb-4">
           <button
-            type="submit"
-            class="btn login-btn"
-            [disabled]="loading || !loginForm.valid"
+            type="button"
+            class="eye-btn"
+            aria-label="Show password"
           >
-            {{ loading ? 'Logging in...' : 'LOGIN' }}
+            👁
           </button>
         </div>
+
+        <!-- TERMS CONSENT -->
+        <label class="check-row">
+          <input type="checkbox" required />
+          <span>
+            I consent to IR Asset Management Portal's
+            <a href="#" class="link">Privacy Policy</a> and
+            <a href="#" class="link">Terms Of Use</a>
+          </span>
+        </label>
+
+        <!-- ACTIONS -->
+        <div class="actions-row">
+          <button
+            type="submit"
+            class="next-btn"
+            [disabled]="loading || !loginForm.valid"
+          >
+            {{ loading ? 'Please wait…' : 'Next' }}
+          </button>
+
+          <!-- CAPTCHA / BADGE PLACEHOLDER -->
+          <div class="captcha-box" aria-label="captcha">
+            <span class="captcha-icon">👤</span>
+          </div>
+        </div>
+
+        <!-- ERROR MESSAGE -->
+        <div *ngIf="error" class="error-text">
+          {{ error }}
+        </div>
+
       </form>
-
-      <!-- Error -->
-      <div *ngIf="error" class="text-danger mt-3">
-        {{ error }}
-      </div>
-
-      <!-- Footer note -->
-      <p class="note login-note mt-4 mb-0">
-        Unable to login? Please contact the system administrator
-      </p>
+      <!-- END FORM -->
 
     </div>
-  </div>
-</div>
+    <!-- END BODY -->
 
+  </div>
+  <!-- END CARD -->
+
+</div>
+<!-- END WRAPPER -->

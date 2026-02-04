@@ -1,6 +1,6 @@
-/* ===============================
-   GLOBAL RESET
-================================ */
+/* =========================================================
+   GLOBAL RESET & BASE
+========================================================= */
 html, body {
   margin: 0;
   padding: 0;
@@ -8,170 +8,432 @@ html, body {
   font-family: "Segoe UI", Arial, sans-serif;
 }
 
-/* ===============================
-   BACKGROUND MAP
-================================ */
+/* =========================================================
+   BACKGROUND MAP (GIS CONTEXT – ALWAYS VISIBLE)
+========================================================= */
 .bg-map {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  z-index: -2;
+  z-index: 0;
 }
 
-/* subtle dark overlay (like IR portal) */
-.login-wrapper::before {
+/* subtle dark overlay for readability */
+body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.12);
-  z-index: -1;
+  background: rgba(0, 0, 0, 0.20);
+  z-index: 1;
 }
 
-/* ===============================
-   RIGHT SIDE WRAPPER
-================================ */
+/* =========================================================
+   LANGUAGE PILL (TOP RIGHT)
+========================================================= */
+.lang-pill {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  z-index: 5;
+  background: #0b83c7;
+  color: #ffffff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+}
+
+.lang-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.18);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+/* =========================================================
+   LOGIN WRAPPER
+========================================================= */
 .login-wrapper {
   position: fixed;
   inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+/* =========================================================
+   PORTAL CARD
+========================================================= */
+.portal-card {
+  width: 520px;
+  max-width: 94vw;
+
+  /* 🔥 KEY CHANGE */
+  height: 72vh;          /* matches Parichay-like tall box */
+  max-height: 760px;     /* safety on very large screens */
+  min-height: 600px;     /* safety on small screens */
+
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 18px 55px rgba(0,0,0,0.35);
+
   display: flex;
-  justify-content: flex-end;     /* push card to right */
-  align-items: center;           /* vertically center */
-  padding-right: 8vw;            /* distance from right */
-  padding-left: 16px;
+  flex-direction: column;  /* header + body stack properly */
+}
+
+
+
+
+/* =========================================================
+   HEADER STRIP (FULL HEIGHT ICONS + VERTICAL DIVIDERS)
+========================================================= */
+/* =========================================================
+   FULL-WIDTH HEADER WITH EQUAL LOGO COLUMNS
+========================================================= */
+.portal-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 48px;
+  width: 100%;
+
+  /* proportional height */
+  height: 12%;            /* relative to card height */
+  min-height: 96px;       /* ensures logos fit */
+  max-height: 120px;
+
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0,0,0,0.18);
+}
+
+
+/* each column */
+.header-seg {
+  position: relative;
+  display: flex;
+  align-items: center;        /* vertical center */
+  justify-content: center;
+  height: 100%;
+  padding: 0 18px;            /* ⬆️ more breathing space */
   box-sizing: border-box;
 }
 
-/* ===============================
-   LOGIN CARD
-================================ */
-.login-card {
-  background: #ffffff;
-  border-radius: 4px;
-  border: 2px solid #005fa2;
-  padding: 40px 42px 32px;
-  /* height: 900px; */
-  width: 450px;
-  margin-right: 400px;
-  max-width: 90vw;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.30);
+/* vertical divider */
+.header-seg:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: rgba(0,0,0,0.25);
 }
 
-/* ===============================
-   TITLES
-================================ */
-.login-title {
-  margin-top: 20px;
-  font-size: 36px;              /* slightly reduced so it fits in one line */
-  font-weight: 600;
-  color: #005fa2;
-  text-align: center;
-  line-height: 1.2;
-  margin-bottom: 10px;
-
-  /* ✅ FORCE SINGLE LINE */
-  white-space: nowrap;
-}
-
-
-.login-caption {
-  font-size: 20px;
-  color: #333;
-  margin-top: 30px;
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-/* ===============================
-   INPUTS
-================================ */
-.login-input {
+/* logos must now fully fit */
+.header-seg img {
+  max-height: 78px;           /* ⬅️ critical fix */
   width: 100%;
-  height: 60px;
-  padding: 6px 10px;
-  font-size: 22px;
-  background-color: #eef3ff;
-  border: 1px solid #9da4b3;
-  border-radius: 0;
-  margin-bottom: 22px;
+  object-fit: contain;
 }
 
-.login-input:focus {
-  outline: none;
-  box-shadow: none;
-  border-color: #0065b3;
-}
 
-/* ===============================
-   LOGIN BUTTON (BLUE PILL)
-================================ */
-.login-btn {
-  width: 160px;
-  height: 70px;
-  margin: 30px auto 0 auto;
-  display: block;
-margin-top: 20px;
-  border-radius: 999px;
-  background: #0065b3;
-  border: none;
-  color: #ffffff;
-  font-size: 22px;
+/* arrow column */
+.header-seg--arrow {
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: 0.5px;
   cursor: pointer;
-
-  box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.login-btn:hover {
-  background: #004e8f;
+
+/* arrow button */
+.mini-arrow {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+  opacity: 0.75;
+  line-height: 1;
+}
+.mini-arrow:hover { opacity: 1; }
+
+
+/* =========================================================
+   TEAL BODY
+========================================================= */
+.portal-body{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ===============================
-   FOOTER NOTE
-================================ */
-.login-note {
-  margin-top: 36px;
-  font-size: 16px;
-  color: #444;
-  text-align: center;
-  line-height: 1.4;
+
+/* =========================================================
+   BRAND / TITLE
+========================================================= */
+.brand-row {
+  display: flex;
+  align-items: center;
 }
 
-/* ===============================
-   RESPONSIVE TUNING
-================================ */
-@media (max-width: 992px) {
-  .login-wrapper {
-    justify-content: center;
-    padding-right: 0;
-  }
-
-  .login-card {
-    width: 420px;
-  }
+.brand-title{
+  font-size: 30px;   /* was 26 */
+  font-weight: 700;
 }
 
+/* =========================================================
+   ENGINE ICON AS FIRST LETTER (PURE CSS)
+========================================================= */
+/* =========================================================
+   IMPROVED RAILWAY ENGINE (PURE CSS)
+========================================================= */
+.engine-letter {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+}
+
+.engine-I {
+  margin-right: 2px;
+}
+
+.engine {
+  --s: 32px;
+  --c: rgba(255,255,255,0.95);
+  position: relative;
+  width: calc(var(--s) * 1.15);
+  height: var(--s);
+}
+
+/* main body */
+.engine::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: 8px;
+  width: 28px;
+  height: 14px;
+  background: var(--c);
+  border-radius: 3px;
+}
+
+/* cabin, chimney, wheels */
+.engine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    /* cabin */
+    linear-gradient(var(--c), var(--c)) 6px 4px / 14px 10px no-repeat,
+
+    /* cabin window cut */
+    linear-gradient(#0b86a7, #0b86a7) 9px 7px / 6px 4px no-repeat,
+
+    /* chimney */
+    linear-gradient(var(--c), var(--c)) 22px 0px / 5px 10px no-repeat,
+
+    /* chimney cap */
+    radial-gradient(circle, var(--c) 65%, transparent 67%) 24px 0px / 7px 7px no-repeat,
+
+    /* wheels */
+    radial-gradient(circle, var(--c) 60%, transparent 62%) 6px 22px / 10px 10px no-repeat,
+    radial-gradient(circle, var(--c) 60%, transparent 62%) 16px 22px / 10px 10px no-repeat,
+    radial-gradient(circle, var(--c) 60%, transparent 62%) 26px 22px / 10px 10px no-repeat,
+
+    /* rail */
+    linear-gradient(var(--c), var(--c)) 4px 28px / 34px 2px no-repeat;
+}
+
+/* Mobile scale */
 @media (max-width: 576px) {
-  .login-card {
+  .engine { --s: 26px; }
+}
+
+/* Cabin, chimney & wheels */
+.engine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    /* cabin */
+    linear-gradient(var(--c), var(--c))
+      calc(var(--s) * 0.18) calc(var(--s) * 0.18) /
+      calc(var(--s) * 0.32) calc(var(--s) * 0.30) no-repeat,
+
+    /* cabin window (cutout using teal bg) */
+    linear-gradient(#0b86a7, #0b86a7)
+      calc(var(--s) * 0.25) calc(var(--s) * 0.23) /
+      calc(var(--s) * 0.15) calc(var(--s) * 0.12) no-repeat,
+
+    /* chimney */
+    linear-gradient(var(--c), var(--c))
+      calc(var(--s) * 0.56) calc(var(--s) * 0.16) /
+      calc(var(--s) * 0.12) calc(var(--s) * 0.22) no-repeat,
+
+    /* chimney cap */
+    radial-gradient(circle, var(--c) 70%, transparent 72%)
+      calc(var(--s) * 0.62) calc(var(--s) * 0.15) /
+      calc(var(--s) * 0.16) calc(var(--s) * 0.16) no-repeat,
+
+    /* wheels */
+    radial-gradient(circle, var(--c) 62%, transparent 64%)
+      calc(var(--s) * 0.24) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+    radial-gradient(circle, var(--c) 62%, transparent 64%)
+      calc(var(--s) * 0.52) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+    radial-gradient(circle, var(--c) 62%, transparent 64%)
+      calc(var(--s) * 0.80) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+
+    /* wheel centers */
+    radial-gradient(circle, #0b86a7 45%, transparent 47%)
+      calc(var(--s) * 0.24) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+    radial-gradient(circle, #0b86a7 45%, transparent 47%)
+      calc(var(--s) * 0.52) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+    radial-gradient(circle, #0b86a7 45%, transparent 47%)
+      calc(var(--s) * 0.80) calc(var(--s) * 0.77) /
+      calc(var(--s) * 0.26) calc(var(--s) * 0.26) no-repeat,
+
+    /* rail line */
+    linear-gradient(var(--c), var(--c))
+      calc(var(--s) * 0.20) calc(var(--s) * 0.92) /
+      calc(var(--s) * 0.95) 2px no-repeat;
+}
+
+/* =========================================================
+   FORM
+========================================================= */
+.hint{
+  font-size: 16px;   /* was 14 */
+  font-weight: 600;
+  margin-top: 18px;
+}
+.form-area{
+  flex: 1;                        /* ✅ fills remaining teal area */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;  /* ✅ spreads content vertically */
+  margin-top: 18px;
+}
+
+
+.field{
+  margin-top: 26px;  /* bigger spacing between fields */
+}
+
+.line-input{
+  font-size: 18px;                 /* was 14 */
+  padding: 16px 2px;               /* taller input */
+  border-bottom: 2px solid rgba(255,255,255,0.60);
+}
+
+.line-input::placeholder{
+  font-size: 16px;
+}
+
+.line-input:focus {
+  outline: none;
+  border-bottom-color: #ffffff;
+}
+
+/* Password eye */
+.pw-field {
+  position: relative;
+}
+
+.eye-btn {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+/* Terms checkbox */
+.check-row{
+  margin-top: 28px;
+  font-size: 14px;
+  gap: 12px;
+}
+
+.check-row input{
+  width: 18px;
+  height: 18px;
+}
+
+
+.link {
+  color: #ffe46b;
+  text-decoration: underline;
+}
+
+/* =========================================================
+   ACTIONS
+========================================================= */
+.actions-row{
+  margin-top: auto;
+  padding-bottom: 10px;
+}
+
+.next-btn{
+  font-size: 16px;
+  padding: 14px 22px;
+  min-width: 110px;
+}
+
+.captcha-box{
+  width: 56px;
+  height: 46px;
+}
+
+.captcha-icon {
+  color: #0b86a7;
+}
+
+/* =========================================================
+   ERROR
+========================================================= */
+.error-text {
+  margin-top: 12px;
+  background: rgba(0,0,0,0.20);
+  border: 1px solid rgba(255,255,255,0.30);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+@media (max-width: 576px) {
+  .portal-body {
+    padding: 20px 18px;
+  }
+
+  .brand-title {
+    font-size: 22px;
+  }
+
+  .engine {
+    --s: 26px;
+  }
+
+  .portal-card {
     width: 100%;
-    padding: 28px 24px;
-  }
-
-  .login-title {
-    font-size: 32px;
-    white-space: nowrap;
-  }
-
-  .login-input {
-    font-size: 18px;
-    height: 52px;
-  }
-
-  .login-btn {
-    height: 60px;
-    width: 140px;
-    font-size: 18px;
   }
 }
