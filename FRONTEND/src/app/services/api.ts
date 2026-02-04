@@ -129,8 +129,14 @@ deleteStation(id: number) {
   );
 }
 
-
-
+/* ===================== CREATE STATION ===================== */
+createStation(id: number, payload: any) {
+  return this.http.post(
+    `${this.BASE_URL}/api/edit/stations/${id}`,
+    payload,
+    { params: { division: this.getDivision() } }
+  );
+}
 
 
   /* ===================== AUTH ===================== */
