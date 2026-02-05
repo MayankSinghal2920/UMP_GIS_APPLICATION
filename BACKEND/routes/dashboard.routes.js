@@ -50,35 +50,35 @@ async function dashboardCount(req, res, tableName) {
 }
 
 router.get('/dashboard/stations/count', (req, res) =>
-  dashboardCount(req, res, 'sde.station_test')
+  dashboardCount(req, res, 'sde.station')
 );
 
 router.get('/dashboard/bridge-start/count', (req, res) =>
-  dashboardCount(req, res, 'sde.bridge_start_test')
+  dashboardCount(req, res, 'sde.bridge_start')
 );
 
 router.get('/dashboard/bridge-end/count', (req, res) =>
-  dashboardCount(req, res, 'sde.bridge_end_test')
+  dashboardCount(req, res, 'sde.bridge_end')
 );
 
 router.get('/dashboard/bridge-minor/count', (req, res) =>
-  dashboardCount(req, res, 'sde.bridge_minor_test')
+  dashboardCount(req, res, 'sde.bridge_minor')
 );
 
 router.get('/dashboard/level-xing/count', (req, res) =>
-  dashboardCount(req, res, 'sde.levelxing_test')
+  dashboardCount(req, res, 'sde.levelxing')
 );
 
 router.get('/dashboard/road-over-bridge/count', (req, res) =>
-  dashboardCount(req, res, 'sde.road_over_bridge_test')
+  dashboardCount(req, res, 'sde.road_over_bridge')
 );
 
 router.get('/dashboard/rub-lhs/count', (req, res) =>
-  dashboardCount(req, res, 'sde.rub_lhs_test')
+  dashboardCount(req, res, 'sde.rub_lhs')
 );
 
 router.get('/dashboard/ror/count', (req, res) =>
-  dashboardCount(req, res, 'sde.ror_test')
+  dashboardCount(req, res, 'sde.ror')
 );
 
 module.exports = router;
