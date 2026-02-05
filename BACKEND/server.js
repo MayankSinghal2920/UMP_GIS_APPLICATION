@@ -61,7 +61,7 @@ if (division) {
       ) AS geojson
       FROM (
         SELECT objectid,shape
-        FROM sde.dli_track_1_test
+        FROM sde.dli_track_1
         WHERE ${where}${divSql}
         ORDER BY objectid
         LIMIT 20000
@@ -113,7 +113,7 @@ app.get('/api/km_posts', async (req, res) => {
           railway,
           status,
           shape
-        FROM sde.km_post_test
+        FROM sde.km_post
         WHERE ${where}${divSql}
         ORDER BY objectid
         LIMIT 20000
@@ -157,10 +157,10 @@ app.get('/api/land_plan_on_track', async (req, res) => {
       ) AS geojson
       FROM (
         SELECT
-          objectid, gisid, asset_id, linedetail, tmssection, division, railway, city, district, state,
+          objectid, gisid, linedetail, tmssection, division, railway, city, district, state,
           imageno, disttokm, disttom, mapsheetno, route, remarks, distfromkm, distfromm,
           xcoord, ycoord, valid, unit_type, unit_code, unit_name, status, created_date, modified_date, shape
-        FROM sde.land_plan_on_track_test
+        FROM sde.land_plan_on_track
         WHERE ${where}${divSql}
         ORDER BY objectid
         LIMIT 5000
@@ -220,7 +220,7 @@ app.get('/api/edit/landplan', async (req, res) => {
     // total
     const totalSql = `
       SELECT COUNT(*)::int AS n
-      FROM sde.land_plan_on_track_test
+      FROM sde.land_plan_on_track
       WHERE ${where};
     `;
     const { rows: trows } = await pool.query(totalSql, params);
@@ -241,7 +241,7 @@ app.get('/api/edit/landplan', async (req, res) => {
         distfromm,
         disttokm,
         disttom
-      FROM sde.land_plan_on_track_test
+      FROM sde.land_plan_on_track
       WHERE ${where}
       ORDER BY objectid
       LIMIT ${ps} OFFSET ${offset};
@@ -266,7 +266,6 @@ app.get('/api/edit/landplan/:id', async (req, res) => {
       SELECT
         objectid,
         gisid,
-        asset_id,
         linedetail,
         tmssection,
         division,
@@ -293,7 +292,7 @@ app.get('/api/edit/landplan/:id', async (req, res) => {
         modified_date,
         -- full polygon geometry as GeoJSON
         ST_AsGeoJSON(shape)::json AS geom
-      FROM sde.land_plan_on_track_test
+      FROM sde.land_plan_on_track
       WHERE objectid = $1
       `,
       [id]
@@ -315,7 +314,7 @@ app.post('/api/edit/landplan', async (req, res) => {
     if (!divisionQS) return res.status(400).json({ error: 'division query param required' });
 
     let {
-      gisid, asset_id, linedetail, tmssection,
+      gisid, linedetail, tmssection,
       railway, city, district, state,
       imageno, disttokm, disttom, mapsheetno, route, remarks,
       distfromkm, distfromm, xcoord, ycoord,
@@ -329,7 +328,7 @@ app.post('/api/edit/landplan', async (req, res) => {
     if (!geom) return res.status(400).json({ error: 'Geometry (geom) is required for new land plan polygon.' });
 
     // normalize
-    gisid = gisid || null; asset_id = asset_id || null; linedetail = linedetail || null; tmssection = tmssection || null;
+    gisid = gisid || null;  linedetail = linedetail || null; tmssection = tmssection || null;
     railway = railway || null; city = city || null; district = district || null; state = state || null;
     imageno = imageno || null; disttokm = disttokm || null; disttom = disttom || null; mapsheetno = mapsheetno || null;
     route = route || null; remarks = remarks || null; distfromkm = distfromkm || null; distfromm = distfromm || null;
@@ -340,10 +339,10 @@ app.post('/api/edit/landplan', async (req, res) => {
     unit_code = unit_code === '' || unit_code == null ? null : Number(unit_code);
 
     const sql = `
-      INSERT INTO sde.land_plan_on_track_test
+      INSERT INTO sde.land_plan_on_track
       (
         objectid,
-        gisid, asset_id, linedetail, tmssection,
+        gisid,  linedetail, tmssection,
         division, railway, city, district, state,
         imageno, disttokm, disttom, mapsheetno, route, remarks,
         distfromkm, distfromm, xcoord, ycoord,
@@ -352,19 +351,19 @@ app.post('/api/edit/landplan', async (req, res) => {
         shape
       )
       VALUES (
-        (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.land_plan_on_track_test),
+        (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.land_plan_on_track),
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
         $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
         $21,$22,$23,$24,
         NOW(), NOW(),
         ST_SetSRID(ST_GeomFromGeoJSON($25), 4326)
       )
-      RETURNING objectid, gisid, asset_id, route, tmssection, division, railway, state, district;
+      RETURNING objectid, gisid, route, tmssection, division, railway, state, district;
     `;
 
     // ✅ exactly 25 params (matches $1..$25)
     const params = [
-      gisid, asset_id, linedetail, tmssection,
+      gisid, linedetail, tmssection,
       division, railway, city, district, state,
       imageno, disttokm, disttom, mapsheetno, route, remarks,
       distfromkm, distfromm, xcoord, ycoord,
@@ -391,7 +390,6 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
 
     let {
       gisid,
-      asset_id,
       linedetail,
       tmssection,
       division,
@@ -419,7 +417,6 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
 
     // Normalise
     gisid       = gisid       || null;
-    asset_id    = asset_id    || null;
     linedetail  = linedetail  || null;
     tmssection  = tmssection  || null;
     division    = division    || null;
@@ -453,10 +450,9 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
     // CASE 1: update attributes + geometry
     if (geom) {
       sql = `
-        UPDATE sde.land_plan_on_track_test
+        UPDATE sde.land_plan_on_track
         SET
           gisid       = $1,
-          asset_id    = $2,
           linedetail  = $3,
           tmssection  = $4,
           division    = $5,
@@ -486,7 +482,6 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
       `;
       params = [
         gisid,
-        asset_id,
         linedetail,
         tmssection,
         division,
@@ -516,10 +511,9 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
     // CASE 2: update attributes only
     else {
       sql = `
-        UPDATE sde.land_plan_on_track_test
+        UPDATE sde.land_plan_on_track
         SET
           gisid       = $1,
-          asset_id    = $2,
           linedetail  = $3,
           tmssection  = $4,
           division    = $5,
@@ -548,7 +542,7 @@ app.put('/api/edit/landplan/:id', async (req, res) => {
       `;
       params = [
         gisid,
-        asset_id,
+      
         linedetail,
         tmssection,
         division,
@@ -590,7 +584,7 @@ app.delete('/api/edit/landplan/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { rowCount } = await pool.query(
-      `DELETE FROM sde.land_plan_on_track_test WHERE objectid = $1`,
+      `DELETE FROM sde.land_plan_on_track WHERE objectid = $1`,
       [id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Not found' });
@@ -638,7 +632,7 @@ app.get('/api/land_offset', async (req, res) => {
         route,
         status,
         ST_AsGeoJSON(shape)::json AS geom
-      FROM sde.land_offset_test
+      FROM sde.land_offset
       WHERE
         shape IS NOT NULL
         AND shape && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -726,7 +720,7 @@ app.get('/api/land_boundary', async (req, res) => {
         xcoord,
         ycoord,
         ST_AsGeoJSON(shape)::json AS geom
-      FROM sde.land_boundary_test
+      FROM sde.land_boundary
       WHERE
         shape IS NOT NULL
         AND shape && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -804,7 +798,7 @@ app.get('/api/division_buffer', async (req, res) => {
         SELECT
           objectid,
           ${geomExpr} AS g
-        FROM sde.dli_buffer_1_copy
+        FROM sde.dli_buffer_1
         WHERE UPPER(division) = UPPER($1)
       )
       SELECT
@@ -890,7 +884,7 @@ app.get('/api/india_boundary', async (req, res) => {
       ) AS geojson
       FROM (
         SELECT objectid, b_length, b_area, ${geomExpr} AS shape
-        FROM sde.india_boundry_test
+        FROM sde.india_boundry
         WHERE ${where}
       ) t;
     `;

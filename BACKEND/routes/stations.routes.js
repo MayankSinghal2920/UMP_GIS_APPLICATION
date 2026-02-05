@@ -4,6 +4,8 @@ const router = express.Router();
 const pool = require('../db/pool');
 const parseBbox = require('../utils/parseBbox');
 const generateGUID = require('../utils/guid');
+const allowDepartment = require('../middlewares/department.middleware');
+
 
 
 /**
@@ -46,7 +48,7 @@ router.get('/stations', async (req, res) => {
           state,
           district,
           shape
-        FROM sde.station_test
+        FROM sde.station
         WHERE ${where}${divSql}
         ORDER BY objectid
         LIMIT 20000
@@ -68,7 +70,8 @@ router.get('/stations', async (req, res) => {
 
 
 // GET /api/edit/stations?bbox=minx,miny,maxx,maxy&page=1&pageSize=10&q=ndls&division=DLI
-router.get('/edit/stations', async (req, res) => {
+router.get('/edit/stations',
+   async (req, res) => {
   try {
     const { bbox, page = 1, pageSize = 10, q = '', division = '' } = req.query;
 
@@ -102,7 +105,7 @@ router.get('/edit/stations', async (req, res) => {
       )`;
     }
     // total
-    const totalSql = `SELECT COUNT(*)::int AS n FROM sde.station_test WHERE ${where}`;
+    const totalSql = `SELECT COUNT(*)::int AS n FROM sde.station WHERE ${where}`;
     const { rows: t } = await pool.query(totalSql, params);
 
     const ps = Math.min(200, Math.max(1, Number(pageSize)));
@@ -110,7 +113,7 @@ router.get('/edit/stations', async (req, res) => {
 
     const listSql = `
       SELECT objectid, sttncode, distkm, distm, state, district, division
-      FROM sde.station_test
+      FROM sde.station
       WHERE ${where}
       ORDER BY objectid
       LIMIT ${ps} OFFSET ${off};
@@ -157,7 +160,7 @@ router.get('/edit/stations/:id', async (req, res) => {
         longitude,
         CASE WHEN shape IS NOT NULL THEN ST_Y(shape::geometry) ELSE NULL END AS lat,
         CASE WHEN shape IS NOT NULL THEN ST_X(shape::geometry) ELSE NULL END AS lon
-      FROM sde.station_test
+      FROM sde.station
       WHERE objectid = $1 AND UPPER(division) = UPPER($2)
     `;
 
@@ -208,7 +211,7 @@ router.post('/edit/stations', async (req, res) => {
     // WITH geometry
     if (xcoord != null && ycoord != null) {
       const sql = `
-        INSERT INTO sde.station_test
+        INSERT INTO sde.station
         (
           objectid, globalid, sttncode, sttnname, sttntype,
           distkm, distm, state, district, constituncy,
@@ -216,7 +219,7 @@ router.post('/edit/stations', async (req, res) => {
           railway, division, category, shape
         )
         VALUES (
-          (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.station_test),
+          (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.station),
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
           ST_SetSRID(ST_MakePoint($18,$19), 4326)
         )
@@ -241,7 +244,7 @@ router.post('/edit/stations', async (req, res) => {
 
     // NO geometry
     const sql = `
-      INSERT INTO sde.station_test
+      INSERT INTO sde.station
       (
         objectid, globalid, sttncode, sttnname, sttntype,
         distkm, distm, state, district, constituncy,
@@ -249,7 +252,7 @@ router.post('/edit/stations', async (req, res) => {
         railway, division, category, shape
       )
       VALUES (
-        (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.station_test),
+        (SELECT COALESCE(MAX(objectid), 0) + 1 FROM sde.station),
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
         NULL
       )
@@ -297,7 +300,7 @@ router.put('/edit/stations/:id', async (req, res) => {
 
     if (shape && xcoord != null && ycoord != null) {
       sql = `
-        UPDATE sde.station_test SET
+        UPDATE sde.station SET
           distkm=$1, distm=$2, state=$3, district=$4, constituncy=$5,
           sttnname=$6, category=$7, sttntype=$8,
           latitude=$9, longitude=$10, xcoord=$11, ycoord=$12,
@@ -314,7 +317,7 @@ router.put('/edit/stations/:id', async (req, res) => {
       ];
     } else {
       sql = `
-        UPDATE sde.station_test SET
+        UPDATE sde.station SET
           distkm=$1, distm=$2, state=$3, district=$4, constituncy=$5,
           sttnname=$6, category=$7, sttntype=$8,
           modified_date=NOW()
@@ -349,7 +352,7 @@ router.delete('/edit/stations/:id', async (req, res) => {
     const id = Number(req.params.id);
 
     const { rowCount } = await pool.query(
-      `DELETE FROM sde.station_test
+      `DELETE FROM sde.station
        WHERE objectid=$1 AND UPPER(division)=UPPER($2)`,
       [id, division]
     );
