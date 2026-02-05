@@ -46,40 +46,23 @@
 </div>
 
 
-    <!-- ===============================
-         BODY (TEAL PANEL)
-    ================================ -->
+
     <div class="portal-body">
 
-      <!-- BRAND ROW -->
+      <!-- Title -->
       <div class="brand-row">
-<div class="brand-row">
-
-  <!-- Engine as first letter -->
-<div class="brand-title">
-  <span class="engine-letter">
-    <span class="engine"></span>
-  </span>
-  <span class="engine-I">I</span>ndian Railways Geo Application
-</div>
-
-
-</div>
+        <div class="brand-title">
+          <span class="rail-I" aria-hidden="true"></span>
+          ndian Railways Geo Application
+        </div>
       </div>
 
-      <!-- INSTRUCTION -->
+      <!-- Subtitle -->
       <div class="hint">Please enter details to proceed</div>
 
-      <!-- ===============================
-           LOGIN FORM
-      ================================ -->
-      <form
-        class="form-area"
-        (ngSubmit)="login()"
-        #loginForm="ngForm"
-      >
+      <!-- Form -->
+      <form class="form-area" (ngSubmit)="login()" #loginForm="ngForm">
 
-        <!-- USER ID -->
         <div class="field">
           <input
             type="text"
@@ -91,64 +74,68 @@
           />
         </div>
 
-        <!-- PASSWORD -->
-        <div class="field pw-field">
-          <input
-            type="password"
-            name="password"
-            class="line-input"
-            placeholder="Enter Password"
-            required
-            [(ngModel)]="password"
-          />
-          <button
-            type="button"
-            class="eye-btn"
-            aria-label="Show password"
-          >
-            👁
-          </button>
-        </div>
+<div class="field pw-field">
+  <input
+    [type]="showPassword ? 'text' : 'password'"
+    name="password"
+    class="line-input"
+    placeholder="Enter Password"
+    required
+    [(ngModel)]="password"
+  />
 
-        <!-- TERMS CONSENT -->
-        <label class="check-row">
-          <input type="checkbox" required />
-          <span>
-            I consent to IR Asset Management Portal's
-            <a href="#" class="link">Privacy Policy</a> and
-            <a href="#" class="link">Terms Of Use</a>
-          </span>
-        </label>
+  <button
+    type="button"
+    class="eye-btn"
+    (click)="showPassword = !showPassword"
+    aria-label="Toggle password visibility"
+  >
+    {{ showPassword ? '🙈' : '👁' }}
+  </button>
+</div>
 
-        <!-- ACTIONS -->
-        <div class="actions-row">
-          <button
-            type="submit"
-            class="next-btn"
-            [disabled]="loading || !loginForm.valid"
-          >
-            {{ loading ? 'Please wait…' : 'Next' }}
-          </button>
 
-          <!-- CAPTCHA / BADGE PLACEHOLDER -->
-          <div class="captcha-box" aria-label="captcha">
-            <span class="captcha-icon">👤</span>
+<label class="check-row">
+  <input type="checkbox" required />
+  <span>
+    I consent to IR Asset Management Portal's
+    <a href="#" class="link">Privacy Policy</a>
+    and
+    <a href="#" class="link">Terms Of Use</a>
+  </span>
+</label>
+
+<!-- Sign in button below consent -->
+<div class="sign-in-row">
+  <button
+    type="submit"
+    class="next-btn sign-in-btn"
+    [disabled]="loading || !loginForm.valid"
+  >
+    {{ loading ? 'Signing in…' : 'Sign in' }}
+  </button>
+</div>
+
+<!-- Optional: keep captcha / user icon at bottom -->
+<div class="actions-row">
+  <div></div> <!-- spacer -->
+  <div class="captcha-box" aria-label="captcha placeholder">
+    <span style="color:#0b86a7;">👤</span>
+  </div>
+</div>
+
+
+          <!-- <div class="captcha-box" aria-label="captcha placeholder">
+            keep your user icon if you want -->
+            <!-- <span style="color:#0b86a7;">👤</span>
           </div>
-        </div>
+        </div> --> 
 
-        <!-- ERROR MESSAGE -->
         <div *ngIf="error" class="error-text">
           {{ error }}
         </div>
 
       </form>
-      <!-- END FORM -->
-
     </div>
-    <!-- END BODY -->
-
   </div>
-  <!-- END CARD -->
-
 </div>
-<!-- END WRAPPER -->
