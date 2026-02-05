@@ -176,47 +176,70 @@ export class EditPanel implements OnDestroy {
   // ================== GEOMETRY FLOW ==================
 
   /** Edit Geometry is ALWAYS enabled */
-  startGeometryEdit() {
-    if (!this.draft) return;
+  /** Edit Geometry is ALWAYS enabled */
+startGeometryEdit() {
+  if (!this.draft) return;
 
-    const lat = Number(this.draft?.lat);
-    const lng = Number(this.draft?.lng);
+  const lat = Number(this.draft.lat);
+  const lng = Number(this.draft.lng);
 
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      this.error = 'Lat/Lng not available for this station';
-      this.cdr.detectChanges();
-      return;
-    }
+  alert('Edit Geometry Mode is ON. You can now move the station point.');
 
-    // enable Save Geometry
-    this.geomEditing = true;
+  this.geomEditing = true;
 
-    // show draggable marker on map
+  // show DRAGGABLE marker
+  this.mapZoom.zoomTo({
+    type: 'latlng',
+    lat,
+    lng,
+    zoom: 17,
+    draggable: true,
+  });
+
+  // listen for drag updates
+// subscribe once to drag-end updates (from EditState)
+this.dragSub?.unsubscribe();
+this.dragSub = this.edit.dragEnd$.subscribe(({ lat: newLat, lng: newLng }) => {
+  console.log('DRAG UPDATE =>', newLat, newLng);   // ✅ must print while dragging
+  this.draft.lat = newLat;
+  this.draft.lng = newLng;
+  this.cdr.detectChanges();
+});
+
+}
+
+
+
+  /** Save Geometry locks marker + disables itself */
+saveGeometry() {
+  if (!this.geomEditing) return;
+
+  alert('Geometry is fixed and Edit Geometry Mode is OFF.');
+
+  // turn off mode (disables Save button)
+  this.geomEditing = false;
+
+  // disable marker dragging in map.ts
+  this.edit.lockDrag();
+
+  // ✅ IMPORTANT: replace draggable marker with fixed circle highlight
+  const lat = Number(this.draft?.lat);
+  const lng = Number(this.draft?.lng);
+
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
     this.mapZoom.zoomTo({
       type: 'latlng',
       lat,
       lng,
       zoom: 17,
-      draggable: true,
+      draggable: false,
     } as any);
-
-    // subscribe once to drag-end updates
-    this.dragSub?.unsubscribe();
-    this.dragSub = this.mapZoom.dragEnd$?.subscribe?.(({ lat: newLat, lng: newLng }: any) => {
-      // store in draft so Send uses latest position
-      this.draft.lat = newLat;
-      this.draft.lng = newLng;
-      this.cdr.detectChanges();
-    });
   }
 
-  /** Save Geometry locks marker + disables itself */
-  saveGeometry() {
-    // lock drag & disable button
-    this.geomEditing = false;
-    this.mapZoom.lockDrag?.();
-    this.cdr.detectChanges();
-  }
+  this.cdr.detectChanges();
+}
+
+
 
   cancelEdit() {
     this.mode = 'table';
@@ -240,20 +263,35 @@ export class EditPanel implements OnDestroy {
       return;
     }
 
-    const payload = {
-      stationtype: this.draft.stationtype,
-      distkm: this.draft.distkm,
-      distm: this.draft.distm,
-      state: this.draft.state,
-      district: this.draft.district,
-      constituency: this.draft.constituency,
+const lat = Number(this.draft.lat);
+const lng = Number(this.draft.lng);
 
-      // ✅ NEW GEOMETRY
-      lat: this.draft.lat,
-      lng: this.draft.lng,
-    };
+const payload = {
+  stationtype: this.draft.stationtype,
+  distkm: this.draft.distkm,
+  distm: this.draft.distm,
+  state: this.draft.state,
+  district: this.draft.district,
+  constituency: this.draft.constituency,
+
+  // ✅ NEW GEOMETRY (send both names so backend surely gets it)
+  lat,
+  lng,      // some APIs expect lng
+  lon: lng, // many APIs expect lon
+  longitude: lng, // if backend uses longitude
+  latitude: lat,  // if backend uses latitude
+};
+
+
+if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+  this.error = 'New geometry not captured. Please drag the point and click Save Geometry.';
+  this.cdr.detectChanges();
+  return;
+}
+
 
     this.saving = true;
+console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.api.updateStation(this.draft.objectid, payload).subscribe({
       next: () => {
