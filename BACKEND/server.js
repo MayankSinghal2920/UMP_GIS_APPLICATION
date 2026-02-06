@@ -113,7 +113,7 @@ app.get('/api/km_posts', async (req, res) => {
           railway,
           status,
           shape
-        FROM sde.km_post
+        FROM sde.km_post_edit
         WHERE ${where}${divSql}
         ORDER BY objectid
         LIMIT 20000
