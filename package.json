@@ -3,7 +3,7 @@
   "private": true,
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.2.1"
   },
   "scripts": {
     "dev": "concurrently \"npm --prefix BACKEND run dev\" \"npm --prefix FRONTEND start\"",
@@ -11,5 +11,20 @@
   },
   "dependencies": {
     "bootstrap": "^5.3.8"
-  }
+  },
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MayankSinghal2920/UMP_GIS_APPLICATION.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MayankSinghal2920/UMP_GIS_APPLICATION/issues"
+  },
+  "homepage": "https://github.com/MayankSinghal2920/UMP_GIS_APPLICATION#readme"
 }
