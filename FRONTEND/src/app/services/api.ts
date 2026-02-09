@@ -142,7 +142,7 @@ createStation(id: number, payload: any) {
   /* ===================== AUTH ===================== */
 
   login(username: string, password: string): Observable<any> {
-    return this.http.post<any>(`${this.BASE_URL}/api/login`, {
+    return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
       user_id: username,   // TL’s required key
       password,
     });
