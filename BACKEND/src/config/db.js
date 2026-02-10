@@ -7,12 +7,11 @@ const pool = new Pool({
   password: process.env.PGPASSWORD,
   port: Number(process.env.PGPORT || 5432),
   max: 20,
-  idleTimeoutMillis: 30000
+  idleTimeoutMillis: 30000,
 });
 
-// Log unexpected errors (important for prod)
 pool.on('error', (err) => {
-  console.error('Unexpected PG pool error', err);
+  console.error('❌ Unexpected PG pool error', err);
 });
 
 module.exports = pool;
