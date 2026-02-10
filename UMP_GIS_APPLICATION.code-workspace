@@ -1,10 +1,7 @@
 {
-  "folders": [
-    { "path": "FRONTEND" },
-    { "path": "BACKEND" }
-  ],
-  "settings": {
-    "typescript.tsdk": "FRONTEND/node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true
-  }
+    "folders": [
+        {
+            "path": "."
+        }
+    ]
 }
