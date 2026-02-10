@@ -1,20 +1,26 @@
 const pool = require('../config/db');
 
-async function findUser(user_id) {
+/**
+ * Find user by user_id
+ */
+async function findUserById(userId) {
   const sql = `
     SELECT 
       user_id,
       password,
       user_name,
-      zone_code,
-      division_code,
-      department
-    FROM user_master_copy
+      zone,
+      division,
+      department_id
+    FROM user_master
     WHERE user_id = $1
-    LIMIT 1
+    LIMIT 1;
   `;
-  const { rows } = await pool.query(sql, [user_id]);
-  return rows[0] || null;
+
+  const { rows } = await pool.query(sql, [userId]);
+  return rows[0]; // undefined if not found
 }
 
-module.exports = { findUser };
+module.exports = {
+  findUserById,
+};

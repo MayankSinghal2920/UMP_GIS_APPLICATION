@@ -1,3 +1,6 @@
 module.exports = (req, res, next) => {
-  res.status(404).json({ status: "error", message: "API not found" });
+  res.status(404).json({
+    error: 'Route not found',
+    path: req.originalUrl,
+  });
 };
