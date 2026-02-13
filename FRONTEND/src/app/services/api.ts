@@ -139,17 +139,44 @@ createStation(id: number, payload: any) {
 }
 
 
-  /* ===================== AUTH ===================== */
+  /* ===================== AUTH with otp===================== */
 
-  login(username: string, password: string): Observable<any> {
-    return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
-      user_id: username,   // TL’s required key
-      password,
-    });
-  }
+/* ===================== AUTH (OTP FLOW) ===================== */
+
+// Step-1: validate credentials + send OTP email
+requestOtp(username: string, password: string): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/request-otp`, {
+    user_id: username,
+    password,
+  });
+}
+
+// Step-2: verify OTP (DB stored) and return user payload
+verifyOtp(username: string, otp: string): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/verify-otp`, {
+    user_id: username,
+    otp,
+  });
+}
+
+// Optional: resend OTP (new OTP stored in DB and mailed)
+resendOtp(username: string): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/resend-otp`, {
+    user_id: username,
+  });
+}
+
+/* OPTIONAL: keep legacy login if needed */
+login(username: string, password: string): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
+    user_id: username,
+    password,
+  });
+}
 
 
 
+/* ===================== GET STATUS COUNT ===================== */
   getStationById(id: number) {
     const params = new HttpParams().set('division', this.getDivision());
     return this.http.get<any>(`${this.BASE_URL}/api/edit/stations/${id}`, { params });

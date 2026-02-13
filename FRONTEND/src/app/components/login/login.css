@@ -20,12 +20,16 @@ html, body {
   z-index: 0;
 }
 
-/* dark overlay for readability */
+/* Softer vignette overlay (premium) */
 body::before{
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.32);
+  background: radial-gradient(
+    1200px 720px at 40% 35%,
+    rgba(0,0,0,0.10),
+    rgba(0,0,0,0.45)
+  );
   z-index: 1;
 }
 
@@ -42,41 +46,99 @@ body::before{
 }
 
 /* =========================================================
-   PORTAL CARD
+   PORTAL CARD (ENHANCED + TALLER + BEAUTIFUL BORDER)
 ========================================================= */
 .portal-card{
   width: 600px;
   max-width: 94vw;
 
-  height: 72vh;
-  min-height: 600px;
-  max-height: 760px;
+  height: 82vh;
+  min-height: 720px;     /* ✅ more room for bigger form */
+  max-height: 860px;
 
-  border-radius: 10px;
+  border-radius: 18px;
   overflow: hidden;
+  border: none;
 
-  border: 1px solid rgba(255,255,255,0.18);
   box-shadow:
-    0 26px 70px rgba(0,0,0,0.55),
-    inset 0 1px 0 rgba(255,255,255,0.12);
+    0 22px 60px rgba(0,0,0,0.48),
+    0 0 0 1px rgba(255,255,255,0.08) inset;
 
   display: flex;
   flex-direction: column;
+  position: relative;
+  transform: translateZ(0);
+}
+
+/* Gradient border ring */
+.portal-card::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: 18px;
+  pointer-events: none;
+
+  background: linear-gradient(
+    135deg,
+    rgba(18,194,233,0.78),
+    rgba(0,212,255,0.24),
+    rgba(255,255,255,0.16)
+  );
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Soft glow behind the card */
+.portal-card::before{
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: 22px;
+  pointer-events: none;
+
+  background: radial-gradient(
+    700px 320px at 40% 0%,
+    rgba(0,212,255,0.18),
+    transparent 60%
+  );
+
+  filter: blur(10px);
+  opacity: 0.9;
+  z-index: 0;
 }
 
 /* =========================================================
-   HEADER STRIP (LOGOS + DIVIDERS)
+   HEADER STRIP (LARGER PREMIUM LOGOS)
 ========================================================= */
 .portal-header{
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   width: 100%;
 
-  min-height: 106px;
-  max-height: 130px;
+  min-height: 160px;   /* ✅ bigger header */
+  max-height: 180px;
 
-  background: #ffffff;
-  border-bottom: 1px solid rgba(0,0,0,0.16);
+  background: rgba(255,255,255,0.96);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  z-index: 2;
+}
+
+/* subtle top accent */
+.portal-header::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg,#12c2e9,#00d4ff,#12c2e9);
+  opacity: 0.95;
 }
 
 .header-seg{
@@ -84,40 +146,66 @@ body::before{
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 18px;
+  padding: 20px 28px;   /* ✅ more room */
 }
 
+/* Clean vertical separators */
 .header-seg:not(:last-child)::after{
   content: "";
   position: absolute;
   right: 0;
-  top: 14px;
-  bottom: 14px;
+  top: 22%;
+  bottom: 22%;
   width: 1px;
-  background: rgba(0,0,0,0.22);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0,0,0,0.18),
+    transparent
+  );
 }
 
+/* Larger Logo Styling with framed box */
 .header-seg img{
-  max-height: 90px;
-  width: 100%;
+  max-height: 100px;   /* ✅ bigger logos */
+  width: auto;
   object-fit: contain;
+
+  padding: 12px 20px;
+  border-radius: 14px;
+
+  background: rgba(255,255,255,0.78);
+
+  box-shadow:
+    0 8px 22px rgba(0,0,0,0.15),
+    inset 0 1px 0 rgba(255,255,255,0.7);
+
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.header-seg img:hover{
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.9);
 }
 
 /* =========================================================
-   TEAL BODY (MORE PROMINENT / PREMIUM)
+   TEAL BODY (MORE SPACE FOR FORM)
 ========================================================= */
 .portal-body{
-  /* richer teal with subtle depth */
-  background: linear-gradient(180deg, #0a7b96 0%, #0b86a7 52%, #096f87 100%);
+  background: linear-gradient(180deg, #0a7b96 0%, #0b86a7 52%, #086a82 100%);
   color: #ffffff;
   flex: 1;
 
-  padding: 34px 46px 30px;
+  padding: 50px 60px 40px;  /* ✅ increased */
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
 
-  /* subtle inner highlight on top edge */
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  z-index: 2;
 }
 
 /* =========================================================
@@ -125,35 +213,46 @@ body::before{
 ========================================================= */
 .brand-row{
   display: flex;
-  justify-content: flex-start; /* feels more official vs centered */
+  justify-content: center;   /* ✅ center the whole title block */
   align-items: center;
+  width: 100%;
 }
+
+
 
 .brand-title{
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  line-height: 1.12;
-  color: #ffffff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
-  white-space: nowrap;
+  font-size: 28px;   /* Slightly reduced to fit in one line */
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+
+  color: rgba(255,255,255,0.96);
+  text-shadow: 0 3px 12px rgba(0,0,0,0.25);
+
+  white-space: nowrap;        /* ✅ FORCE single line */
+  overflow: hidden;           /* ✅ Prevent overflow */
+  text-overflow: ellipsis;    /* Optional safety */
 }
 
+
+
+
 /* =========================================================
-   RAIL TRACK "I" SYMBOL (║═║) – cleaner
+   RAIL TRACK "I" SYMBOL (║═║)
 ========================================================= */
 .rail-I{
   position: relative;
-  margin-left: 0px;
   width: 18px;
   height: 44px;
   flex: 0 0 auto;
-  transform: translateY(2px);
+  transform: translateY(6px); /* ✅ aligns with first line */
+  opacity: 0.95;
 }
+
 
 .rail-I::before{
   content: "";
@@ -195,130 +294,175 @@ body::before{
 ========================================================= */
 .hint{
   margin-top: 14px;
-  font-size: 14px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.92);
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+
+  max-width: 520px;        /* ✅ align with heading width */
+  margin-left: auto;
+  margin-right: auto;
 }
 
+
 /* =========================================================
-   FORM AREA
+   FORM AREA (MORE SPACING)
 ========================================================= */
 .form-area{
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin-top: 22px;
+  margin-top: 36px;
+  gap: 26px;   /* ✅ more spacing between form items */
 }
 
-.field{ margin-top: 30px; }
+.field{ margin-top: 0; }
 
 /* =========================================================
-   UNDERLINE INPUTS (NIC-LIKE)
+   ENHANCED INPUTS (TALLER)
 ========================================================= */
 .line-input{
   width: 100%;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid rgba(255,255,255,0.45);
-  color: #ffffff;
-  font-size: 16px;
-  padding: 12px 2px 10px;
+  height: 56px;          /* ✅ taller */
+  padding: 0 18px;
+  color: rgba(255,255,255,0.95);
+
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 14px;
+
   outline: none;
+  font-size: 17px;       /* ✅ bigger text */
+  transition: 200ms ease;
 }
 
 .line-input::placeholder{
-  color: rgba(255,255,255,0.78);
+  color: rgba(255,255,255,0.60);
 }
 
 .line-input:focus{
-  border-bottom-color: rgba(255,255,255,0.95);
-  /* tiny glow makes it look modern but still official */
-  box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+  border-color: rgba(0, 255, 255, 0.35);
+  box-shadow: 0 0 0 4px rgba(0, 255, 255, 0.12);
+  background: rgba(255,255,255,0.10);
+}
+
+/* OTP centered input */
+.text-center{
+  text-align: center;
+  letter-spacing: 2px;
 }
 
 /* =========================================================
    PASSWORD FIELD + EYE ICON
 ========================================================= */
 .pw-field{ position: relative; }
-
-.pw-field .line-input{ padding-right: 48px; }
+.pw-field .line-input{ padding-right: 68px; }
 
 .eye-btn{
   position: absolute;
-  right: 0;
-  bottom: 10px;
-  width: 36px;
-  height: 32px;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
 
-  display: grid;
-  place-items: center;
-
+  width: 40px;
+  height: 40px;
   border: none;
-  background: rgba(255,255,255,0.08);
-  color: #ffffff;
+  border-radius: 12px;
+
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.88);
   cursor: pointer;
   font-size: 16px;
-  border-radius: 8px;
-  opacity: 0.95;
+  transition: 160ms ease;
   z-index: 5;
 }
 
-.eye-btn:hover{ background: rgba(255,255,255,0.14); }
+.eye-btn:hover{ background: rgba(255,255,255,0.16); }
 .eye-btn:focus{ outline: none; }
 
 /* =========================================================
-   TERMS (reduce size for better balance)
+   TERMS (BIGGER + SPACED)
 ========================================================= */
 .check-row{
-  margin-top: 26px;
   font-size: 14px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  line-height: 1.35;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.88);
 }
 
 .check-row input{
   width: 18px;
   height: 18px;
-  margin-top: 2px;
-  accent-color: #ffffff;
+  margin-top: 3px;
+  accent-color: #00d4ff;
 }
 
 .link{
-  color: #ffe46b;
+  color: #9ef2ff;
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* =========================================================
-   SIGN IN BUTTON (MAKE IT PRIMARY)
+   PRIMARY BUTTON (BIGGER)
 ========================================================= */
 .sign-in-row{
-  margin-top: 22px;
+  margin-top: 6px;
   display: flex;
-  justify-content: flex-start;
 }
 
 .next-btn{
-  border: 1px solid rgba(255,255,255,0.30);
-  color: #ffffff;
-  font-size: 14px;
-  padding: 12px 22px;
-  border-radius: 8px;
+  width: 100%;
+  height: 56px;          /* ✅ taller */
+  border: none;
+  border-radius: 14px;
+
   cursor: pointer;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  font-size: 18px;
+
+  background: linear-gradient(135deg, #12c2e9, #00d4ff);
+  color: #03222a;
+
+  box-shadow: 0 16px 32px rgba(0, 212, 255, 0.22);
+  transition: 200ms ease;
 }
 
-/* Primary look */
-.sign-in-row .next-btn{
-  background: rgba(255,255,255,0.14);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
-}
-
-.sign-in-row .next-btn:hover{
-  background: rgba(255,255,255,0.20);
+.next-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 20px 40px rgba(0, 212, 255, 0.26);
 }
 
 .next-btn:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* =========================================================
+   OTP ACTIONS (Back / Resend)
+========================================================= */
+.otp-actions{
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.link-btn{
+  background: transparent;
+  border: none;
+  padding: 10px 0;
+  color: rgba(255,255,255,0.86);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.link-btn:disabled{
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -329,18 +473,42 @@ body::before{
 .actions-row{
   margin-top: auto;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   padding-top: 22px;
 }
 
 .captcha-box{
   width: 46px;
-  height: 42px;
-  background: #ffffff;
-  border-radius: 8px;
+  height: 46px;
+  background: rgba(255,255,255,0.94);
+  border-radius: 14px;
   display: grid;
   place-items: center;
+  border: 1px solid rgba(0,0,0,0.10);
+}
+
+/* =========================================================
+   MESSAGES
+========================================================= */
+.error-text{
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.20);
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+}
+
+.info-text{
+  margin-top: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(0, 255, 255, 0.10);
+  border: 1px solid rgba(0, 255, 255, 0.18);
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
 }
 
 /* =========================================================
@@ -350,17 +518,32 @@ body::before{
   .portal-card{
     width: 100%;
     height: 88vh;
-    min-height: 540px;
+    min-height: 600px;
+    max-height: 92vh;
+  }
+
+  .portal-header{
+    min-height: 130px;
+    max-height: 150px;
+  }
+
+  .header-seg{
+    padding: 16px 16px;
+  }
+
+  .header-seg img{
+    max-height: 76px;
+    padding: 10px 14px;
   }
 
   .portal-body{
-    padding: 24px 18px 20px;
+    padding: 26px 18px 18px;
   }
 
   .brand-title{
-    font-size: 22px;
+    font-size: 24px;
     white-space: normal;
   }
 
-  .rail-I{ height: 32px; }
+  .rail-I{ height: 34px; }
 }
