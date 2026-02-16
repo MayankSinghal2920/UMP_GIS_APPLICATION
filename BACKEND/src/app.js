@@ -7,6 +7,11 @@ const errorHandler = require('./middleware/errorHandler');
 const stationRoutes = require('./routes/station.routes');
 const authRoutes = require('./routes/auth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const kmPostRoutes = require('./routes/kmPost.routes');
+const landPlanRoutes = require('./routes/landPlan.routes');
+const tracksRoutes = require('./routes/tracks.routes');
+
+
 
 const app = express();
 
@@ -23,6 +28,11 @@ app.get('/__health', (req, res) => {
 app.use('/api/stations', stationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/km_posts', kmPostRoutes);
+app.use('/api/land_plan_on_track', landPlanRoutes);
+app.use('/api/tracks', tracksRoutes);
+
+
 
 // 404 + error handler
 app.use(notFound);
