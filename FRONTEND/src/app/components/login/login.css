@@ -90,6 +90,9 @@ body::before{
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   mask-composite: exclude;
 }
 
@@ -478,15 +481,81 @@ body::before{
   padding-top: 22px;
 }
 
-.captcha-box{
-  width: 46px;
-  height: 46px;
-  background: rgba(255,255,255,0.94);
-  border-radius: 14px;
+/* =========================================================
+   CAPTCHA ROW (classic like sample - left image)
+========================================================= */
+.captcha-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* left captcha box */
+.captcha-img{
+  height: 44px;
+  width: 160px;                       /* slightly wider like sample */
+  border-radius: 2px;                 /* sharper corners */
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+/* SVG image inside */
+.captcha-svg{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;                /* prevents stretching */
+  display: block;
+}
+
+/* refresh button (classic) */
+.captcha-refresh{
+  height: 44px;
+  width: 44px;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.22);
+  background: #ffffff;
+  color: #333;
+  font-size: 18px;
+  cursor: pointer;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(0,0,0,0.10);
+  transition: 140ms ease;
 }
+
+.captcha-refresh:hover{
+  background: #f4f4f4;
+  transform: translateY(-1px);
+}
+
+/* input box (classic) */
+.captcha-input{
+  flex: 1;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(0,0,0,0.22);
+  background: #ffffff;
+  color: #111;
+  outline: none;
+  font-size: 14px;
+}
+
+.captcha-input::placeholder{
+  color: rgba(0,0,0,0.45);
+}
+
+.captcha-input:focus{
+  border-color: rgba(0,0,0,0.45);
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08);
+}
+
 
 /* =========================================================
    MESSAGES
