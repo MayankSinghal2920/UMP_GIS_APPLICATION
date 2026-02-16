@@ -66,6 +66,8 @@ export class DashboardHome implements OnInit {
     const robCalls: any = {};
     const rubLhsCalls: any = {};
     const rorCalls: any = {};
+    const kmPostCalls: any = {};
+    const landPlanCalls: any = {};
 
     types.forEach(type => {
       stationCalls[type]     = this.api.getStationCount(type);
@@ -76,6 +78,8 @@ export class DashboardHome implements OnInit {
       robCalls[type]         = this.api.getRoadOverBridgeCount(type);
       rubLhsCalls[type]      = this.api.getRubLhsCount(type);
       rorCalls[type]         = this.api.getRorCount(type);
+      kmPostCalls[type] = this.api.getKmPostCount(type);
+      landPlanCalls[type] = this.api.getLandPlanCount(type);
     });
 
     forkJoin({
@@ -86,11 +90,12 @@ export class DashboardHome implements OnInit {
       levelXing:    forkJoin(levelXingCalls),
       rob:          forkJoin(robCalls),
       rubLhs:       forkJoin(rubLhsCalls),
-      ror:          forkJoin(rorCalls),
-      landPlan:     this.api.getLandPlanOntrack(0),
-      kmPosts:      this.api.getkmposts('68,6,97,37'),
-    }).subscribe({
+      ror:          forkJoin(rorCalls),     
+      kmPost: forkJoin(kmPostCalls),
+      landPlan: forkJoin(landPlanCalls),    }).subscribe({
       next: (res: any) => {
+
+        
 
         types.forEach(type => {
           this.setSubCard(type, 'Station',        res.stations[type].count);
@@ -101,6 +106,8 @@ export class DashboardHome implements OnInit {
           this.setSubCard(type, 'Road Over Bridge', res.rob[type].count);
           this.setSubCard(type, 'Road Under Bridge', res.rubLhs[type].count);
           this.setSubCard(type, 'Rail Over Rail', res.ror[type].count);
+          this.setSubCard(type, 'KM Post', res.kmPost[type].count);
+          this.setSubCard(type, 'Land Plan Ontrack', res.landPlan[type].count);
         });
 
         /* ---------- LAND PLAN ON TRACK ---------- */
