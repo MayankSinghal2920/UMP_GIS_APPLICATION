@@ -303,6 +303,30 @@ getRorCount(type: string) {
   );
 }
 
+getKmPostCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/km-post/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
+getLandPlanCount(type: string) {
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/dashboard/land-plan/count`,
+    {
+      params: {
+        division: this.getDivision(),
+        type
+      }
+    }
+  );
+}
+
 
 
 
