@@ -144,7 +144,7 @@
         <button
           type="submit"
           class="next-btn sign-in-btn"
-          [disabled]="loading || !loginForm.valid"
+          [disabled]="loading || otpSending || !loginForm.valid"
         >
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
