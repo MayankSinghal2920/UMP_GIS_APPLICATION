@@ -1,14 +1,12 @@
 const authModel = require('../models/auth.model');
-const otpService = require('../services/otp/otp-service'); // should only send mail now
+const otpService = require('../services/otp/otp-service');
 
 function genOtp() {
-  // 6-digit OTP
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 /**
- * POST /api/auth/login (legacy)
- * (Optional: You can keep it OR disable it once OTP is fully enforced)
+ * Legacy login (if used)
  */
 async function login(req, res, next) {
   try {
@@ -34,7 +32,7 @@ async function login(req, res, next) {
         user_id: user.user_id,
         user_name: user.user_name,
         railway: user.zone,
-        division: user.division,
+        division: user.division_code,   // ✅ FIXED
         department: user.department_id,
       },
     });
@@ -44,11 +42,7 @@ async function login(req, res, next) {
 }
 
 /**
- * POST /api/auth/request-otp
- * Validates credentials, generates OTP, stores it in DB (user_master.otp),
- * sets otp_created_at, sends OTP to email.
- *
- * Response: { success:true, message:'OTP sent' }
+ * Request OTP
  */
 async function requestOtp(req, res, next) {
   try {
@@ -61,6 +55,7 @@ async function requestOtp(req, res, next) {
     }
 
     const user = await authModel.findUserById(user_id);
+
     if (!user || user.password !== password) {
       const err = new Error('Invalid user_id or password');
       err.status = 401;
@@ -80,7 +75,6 @@ async function requestOtp(req, res, next) {
     let otpToUse = null;
     let reused = false;
 
-    // ✅ Reuse last OTP if recent
     if (user.otp && user.otp_created_at) {
       const createdAtMs = new Date(user.otp_created_at).getTime();
       const ageMs = Date.now() - createdAtMs;
@@ -94,38 +88,30 @@ async function requestOtp(req, res, next) {
       }
     }
 
-    // ✅ Otherwise generate fresh OTP and store in DB
     if (!otpToUse) {
-      otpToUse = Math.floor(100000 + Math.random() * 900000).toString();
+      otpToUse = genOtp();
       await authModel.saveOtp(user_id, otpToUse);
     }
 
-    // ✅ Send email asynchronously (mailer handles fallback if relay rejected)
     otpService
       .sendOtp({ to: email, user_name: user.user_name, otp: otpToUse })
       .catch((mailErr) =>
         console.error('[OTP] Mail send failed:', mailErr?.message || mailErr)
       );
 
-    // ✅ Message changes only in reuse case
     return res.json({
       success: true,
       message: reused
-        ? 'Reusing last OTP (generated recently). Please check email (or fallback mailbox due to policy).'
-        : 'OTP sent to registered email (or fallback mailbox due to policy)',
+        ? 'Reusing last OTP. Please check email.'
+        : 'OTP sent to registered email',
     });
   } catch (err) {
     next(err);
   }
 }
 
-
-
 /**
- * POST /api/auth/verify-otp
- * Body: { user_id, otp }
- * Checks DB user_master.otp and otp_created_at (expiry),
- * clears OTP on success and returns user payload.
+ * Verify OTP
  */
 async function verifyOtp(req, res, next) {
   try {
@@ -145,16 +131,17 @@ async function verifyOtp(req, res, next) {
     }
 
     if (!user.otp) {
-      const err = new Error('OTP not found. Please request OTP again.');
+      const err = new Error('OTP not found. Please request again.');
       err.status = 401;
       throw err;
     }
 
-    // ✅ Expiry check (requires otp_created_at column)
     const ttlMin = Number(process.env.OTP_TTL_MINUTES || 10);
+
     if (user.otp_created_at) {
       const createdAtMs = new Date(user.otp_created_at).getTime();
       const ageMs = Date.now() - createdAtMs;
+
       if (ageMs > ttlMin * 60 * 1000) {
         await authModel.clearOtp(user_id);
         const err = new Error('OTP expired. Please request again.');
@@ -163,14 +150,12 @@ async function verifyOtp(req, res, next) {
       }
     }
 
-    // ✅ OTP match
     if (String(user.otp) !== String(otp).trim()) {
       const err = new Error('Invalid OTP');
       err.status = 401;
       throw err;
     }
 
-    // ✅ Clear OTP after successful verification
     await authModel.clearOtp(user_id);
 
     res.json({
@@ -179,7 +164,7 @@ async function verifyOtp(req, res, next) {
         user_id: user.user_id,
         user_name: user.user_name,
         railway: user.zone,
-        division: user.division,
+        division: user.division_code,   // ✅ FIXED
         department: user.department_id,
       },
     });
@@ -189,9 +174,7 @@ async function verifyOtp(req, res, next) {
 }
 
 /**
- * POST /api/auth/resend-otp
- * Body: { user_id }
- * Generates new OTP, stores in DB, sends again.
+ * Resend OTP
  */
 async function resendOtp(req, res, next) {
   try {
@@ -212,7 +195,7 @@ async function resendOtp(req, res, next) {
 
     const email = await authModel.getUserEmailById(user_id);
     if (!email) {
-      const err = new Error('Email not available for this user');
+      const err = new Error('Email not available');
       err.status = 400;
       throw err;
     }
@@ -220,7 +203,7 @@ async function resendOtp(req, res, next) {
     const otp = genOtp();
     await authModel.saveOtp(user_id, otp);
 
-    await otpService.sendOtpMail({
+    await otpService.sendOtp({
       to: email,
       user_name: user.user_name,
       otp,

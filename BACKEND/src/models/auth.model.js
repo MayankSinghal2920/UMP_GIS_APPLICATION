@@ -1,24 +1,38 @@
 const pool = require('../config/db');
 
+/**
+ * Find user by ID
+ * Joins div_master to get proper division code (divcode)
+ */
 async function findUserById(userId) {
   const sql = `
-    SELECT user_id, password, user_name, zone, division, department_id, otp, otp_created_at, email
-    FROM user_master
-    WHERE user_id = $1
+    SELECT 
+      u.user_id,
+      u.password,
+      u.user_name,
+      u.zone,
+      u.department_id,
+      u.otp,
+      u.otp_created_at,
+      u.email,
+      d.divcode AS division_code
+    FROM user_master u
+    LEFT JOIN div_master d 
+      ON u.div_id = d.div_id
+    WHERE u.user_id = $1
     LIMIT 1;
   `;
+
   const { rows } = await pool.query(sql, [userId]);
   return rows[0];
 }
 
 /**
- * Get user's email for OTP delivery.
- * Column name configurable via env: USER_EMAIL_COLUMN (default: email)
+ * Get user's email for OTP delivery
  */
 async function getUserEmailById(userId) {
   const col = String(process.env.USER_EMAIL_COLUMN || 'email').trim();
 
-  // safe identifier check
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col)) {
     throw new Error('Invalid USER_EMAIL_COLUMN');
   }
@@ -35,7 +49,7 @@ async function getUserEmailById(userId) {
 }
 
 /**
- * Save OTP in DB (user_master.otp) and store timestamp in otp_created_at
+ * Save OTP
  */
 async function saveOtp(userId, otp) {
   const sql = `
@@ -48,7 +62,7 @@ async function saveOtp(userId, otp) {
 }
 
 /**
- * Clear OTP after verification / expiry / resend failures
+ * Clear OTP
  */
 async function clearOtp(userId) {
   const sql = `
