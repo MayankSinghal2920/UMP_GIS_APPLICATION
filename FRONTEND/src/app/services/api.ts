@@ -166,6 +166,21 @@ resendOtp(username: string): Observable<any> {
   });
 }
 
+/* ===================== AUTH (Captcha FLOW) ===================== */
+
+getNewCaptcha(): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/captcha/new`, {});
+}
+
+validateCaptcha(captchaId: string, captchaValue: string): Observable<any> {
+  return this.http.post<any>(`${this.BASE_URL}/api/auth/captcha/validate`, {
+    captchaId,
+    captchaValue
+  });
+}
+
+
+
 /* OPTIONAL: keep legacy login if needed */
 login(username: string, password: string): Observable<any> {
   return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
