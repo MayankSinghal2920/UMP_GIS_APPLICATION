@@ -169,14 +169,15 @@ resendOtp(username: string): Observable<any> {
 /* ===================== AUTH (Captcha FLOW) ===================== */
 
 getNewCaptcha(): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/captcha/new`, {});
+  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/new`);
 }
 
 validateCaptcha(captchaId: string, captchaValue: string): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/captcha/validate`, {
-    captchaId,
-    captchaValue
-  });
+  const params = new HttpParams()
+    .set('captchaId', captchaId)
+    .set('captchaValue', captchaValue);
+
+  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/validate`, { params });
 }
 
 
@@ -331,4 +332,3 @@ getLandPlanCount(type: string) {
 
 
 }
-

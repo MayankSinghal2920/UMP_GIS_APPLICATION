@@ -2,7 +2,9 @@ import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { filter, finalize } from 'rxjs/operators';
+import { NgZone } from '@angular/core';
+import { timeout, catchError, of } from 'rxjs';
 
 import { Auth } from '../../services/auth';
 import { Api } from '../../services/api';
@@ -38,19 +40,17 @@ export class Login implements OnInit, AfterViewInit {
   infoMsg = '';
   showPassword = false;
 
-  // prevent multiple parallel calls
   private captchaLoading = false;
 
-  // auto-clear error timer
   private errorTimer: any = null;
 
   constructor(
     private auth: Auth,
     private api: Api,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone
   ) {
-    // ✅ Bulletproof: whenever navigation ends on /login, load captcha
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => {
@@ -61,36 +61,44 @@ export class Login implements OnInit, AfterViewInit {
       });
   }
 
-  ngOnInit(): void {
-    setTimeout(() => this.loadCaptcha('ngOnInit'), 0);
-  }
+  ngOnInit(): void {}
 
   ngAfterViewInit(): void {
     setTimeout(() => this.loadCaptcha('ngAfterViewInit'), 0);
   }
 
-  // =========================
-  // ERROR: show and auto-clear after 2 seconds
-  // =========================
-  private showError(message: string) {
+  // ✅ auto-clear after 2 seconds
+private showError(message: string) {
+  // show error inside Angular zone so UI definitely updates
+  this.zone.run(() => {
     this.error = message;
+    this.cdr.detectChanges(); // ✅ show immediately
+  });
 
-    if (this.errorTimer) clearTimeout(this.errorTimer);
-    this.errorTimer = setTimeout(() => {
-      this.error = '';
-      this.errorTimer = null;
-    }, 2000);
+  if (this.errorTimer) {
+    clearTimeout(this.errorTimer);
+    this.errorTimer = null;
   }
 
-  // =========================
-  // CAPTCHA: load new captcha from backend
-  // =========================
+  this.zone.runOutsideAngular(() => {
+    this.errorTimer = setTimeout(() => {
+      this.zone.run(() => {
+        this.error = '';
+        this.cdr.detectChanges(); // ✅ hide after 2s
+      });
+    }, 2000);
+  });
+}
+
+
+
+
+
   loadCaptcha(from: string = 'manual') {
     if (this.loginStep !== 'LOGIN') return;
-
     if (this.captchaLoading) return;
-    this.captchaLoading = true;
 
+    this.captchaLoading = true;
     console.log(`[CAPTCHA] loading (${from})...`);
 
     this.api.getNewCaptcha().subscribe({
@@ -102,12 +110,6 @@ export class Login implements OnInit, AfterViewInit {
         this.captchaValue = '';
 
         this.cdr.detectChanges();
-
-        console.log('[CAPTCHA] loaded:', {
-          captchaId: this.captchaId,
-          hasImage: !!this.captchaImage
-        });
-
         this.captchaLoading = false;
 
         if (!this.captchaId || !this.captchaImage) {
@@ -127,119 +129,150 @@ export class Login implements OnInit, AfterViewInit {
   }
 
   // =========================
-  // STEP 1: Validate captcha separately, then request OTP
+  // STEP 1: captcha validate -> request OTP
   // =========================
-  login() {
-    if (!this.username || !this.password) {
-      this.showError('Please enter User ID and Password');
-      return;
-    }
-    if (!this.consent) {
-      this.showError('Please accept Privacy Policy and Terms of Use');
-      return;
-    }
-    if (!this.captchaId || !this.captchaImage) {
-      this.showError('Captcha not loaded. Please refresh captcha.');
-      this.loadCaptcha('captcha-not-loaded');
-      return;
-    }
-    if (!this.captchaValue || this.captchaValue.trim().length < 4) {
-      this.showError('Please enter captcha');
-      return;
-    }
+otpSending = false;
 
-    this.loading = true;
-    this.error = '';
-    this.infoMsg = '';
+login() {
+  if (!this.username || !this.password) {
+    this.showError('Please enter User ID and Password');
+    return;
+  }
+  if (!this.consent) {
+    this.showError('Please accept Privacy Policy and Terms of Use');
+    return;
+  }
+  if (!this.captchaId || !this.captchaImage) {
+    this.showError('Captcha not loaded. Please refresh captcha.');
+    this.loadCaptcha('captcha-not-loaded');
+    return;
+  }
+  if (!this.captchaValue || this.captchaValue.trim().length < 4) {
+    this.showError('Please enter captcha');
+    return;
+  }
 
-    // ✅ 1) validate captcha (separate API)
-    this.api.validateCaptcha(this.captchaId, this.captchaValue.trim()).subscribe({
+  // ✅ Step A: Validate captcha first
+  this.loading = true;
+  this.infoMsg = 'Validating captcha…';
+
+  console.time('captcha-validate');
+
+this.api
+  .validateCaptcha(this.captchaId, this.captchaValue.trim())
+  .pipe(
+    timeout(2500), // ✅ if captcha validation takes >2.5s, treat as failure
+    catchError((err) => {
+      console.error('[CAPTCHA] validate timeout/error', err);
+      return of({ success: false, message: 'Captcha validation timeout. Please try again.' });
+    }),
+    finalize(() => console.timeEnd('captcha-validate'))
+  )
+  .subscribe({
+
       next: (capRes: any) => {
         if (!capRes?.success) {
           this.loading = false;
-
-          // ✅ auto-clear invalid captcha in 2s
           this.showError(capRes?.message || 'Invalid captcha');
-
-          // refresh captcha after invalid
           this.loadCaptcha('captcha-invalid');
           return;
         }
 
-        // ✅ 2) captcha ok -> instantly show OTP screen
-        this.loginStep = 'OTP';
-        this.loading = true;
-        this.error = '';
-        this.infoMsg =
-          'Connecting… Sending OTP to registered email (or fallback mailbox due to policy).';
-        this.otp = '';
+        // ✅ IMPORTANT: Stop blocking UI immediately
+        this.loading = false;
 
-        // ✅ 3) request OTP (NO captcha included)
+        // ✅ Step B: INSTANT switch to OTP screen inside Angular zone
+        this.zone.run(() => {
+          this.loginStep = 'OTP';
+          this.otp = '';
+          this.infoMsg = 'Connecting… Sending OTP to registered email.';
+          this.cdr.detectChanges(); 
+        });
+
+        // ✅ Step C: Request OTP in background (separate flag)
+        this.otpSending = true;
+
         this.auth.requestOtp(this.username, this.password).subscribe({
           next: (res: any) => {
-            this.loading = false;
+            this.otpSending = false;
 
             if (res?.success) {
-              this.infoMsg = res?.message || this.infoMsg;
+              this.infoMsg = res?.message || 'OTP sent to registered email.';
             } else {
-              // show error (auto-clear)
               this.showError(res?.message || res?.error || 'Invalid user ID or password');
-
-              this.loginStep = 'LOGIN';
+              this.zone.run(() => (this.loginStep = 'LOGIN'));
               setTimeout(() => this.loadCaptcha('back-to-login-after-requestOtp-fail'), 0);
             }
           },
           error: (err) => {
-            this.loading = false;
+            this.otpSending = false;
 
-            // show error (auto-clear)
-            this.showError(err?.error?.message || 'Server error during login');
+            const backendMessage =
+              err?.error?.message ||
+              err?.error?.error ||
+              err?.message ||
+              'Invalid user ID or password';
 
-            this.loginStep = 'LOGIN';
-            setTimeout(() => this.loadCaptcha('back-to-login-after-requestOtp-error'), 0);
+            this.showError(backendMessage);
+
+            this.zone.run(() => (this.loginStep = 'LOGIN'));
+            setTimeout(() => this.loadCaptcha('wrong-password'), 0);
           },
         });
       },
+
       error: (err) => {
         this.loading = false;
 
-        // show error (auto-clear)
-        this.showError(err?.error?.message || 'Captcha validation failed');
+        const backendMessage =
+          err?.error?.message ||
+          err?.error?.error ||
+          'Captcha validation failed';
 
+        this.showError(backendMessage);
         this.loadCaptcha('captcha-validate-error');
       },
     });
-  }
+}
+
 
   // =========================
   // STEP 2: verify OTP -> redirect
   // =========================
-  verifyOtp() {
-    if (!this.otp || this.otp.trim().length < 4) {
-      this.showError('Please enter valid OTP');
-      return;
-    }
-    if (this.loading) return;
-
-    this.loading = true;
-    this.error = '';
-
-    this.auth.verifyOtp(this.username, this.otp.trim()).subscribe({
-      next: (res: any) => {
-        this.loading = false;
-
-        if (res?.success) {
-          this.router.navigateByUrl('/dashboard');
-        } else {
-          this.showError(res?.message || res?.error || 'Invalid OTP');
-        }
-      },
-      error: (err) => {
-        this.loading = false;
-        this.showError(err?.error?.message || 'Server error during OTP verification');
-      },
-    });
+verifyOtp() {
+  if (!this.otp || this.otp.trim().length < 4) {
+    this.showError('Please enter valid OTP');
+    return;
   }
+  if (this.loading) return;
+
+  this.loading = true;
+  this.error = '';
+
+  this.auth.verifyOtp(this.username, this.otp.trim()).subscribe({
+    next: (res: any) => {
+      this.loading = false;
+
+      if (res?.success) {
+        this.router.navigateByUrl('/dashboard');
+      } else {
+        this.showError(res?.message || 'Invalid OTP');
+      }
+    },
+    error: (err) => {
+      this.loading = false;
+
+      const msg =
+        err?.error?.message ||
+        err?.error?.error ||
+        (err?.status === 401 ? 'Invalid OTP' : 'Server error during OTP verification');
+
+      this.showError(msg);
+    }
+  });
+}
+
+
 
   backToLogin() {
     this.loginStep = 'LOGIN';
@@ -249,6 +282,9 @@ export class Login implements OnInit, AfterViewInit {
     this.loading = false;
 
     setTimeout(() => this.loadCaptcha('backToLogin'), 0);
+    if (this.errorTimer) { clearTimeout(this.errorTimer); this.errorTimer = null; }
+   this.error = '';
+
   }
 
   resendOtp() {
