@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
 
 function isRelayPolicyError(err) {
   const msg = String(err?.response || err?.message || '').toLowerCase();
@@ -17,62 +18,173 @@ const transporter = nodemailer.createTransport({
   port: Number(process.env.SMTP_PORT || 25),
   secure: false,
 
-  // ✅ keep pooling on (helps repeated sends)
+  // ✅ pooling
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
 
   tls: { rejectUnauthorized: false },
 
-  // ✅ auth optional (based on your env)
-  auth: process.env.FROM_MAIL && process.env.MAIL_PASSWORD
-    ? { user: process.env.FROM_MAIL, pass: process.env.MAIL_PASSWORD }
-    : undefined,
+  auth:
+    process.env.FROM_MAIL && process.env.MAIL_PASSWORD
+      ? { user: process.env.FROM_MAIL, pass: process.env.MAIL_PASSWORD }
+      : undefined,
 });
 
 /**
  * Send OTP email to user's email.
- * ✅ IMPORTANT CHANGE:
- * If SMTP relay/policy rejects temporarily, we RETRY sending to SAME recipient.
- * Only after retries fail, optionally fallback to FROM_MAIL (if enabled).
+ * ✅ Uses CID embedded image so Gmail shows logo (no localhost dependency).
+ * ✅ Retries recipient if relay/policy error.
  */
 async function sendOtpMail({ to, user_name, otp }) {
   const subject = 'OTP for IR Geo Application Login';
 
-  const html = `
-    <div style="font-family:Segoe UI, Arial, sans-serif; line-height:1.6">
-      <h2>Dear ${user_name || 'User'},</h2>
-      <p>Your OTP for login is:</p>
-      <div style="font-size:28px;font-weight:700;letter-spacing:3px;color:#0b86a7">${otp}</div>
-      <p>Valid for <strong>${process.env.OTP_TTL_MINUTES || 10} minutes</strong>.</p>
-      <p>Regards,<br/>IR Geo Application Team</p>
-    </div>
-  `;
-
   const from = process.env.FROM_MAIL;
-  if (!from) {
-    throw new Error('FROM_MAIL is missing in .env');
-  }
+  if (!from) throw new Error('FROM_MAIL is missing in .env');
 
-  const mailOptions = { from, to, subject, html };
+  // ✅ IMPORTANT: Logo absolute file path on backend filesystem
+  // Update this path depending on where your IR_logo.png is.
+  // If your image is inside: BACKEND/src/public/images/IR_logo.png
+  const logoPath = path.join(__dirname, '../../public/images/IR_logo.png');
 
-  // ✅ Retry schedule (tune if needed)
-  // Immediate try + 3 retries: 10s, 20s, 40s
+  // ✅ Use CID in HTML (not URL)
+  const html = `
+<div style="background:#f4f6f9;padding:40px 0;font-family:'Segoe UI',Arial,sans-serif;">
+  <div style="
+      max-width:650px;
+      margin:0 auto;
+      background:#ffffff;
+      border-radius:14px;
+      padding:40px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    ">
+
+    <!-- Header -->
+<!-- Header -->
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
+  <tr>
+    <td align="center">
+
+      <table cellpadding="0" cellspacing="0">
+        <tr>
+
+          <!-- Logo -->
+          <td style="vertical-align:middle;padding-right:15px;">
+            <img 
+              src="cid:irlogo"
+              alt="Indian Railways" 
+              style="height:75px; display:block;"
+            />
+          </td>
+
+          <!-- UMP Heading -->
+          <td style="vertical-align:middle;">
+            <h1 style="
+              margin:0;
+              font-size:36px;
+              letter-spacing:2px;
+              color:#1a1a1a;
+              font-weight:800;
+              font-family:'Segoe UI', Arial, sans-serif;
+            ">
+              UMP
+            </h1>
+          </td>
+
+        </tr>
+      </table>
+
+      <!-- Underline -->
+      <div style="
+        height:4px;
+        width:180px;
+        background:#0b86a7;
+        margin:15px auto 0;
+        border-radius:3px;
+      "></div>
+
+    </td>
+  </tr>
+</table>
+
+
+    <!-- Body -->
+    <h2 style="margin-top:0;color:#222;font-weight:600;">
+      Dear ${user_name || 'User'},
+    </h2>
+
+    <p style="font-size:15px;color:#444;">
+      Your One-Time Password (OTP) for logging into the 
+      <strong>UMP Web Application</strong> is:
+    </p>
+
+    <!-- OTP Box -->
+    <div style="
+        margin:30px 0;
+        text-align:center;
+        font-size:34px;
+        font-weight:800;
+        letter-spacing:6px;
+        color:#0b86a7;
+        background:#f1f7fa;
+        padding:18px 0;
+        border-radius:8px;
+        border:1px solid #dbe9f0;
+      ">
+      ${otp}
+    </div>
+
+    <p style="font-size:14px;color:#555;">
+      This OTP is valid for 
+      <strong>${process.env.OTP_TTL_MINUTES || 10} minutes</strong>.
+    </p>
+
+    <p style="font-size:14px;color:#555;">
+      Please do not share this OTP with anyone. If you did not request it,
+      kindly ignore this email.
+    </p>
+
+    <br/>
+
+    <p style="font-size:14px;color:#222;">
+      Thanks,<br/>
+      <strong>Team UMP</strong>
+    </p>
+
+  </div>
+</div>
+`;
+
+  // ✅ Base mail options (includes attachment)
+  const mailOptions = {
+    from,
+    to,
+    subject,
+    html,
+
+    // ✅ CID attachment so Gmail shows logo
+    attachments: [
+      {
+        filename: 'IR_logo.png',
+        path: logoPath,
+        cid: 'irlogo', // MUST match src="cid:irlogo"
+        contentDisposition: 'inline',
+      },
+    ],
+  };
+
+  // Retry schedule: immediate + 3 retries
   const delays = [0, 10_000, 20_000, 40_000];
-
   let lastErr = null;
 
   for (let i = 0; i < delays.length; i++) {
-    if (delays[i] > 0) {
-      await sleep(delays[i]);
-    }
+    if (delays[i] > 0) await sleep(delays[i]);
 
     try {
       return await transporter.sendMail(mailOptions);
     } catch (err) {
       lastErr = err;
 
-      // If NOT relay/policy error -> do not retry here, just throw
       if (!isRelayPolicyError(err)) {
         throw err;
       }
@@ -86,6 +198,7 @@ async function sendOtpMail({ to, user_name, otp }) {
 
   // ✅ Fallback only after all retries fail
   const fallbackEnabled = String(process.env.FALLBACK_TO_FROM_MAIL || 'false') === 'true';
+
   if (fallbackEnabled) {
     const fallbackTo = from;
 
@@ -107,7 +220,6 @@ async function sendOtpMail({ to, user_name, otp }) {
     });
   }
 
-  // If fallback disabled, throw final error so controller log can capture it
   throw lastErr || new Error('Unable to send OTP due to SMTP relay policy');
 }
 
