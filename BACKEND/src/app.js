@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
+const path = require('path');
 
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
@@ -13,6 +14,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(compression());
+
+
+// app.use('/assets', express.static(path.join(__dirname, '../public'), {
+//   etag: false,
+//   maxAge: 0,
+//   setHeaders(res) {
+//     // prevent caching (useful while developing)
+//     res.setHeader('Cache-Control', 'no-store');
+//   }
+// }));
 
 
 // TEMP route (health check)
