@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 
-async function getTracksGeoJSON(where, params, division) {
+async function getDivisionBufferGeoJSON(where, params, division) {
   let divSql = '';
 
   if (division) {
@@ -22,7 +22,7 @@ async function getTracksGeoJSON(where, params, division) {
     ) AS geojson
     FROM (
       SELECT *
-      FROM sde.dli_track_1_test
+      FROM sde.division_buffer
       WHERE ${where}${divSql}
     ) t;
   `;
@@ -32,5 +32,5 @@ async function getTracksGeoJSON(where, params, division) {
 }
 
 module.exports = {
-  getTracksGeoJSON,
+  getDivisionBufferGeoJSON,
 };

@@ -1,6 +1,7 @@
 const express = require('express');
+const controller = require('../controllers/track.controller');
+
 const router = express.Router();
-const controller = require('../controllers/tracks.controller');
 
 router.get('/', controller.getTracks);
 
