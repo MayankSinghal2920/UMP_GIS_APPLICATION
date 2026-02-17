@@ -9,7 +9,12 @@ const authRoutes = require('./routes/auth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const kmPostRoutes = require('./routes/kmPost.routes');
 const landPlanRoutes = require('./routes/landPlan.routes');
-const tracksRoutes = require('./routes/tracks.routes');
+const indiaBoundaryRoutes = require('./routes/indiaBoundary.routes');
+const divisionBufferRoutes = require('./routes/divisionBuffer.routes');
+const landOffsetRoutes = require('./routes/landOffset.routes');
+const landBoundaryRoutes = require('./routes/landBoundary.routes');
+const trackRoutes = require('./routes/track.routes');
+
 
 
 
@@ -30,7 +35,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/km_posts', kmPostRoutes);
 app.use('/api/land_plan_on_track', landPlanRoutes);
-app.use('/api/tracks', tracksRoutes);
+app.use('/api/india_boundary', indiaBoundaryRoutes);
+app.use('/api/division_buffer', divisionBufferRoutes);
+app.use('/api/land_offset', landOffsetRoutes);
+app.use('/api/land_boundary', landBoundaryRoutes);
+app.use('/api/tracks', trackRoutes);
+
+
 
 
 

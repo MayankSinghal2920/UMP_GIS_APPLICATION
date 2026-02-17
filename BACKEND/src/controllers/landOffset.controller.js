@@ -1,23 +1,27 @@
-const tracksModel = require('../models/tracks.model');
+const model = require('../models/landOffset.model');
 const parseBbox = require('../utils/parseBbox');
 
-async function getTracks(req, res, next) {
+async function getLandOffset(req, res, next) {
   try {
     const { bbox, division } = req.query;
+
     const { where, params } = parseBbox(bbox);
 
-    const geojson = await tracksModel.getTracksGeoJSON(
+    const geojson = await model.getLandOffsetGeoJSON(
       where,
       params,
       division?.trim()
     );
 
-    res.json(geojson || { type: 'FeatureCollection', features: [] });
+    res.json(
+      geojson || { type: 'FeatureCollection', features: [] }
+    );
+
   } catch (err) {
     next(err);
   }
 }
 
 module.exports = {
-  getTracks,
+  getLandOffset,
 };
