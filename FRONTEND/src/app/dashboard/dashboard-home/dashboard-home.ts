@@ -110,33 +110,7 @@ export class DashboardHome implements OnInit {
           this.setSubCard(type, 'Land Plan Ontrack', res.landPlan[type].count);
         });
 
-        /* ---------- LAND PLAN ON TRACK ---------- */
-        const lp = res.landPlan?.features ?? [];
-        const lpCounts: Record<CardType, number> = {
-          TOTAL: lp.length,
-          MAKER: lp.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
-          CHECKER: lp.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
-          APPROVER: lp.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
-          FINALIZED: lp.filter((f: any) => f.properties?.status === 'Approved').length,
-        };
-
-        types.forEach(type =>
-          this.setSubCard(type, 'Land Plan Ontrack', lpCounts[type])
-        );
-
-        /* ---------- KM POSTS ---------- */
-        const km = res.kmPosts?.features ?? [];
-        const kmCounts: Record<CardType, number> = {
-          TOTAL: km.length,
-          MAKER: km.filter((f: any) => f.properties?.status === 'Sent to Maker').length,
-          CHECKER: km.filter((f: any) => f.properties?.status === 'Sent to Checker').length,
-          APPROVER: km.filter((f: any) => f.properties?.status === 'Sent to Approver').length,
-          FINALIZED: km.filter((f: any) => f.properties?.status === 'Approved').length,
-        };
-
-        types.forEach(type =>
-          this.setSubCard(type, 'KM Post', kmCounts[type])
-        );
+       
 
         this.selectedMain = 'TOTAL';
         this.cdr.detectChanges();
