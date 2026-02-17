@@ -27,29 +27,21 @@ export class Auth {
    * Verify OTP (stored in DB) and complete login.
    * Backend: POST /api/auth/verify-otp  { user_id, otp }
    */
-  verifyOtp(username: string, otp: string): Observable<any> {
-    return this.api.verifyOtp(username, otp).pipe(
-      tap((res: any) => {
-        console.log('VERIFY OTP RESPONSE FROM SERVER:', res);
+verifyOtp(user_id: string, otp: string) {
+  return this.api.verifyOtp(user_id, otp).pipe(
+    tap((res: any) => {
+      if (res?.success) {
+        const u = res.user || {};
+        localStorage.setItem('user_id', u.user_id || '');
+        localStorage.setItem('user_name', u.user_name || '');
+        localStorage.setItem('railway', u.railway || '');
+        localStorage.setItem('division', u.division || '');
+        localStorage.setItem('department', u.department || '');
+      }
+    })
+  );
+}
 
-        if (res?.success) {
-          const u = res.user || {};
-
-          // keep your existing localStorage keys exactly same
-          localStorage.setItem('user_id', u.user_id || '');
-          localStorage.setItem('user_name', u.user_name || '');
-          localStorage.setItem('railway', u.railway || '');
-          localStorage.setItem('division', u.division || '');
-          localStorage.setItem('department', u.department || '');
-
-          // optional: if backend sends token
-          if (res.token) {
-            localStorage.setItem('token', res.token);
-          }
-        }
-      })
-    );
-  }
 
   /**
    * OPTIONAL:

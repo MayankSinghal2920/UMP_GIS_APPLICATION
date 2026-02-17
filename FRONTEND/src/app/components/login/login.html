@@ -106,24 +106,57 @@
         </span>
       </label>
 
+<!-- CAPTCHA ROW (image + refresh + input) -->
+<div class="captcha-row">
+
+  <!-- Captcha Image (from backend SVG) -->
+  <div class="captcha-img" aria-label="captcha image">
+<img *ngIf="captchaImage" [src]="captchaImage" class="captcha-svg" alt="captcha"/>
+
+  </div>
+
+  <!-- Refresh Button -->
+  <button
+    type="button"
+    class="captcha-refresh"
+    aria-label="Refresh captcha"
+    (click)="refreshCaptcha()"
+  >
+    ↻
+  </button>
+
+  <!-- Captcha Input -->
+  <input
+    type="text"
+    name="captchaValue"
+    class="captcha-input"
+    placeholder="Input Captcha"
+    required
+    [(ngModel)]="captchaValue"
+    autocomplete="off"
+  />
+
+</div>
+
+
       <!-- Sign in button below consent -->
       <div class="sign-in-row">
         <button
           type="submit"
           class="next-btn sign-in-btn"
-          [disabled]="loading || !loginForm.valid"
+          [disabled]="loading || otpSending || !loginForm.valid"
         >
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
       </div>
 
       <!-- Optional: keep captcha / user icon at bottom -->
-      <div class="actions-row">
+      <!-- <div class="actions-row">
         <div></div>
         <div class="captcha-box" aria-label="captcha placeholder">
           <span style="color:#0b86a7;">👤</span>
         </div>
-      </div>
+      </div> -->
 
       <div *ngIf="error" class="error-text">
         {{ error }}
