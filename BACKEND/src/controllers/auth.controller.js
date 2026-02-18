@@ -193,7 +193,7 @@ async function verifyOtp(req, res, next) {
         user_name: user.user_name,
         railway: user.zone,
         division: user.division_code,
-        department: user.department_id,
+        department: user.department,
       },
     });
   } catch (err) {
