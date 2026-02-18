@@ -54,28 +54,30 @@ export class DivisionBufferLayer implements MapLayer {
     // ensure layer is on map
     this.addTo(map);
 
-    const z = map.getZoom();
-    const key = `z=${z}`;
-    if (key === this.lastKey) return;
-    this.lastKey = key;
+const z = map.getZoom();
+const key = this.api.getDivisionBufferKey(z); // ✅ division stays in Api
+if (key === this.lastKey) return;
+this.lastKey = key;
 
     this.api.getDivisionBuffer(z).subscribe({
-      next: (res: any) => {
-        const geojson = res?.geojson || { type: 'FeatureCollection', features: [] };
+next: (res: any) => {
+  const geojson = res || { type: 'FeatureCollection', features: [] };
 
-        this.layer.clearLayers();
-        this.layer.addData(geojson);
+  this.layer.clearLayers();
+  this.layer.addData(geojson);
 
-        // ✅ Fit once to division extent (optional, but useful)
-        // Backend returns extent as BOX(minx miny,maxx maxy)
-        if (!this.fittedOnce && res?.extent) {
-          const b = this.parsePgBoxExtent(res.extent);
-          if (b) {
-            map.fitBounds(b, { padding: [20, 20] });
-            this.fittedOnce = true;
-          }
-        }
-      },
+  // optional: zoom once for confirmation
+  if (!this.fittedOnce) {
+    const b = (this.layer as any).getBounds?.();
+    if (b?.isValid?.()) {
+      map.fitBounds(b, { padding: [20, 20] });
+      this.fittedOnce = true;
+    }
+  }
+},
+
+
+
       error: (err: any) => console.error('Division buffer error', err),
     });
   }

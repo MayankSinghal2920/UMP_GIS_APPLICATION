@@ -1,12 +1,7 @@
 const nodemailer = require('nodemailer');
+const path = require('path');
 
-function isRelayPolicyError(err) {
-  const msg = String(err?.response || err?.message || '').toLowerCase();
-  const code = Number(err?.responseCode || 0);
-
-  // Typical: 554 Relay rejected for policy reasons
-  return code === 554 || msg.includes('relay rejected') || msg.includes('policy');
-}
+const activeOtpSends = new Map(); // key = email, value = { cancelled: boolean }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,98 +12,181 @@ const transporter = nodemailer.createTransport({
   port: Number(process.env.SMTP_PORT || 25),
   secure: false,
 
-  // ✅ keep pooling on (helps repeated sends)
+  // pooling
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
 
+  // ✅ prevents "stuck" sendMail when SMTP is slow/unresponsive
+  connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 10_000),
+  greetingTimeout: Number(process.env.SMTP_GREET_TIMEOUT_MS || 10_000),
+  socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20_000),
+
   tls: { rejectUnauthorized: false },
 
-  // ✅ auth optional (based on your env)
-  auth: process.env.FROM_MAIL && process.env.MAIL_PASSWORD
-    ? { user: process.env.FROM_MAIL, pass: process.env.MAIL_PASSWORD }
-    : undefined,
+  auth:
+    process.env.FROM_MAIL && process.env.MAIL_PASSWORD
+      ? { user: process.env.FROM_MAIL, pass: process.env.MAIL_PASSWORD }
+      : undefined,
 });
 
 /**
  * Send OTP email to user's email.
- * ✅ IMPORTANT CHANGE:
- * If SMTP relay/policy rejects temporarily, we RETRY sending to SAME recipient.
- * Only after retries fail, optionally fallback to FROM_MAIL (if enabled).
+ * ✅ Cancels previous in-flight send for same recipient (resend case)
+ * ✅ Fail fast (no long retries)
+ * ✅ Timeout protection (no port change)
  */
 async function sendOtpMail({ to, user_name, otp }) {
   const subject = 'OTP for IR Geo Application Login';
 
-  const html = `
-    <div style="font-family:Segoe UI, Arial, sans-serif; line-height:1.6">
-      <h2>Dear ${user_name || 'User'},</h2>
-      <p>Your OTP for login is:</p>
-      <div style="font-size:28px;font-weight:700;letter-spacing:3px;color:#0b86a7">${otp}</div>
-      <p>Valid for <strong>${process.env.OTP_TTL_MINUTES || 10} minutes</strong>.</p>
-      <p>Regards,<br/>IR Geo Application Team</p>
-    </div>
-  `;
-
   const from = process.env.FROM_MAIL;
-  if (!from) {
-    throw new Error('FROM_MAIL is missing in .env');
+  if (!from) throw new Error('FROM_MAIL is missing in .env');
+
+  // ✅ Cancel any previous in-flight send for same recipient
+  if (activeOtpSends.has(to)) {
+    activeOtpSends.get(to).cancelled = true;
   }
+  const ctx = { cancelled: false };
+  activeOtpSends.set(to, ctx);
 
-  const mailOptions = { from, to, subject, html };
+  try {
+    const logoPath = path.join(__dirname, '../../public/images/IR_logo.png');
 
-  // ✅ Retry schedule (tune if needed)
-  // Immediate try + 3 retries: 10s, 20s, 40s
-  const delays = [0, 10_000, 20_000, 40_000];
+    const html = `
+<div style="background:#f4f6f9;padding:40px 0;font-family:'Segoe UI',Arial,sans-serif;">
+  <div style="
+      max-width:650px;
+      margin:0 auto;
+      background:#ffffff;
+      border-radius:14px;
+      padding:40px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    ">
 
-  let lastErr = null;
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
+  <tr>
+    <td align="center">
+      <table cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="vertical-align:middle;padding-right:15px;">
+            <img 
+              src="cid:irlogo"
+              alt="Indian Railways" 
+              style="height:75px; display:block;"
+            />
+          </td>
 
-  for (let i = 0; i < delays.length; i++) {
-    if (delays[i] > 0) {
-      await sleep(delays[i]);
-    }
+          <td style="vertical-align:middle;">
+            <h1 style="
+              margin:0;
+              font-size:36px;
+              letter-spacing:2px;
+              color:#1a1a1a;
+              font-weight:800;
+              font-family:'Segoe UI', Arial, sans-serif;
+            ">
+              UMP
+            </h1>
+          </td>
+        </tr>
+      </table>
 
-    try {
-      return await transporter.sendMail(mailOptions);
-    } catch (err) {
-      lastErr = err;
+      <div style="
+        height:4px;
+        width:180px;
+        background:#0b86a7;
+        margin:15px auto 0;
+        border-radius:3px;
+      "></div>
+    </td>
+  </tr>
+</table>
 
-      // If NOT relay/policy error -> do not retry here, just throw
-      if (!isRelayPolicyError(err)) {
-        throw err;
+    <h2 style="margin-top:0;color:#222;font-weight:600;">
+      Dear ${user_name || 'User'},
+    </h2>
+
+    <p style="font-size:15px;color:#444;">
+      Your One-Time Password (OTP) for logging into the 
+      <strong>UMP Web Application</strong> is:
+    </p>
+
+    <div style="
+        margin:30px 0;
+        text-align:center;
+        font-size:34px;
+        font-weight:800;
+        letter-spacing:6px;
+        color:#0b86a7;
+        background:#f1f7fa;
+        padding:18px 0;
+        border-radius:8px;
+        border:1px solid #dbe9f0;
+      ">
+      ${otp}
+    </div>
+
+    <p style="font-size:14px;color:#555;">
+      This OTP is valid for 
+      <strong>${process.env.OTP_TTL_MINUTES || 10} minutes</strong>.
+    </p>
+
+    <p style="font-size:14px;color:#555;">
+      Please do not share this OTP with anyone. If you did not request it,
+      kindly ignore this email.
+    </p>
+
+    <br/>
+
+    <p style="font-size:14px;color:#222;">
+      Thanks,<br/>
+      <strong>Team UMP</strong>
+    </p>
+
+  </div>
+</div>
+`;
+
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: 'IR_logo.png',
+          path: logoPath,
+          cid: 'irlogo',
+          contentDisposition: 'inline',
+        },
+      ],
+    };
+
+    // ✅ fail-fast: no long retries for OTP
+    const delays = [0];
+
+    for (let i = 0; i < delays.length; i++) {
+      if (ctx.cancelled) {
+        // return a clear status; controller can ignore it
+        return { cancelled: true };
       }
 
-      console.warn(
-        `[OTP] Relay/policy rejected for "${to}". Retry ${i + 1}/${delays.length}.`,
-        err?.response || err?.message
-      );
+      if (delays[i] > 0) await sleep(delays[i]);
+
+      if (ctx.cancelled) return { cancelled: true };
+
+      // ✅ If cancelled while SMTP send is happening, we can't stop nodemailer mid-flight,
+      // but we can ensure future sends for this recipient override this context.
+      const info = await transporter.sendMail(mailOptions);
+      return { cancelled: false, info };
+    }
+
+    return { cancelled: true };
+  } finally {
+    if (activeOtpSends.get(to) === ctx) {
+      activeOtpSends.delete(to);
     }
   }
-
-  // ✅ Fallback only after all retries fail
-  const fallbackEnabled = String(process.env.FALLBACK_TO_FROM_MAIL || 'false') === 'true';
-  if (fallbackEnabled) {
-    const fallbackTo = from;
-
-    console.warn(
-      `[OTP] All retries failed for "${to}". Falling back to FROM_MAIL "${fallbackTo}".`
-    );
-
-    return await transporter.sendMail({
-      ...mailOptions,
-      to: fallbackTo,
-      subject: `${subject} (Fallback)`,
-      html: `
-        <div style="font-family:Segoe UI, Arial, sans-serif; line-height:1.6">
-          <p><b>Fallback delivery</b> because SMTP relay rejected recipient after retries: <b>${to}</b></p>
-          <hr/>
-          ${html}
-        </div>
-      `,
-    });
-  }
-
-  // If fallback disabled, throw final error so controller log can capture it
-  throw lastErr || new Error('Unable to send OTP due to SMTP relay policy');
 }
 
 module.exports = { sendOtpMail };
