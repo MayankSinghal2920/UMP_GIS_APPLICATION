@@ -75,14 +75,20 @@ export class Api {
 
   /* ===================== DIVISION BUFFER ===================== */
 
-  getDivisionBuffer(z: number) {
-    return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
-      params: {
-        division: this.getDivision(),
-        z: z.toString(),
-      }
-    });
-  }
+getDivisionBuffer(z: number) {
+  return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
+    params: {
+      division: this.getDivision(),   // ✅ only here
+      z: z.toString(),
+    }
+  });
+}
+
+/** ✅ cache/reload key (division stays inside Api only) */
+getDivisionBufferKey(z: number) {
+  return `division=${this.getDivision()}|z=${z}`; // ✅ only here
+}
+
 
   /* ===================== INDIA BOUNDARY ===================== */
 
