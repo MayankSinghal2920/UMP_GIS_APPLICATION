@@ -272,11 +272,52 @@ async function deleteStation(id, division) {
 }
 
 
+async function getStationTable(page, pageSize, q, division) {
+  const limit = Math.min(200, Math.max(1, Number(pageSize)));
+  const offset = (Number(page) - 1) * limit;
+
+  const params = [division];
+  let where = 'UPPER(division) = UPPER($1)';
+
+  if (q) {
+    params.push(`%${q}%`);
+    where += ` AND (
+      LOWER(sttncode) LIKE LOWER($2)
+      OR LOWER(state) LIKE LOWER($2)
+      OR LOWER(district) LIKE LOWER($2)
+    )`;
+  }
+
+  const totalSql = `
+    SELECT COUNT(*)::int AS total
+    FROM sde.station
+    WHERE ${where};
+  `;
+
+  const listSql = `
+    SELECT objectid, sttncode, distkm, distm, state, district, division
+    FROM sde.station
+    WHERE ${where}
+    ORDER BY objectid
+    LIMIT ${limit} OFFSET ${offset};
+  `;
+
+  const { rows: totalRows } = await pool.query(totalSql, params);
+  const { rows } = await pool.query(listSql, params);
+
+  return {
+    rows,
+    total: totalRows[0]?.total || 0,
+  };
+}
+
+
 
 module.exports = {
   getStationsGeoJSON,
    getStationCount,
    getStationById,
+   getStationTable,
      createStation,
   updateStation,
   deleteStation,

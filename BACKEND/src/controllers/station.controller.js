@@ -164,15 +164,39 @@ async function deleteStation(req, res, next) {
 }
 
 
+async function getStationTable(req, res, next) {
+  try {
+    const { page = 1, pageSize = 10, q = '', division = '' } = req.query;
+
+    if (!division) {
+      const err = new Error('division query param required');
+      err.status = 400;
+      throw err;
+    }
+
+    const result = await stationModel.getStationTable(
+      page,
+      pageSize,
+      q,
+      division
+    );
+
+    res.json(result);
+
+  } catch (err) {
+    next(err);
+  }
+}
+
 
 
 
 
 module.exports = {
   getStations,
-    getStationCount,
-      getStationById,
-        // write
+  getStationCount,
+  getStationById,
+  getStationTable,
   createStation,
   updateStation,
   deleteStation,
