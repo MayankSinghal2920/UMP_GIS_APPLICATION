@@ -193,15 +193,25 @@
     />
   </div>
 
-  <div class="sign-in-row">
-    <button
-      type="submit"
-      class="next-btn sign-in-btn"
-      [disabled]="loading || !otpForm.valid"
-    >
-      {{ loading ? 'Connecting…' : 'Verify OTP' }}
-    </button>
-  </div>
+<div class="sign-in-row">
+  <button
+    type="submit"
+    class="next-btn sign-in-btn"
+    [disabled]="loading || !otpForm.valid"
+  >
+    {{ loading ? 'Connecting…' : 'Verify OTP' }}
+  </button>
+
+  <button
+    type="button"
+    class="next-btn"
+    (click)="resendOtp()"
+    [disabled]="loading"
+  >
+    Resend OTP
+  </button>
+</div>
+
 
   <!-- <div class="actions-row otp-actions">
     <button type="button" class="link-btn" (click)="backToLogin()" [disabled]="loading">
