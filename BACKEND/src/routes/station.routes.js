@@ -6,6 +6,9 @@ const stationController = require('../controllers/station.controller');
 // GET /api/stations
 router.get('/', stationController.getStations);
 
+// (table listing)
+router.get('/table', stationController.getStationTable);
+
 // Count
 router.get('/count', stationController.getStationCount);
 
