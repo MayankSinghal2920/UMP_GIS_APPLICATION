@@ -11,14 +11,23 @@ async function findUserById(userId) {
       u.password,
       u.user_name,
       u.zone,
-      u.department_id,
       u.otp,
       u.otp_created_at,
       u.email,
-      d.divcode AS division_code
+
+      d.divcode AS division_code,
+
+      dept.department_id,
+      dept.department
+
     FROM user_master u
+
     LEFT JOIN div_master d 
       ON u.div_id = d.div_id
+
+    LEFT JOIN sde.department_table dept
+      ON u.department_id = dept.department_id
+
     WHERE u.user_id = $1
     LIMIT 1;
   `;
