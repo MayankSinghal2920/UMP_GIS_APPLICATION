@@ -75,14 +75,20 @@ export class Api {
 
   /* ===================== DIVISION BUFFER ===================== */
 
-  getDivisionBuffer(z: number) {
-    return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
-      params: {
-        division: this.getDivision(),
-        z: z.toString(),
-      }
-    });
-  }
+getDivisionBuffer(z: number) {
+  return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
+    params: {
+      division: this.getDivision(),   // ✅ only here
+      z: z.toString(),
+    }
+  });
+}
+
+/** ✅ cache/reload key (division stays inside Api only) */
+getDivisionBufferKey(z: number) {
+  return `division=${this.getDivision()}|z=${z}`; // ✅ only here
+}
+
 
   /* ===================== INDIA BOUNDARY ===================== */
 
@@ -169,6 +175,22 @@ resendOtp(username: string): Observable<any> {
     user_id: username,
   });
 }
+
+/* ===================== AUTH (Captcha FLOW) ===================== */
+
+getNewCaptcha(): Observable<any> {
+  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/new`);
+}
+
+validateCaptcha(captchaId: string, captchaValue: string): Observable<any> {
+  const params = new HttpParams()
+    .set('captchaId', captchaId)
+    .set('captchaValue', captchaValue);
+
+  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/validate`, { params });
+}
+
+
 
 /* OPTIONAL: keep legacy login if needed */
 login(username: string, password: string): Observable<any> {
@@ -321,4 +343,3 @@ getLandPlanCount(type: string) {
 
 
 }
-

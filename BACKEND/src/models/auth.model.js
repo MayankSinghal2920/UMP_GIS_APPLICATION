@@ -60,15 +60,19 @@ async function getUserEmailById(userId) {
 /**
  * Save OTP
  */
-async function saveOtp(userId, otp) {
+async function saveOtp(userId, otp, ttlMinutes = Number(process.env.OTP_TTL_MINUTES || 10)) {
   const sql = `
     UPDATE user_master
     SET otp = $2,
-        otp_created_at = NOW()
+        otp_created_at = NOW(),
+        otp_expires_at = NOW() + ($3 || ' minutes')::interval,
+        otp_attempts = 0,
+        otp_used = FALSE
     WHERE user_id = $1;
   `;
-  await pool.query(sql, [userId, otp]);
+  await pool.query(sql, [userId, otp, String(ttlMinutes)]);
 }
+
 
 /**
  * Clear OTP
@@ -77,15 +81,51 @@ async function clearOtp(userId) {
   const sql = `
     UPDATE user_master
     SET otp = NULL,
-        otp_created_at = NULL
+        otp_created_at = NULL,
+        otp_expires_at = NULL,
+        otp_attempts = 0,
+        otp_used = FALSE
     WHERE user_id = $1;
   `;
   await pool.query(sql, [userId]);
 }
+
+async function getOtpState(userId) {
+  const sql = `
+    SELECT otp, otp_created_at, otp_expires_at, otp_attempts, otp_used
+    FROM user_master
+    WHERE user_id = $1
+    LIMIT 1;
+  `;
+  const { rows } = await pool.query(sql, [userId]);
+  return rows[0] || null;
+}
+
+async function incrementOtpAttempts(userId) {
+  const sql = `
+    UPDATE user_master
+    SET otp_attempts = COALESCE(otp_attempts, 0) + 1
+    WHERE user_id = $1;
+  `;
+  await pool.query(sql, [userId]);
+}
+
+async function markOtpUsed(userId) {
+  const sql = `
+    UPDATE user_master
+    SET otp_used = TRUE
+    WHERE user_id = $1;
+  `;
+  await pool.query(sql, [userId]);
+}
+
 
 module.exports = {
   findUserById,
   getUserEmailById,
   saveOtp,
   clearOtp,
+  getOtpState,
+  incrementOtpAttempts,
+  markOtpUsed,
 };
