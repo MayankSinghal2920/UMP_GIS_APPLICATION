@@ -106,7 +106,8 @@ getStationTable(page: number, pageSize: number, search: string) {
   }
 
   return this.http.get<any>(
-    `${this.BASE_URL}/api/edit/stations`,
+    `${this.BASE_URL}/api/stations/table`
+,
     { params }
   );
 }
@@ -116,7 +117,8 @@ getStationTable(page: number, pageSize: number, search: string) {
 /* ===================== UPDATE STATION ===================== */
 updateStation(id: number, payload: any) {
   return this.http.put(
-    `${this.BASE_URL}/api/edit/stations/${id}`,
+    `${this.BASE_URL}/api/stations/${id}`
+,
     payload,
     { params: { division: this.getDivision() } }
   );
@@ -124,7 +126,8 @@ updateStation(id: number, payload: any) {
 
 deleteStation(id: number) {
   return this.http.delete(
-    `${this.BASE_URL}/api/edit/stations/${id}`,
+    `${this.BASE_URL}/api/stations/${id}`
+,
     { params: { division: this.getDivision() } }
   );
 }
@@ -132,7 +135,8 @@ deleteStation(id: number) {
 /* ===================== CREATE STATION ===================== */
 createStation(id: number, payload: any) {
   return this.http.post(
-    `${this.BASE_URL}/api/edit/stations/${id}`,
+    `${this.BASE_URL}/api/stations`
+,
     payload,
     { params: { division: this.getDivision() } }
   );
@@ -195,7 +199,8 @@ login(username: string, password: string): Observable<any> {
 /* ===================== GET STATUS COUNT ===================== */
   getStationById(id: number) {
     const params = new HttpParams().set('division', this.getDivision());
-    return this.http.get<any>(`${this.BASE_URL}/api/edit/stations/${id}`, { params });
+    return this.http.get<any>(`${this.BASE_URL}/api/stations/${id}`
+, { params });
   }
 
 getStationByCode(code: string): Observable<any> {
