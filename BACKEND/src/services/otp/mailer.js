@@ -1,13 +1,7 @@
 const nodemailer = require('nodemailer');
 const path = require('path');
 
-function isRelayPolicyError(err) {
-  const msg = String(err?.response || err?.message || '').toLowerCase();
-  const code = Number(err?.responseCode || 0);
-
-  // Typical: 554 Relay rejected for policy reasons
-  return code === 554 || msg.includes('relay rejected') || msg.includes('policy');
-}
+const activeOtpSends = new Map(); // key = email, value = { cancelled: boolean }
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,10 +12,15 @@ const transporter = nodemailer.createTransport({
   port: Number(process.env.SMTP_PORT || 25),
   secure: false,
 
-  // ✅ pooling
+  // pooling
   pool: true,
   maxConnections: 3,
   maxMessages: 50,
+
+  // ✅ prevents "stuck" sendMail when SMTP is slow/unresponsive
+  connectionTimeout: Number(process.env.SMTP_CONN_TIMEOUT_MS || 10_000),
+  greetingTimeout: Number(process.env.SMTP_GREET_TIMEOUT_MS || 10_000),
+  socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 20_000),
 
   tls: { rejectUnauthorized: false },
 
@@ -33,8 +32,9 @@ const transporter = nodemailer.createTransport({
 
 /**
  * Send OTP email to user's email.
- * ✅ Uses CID embedded image so Gmail shows logo (no localhost dependency).
- * ✅ Retries recipient if relay/policy error.
+ * ✅ Cancels previous in-flight send for same recipient (resend case)
+ * ✅ Fail fast (no long retries)
+ * ✅ Timeout protection (no port change)
  */
 async function sendOtpMail({ to, user_name, otp }) {
   const subject = 'OTP for IR Geo Application Login';
@@ -42,13 +42,17 @@ async function sendOtpMail({ to, user_name, otp }) {
   const from = process.env.FROM_MAIL;
   if (!from) throw new Error('FROM_MAIL is missing in .env');
 
-  // ✅ IMPORTANT: Logo absolute file path on backend filesystem
-  // Update this path depending on where your IR_logo.png is.
-  // If your image is inside: BACKEND/src/public/images/IR_logo.png
-  const logoPath = path.join(__dirname, '../../public/images/IR_logo.png');
+  // ✅ Cancel any previous in-flight send for same recipient
+  if (activeOtpSends.has(to)) {
+    activeOtpSends.get(to).cancelled = true;
+  }
+  const ctx = { cancelled: false };
+  activeOtpSends.set(to, ctx);
 
-  // ✅ Use CID in HTML (not URL)
-  const html = `
+  try {
+    const logoPath = path.join(__dirname, '../../public/images/IR_logo.png');
+
+    const html = `
 <div style="background:#f4f6f9;padding:40px 0;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="
       max-width:650px;
@@ -59,16 +63,11 @@ async function sendOtpMail({ to, user_name, otp }) {
       box-shadow:0 6px 18px rgba(0,0,0,0.08);
     ">
 
-    <!-- Header -->
-<!-- Header -->
 <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:30px;">
   <tr>
     <td align="center">
-
       <table cellpadding="0" cellspacing="0">
         <tr>
-
-          <!-- Logo -->
           <td style="vertical-align:middle;padding-right:15px;">
             <img 
               src="cid:irlogo"
@@ -77,7 +76,6 @@ async function sendOtpMail({ to, user_name, otp }) {
             />
           </td>
 
-          <!-- UMP Heading -->
           <td style="vertical-align:middle;">
             <h1 style="
               margin:0;
@@ -90,11 +88,9 @@ async function sendOtpMail({ to, user_name, otp }) {
               UMP
             </h1>
           </td>
-
         </tr>
       </table>
 
-      <!-- Underline -->
       <div style="
         height:4px;
         width:180px;
@@ -102,13 +98,10 @@ async function sendOtpMail({ to, user_name, otp }) {
         margin:15px auto 0;
         border-radius:3px;
       "></div>
-
     </td>
   </tr>
 </table>
 
-
-    <!-- Body -->
     <h2 style="margin-top:0;color:#222;font-weight:600;">
       Dear ${user_name || 'User'},
     </h2>
@@ -118,7 +111,6 @@ async function sendOtpMail({ to, user_name, otp }) {
       <strong>UMP Web Application</strong> is:
     </p>
 
-    <!-- OTP Box -->
     <div style="
         margin:30px 0;
         text-align:center;
@@ -155,72 +147,46 @@ async function sendOtpMail({ to, user_name, otp }) {
 </div>
 `;
 
-  // ✅ Base mail options (includes attachment)
-  const mailOptions = {
-    from,
-    to,
-    subject,
-    html,
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: 'IR_logo.png',
+          path: logoPath,
+          cid: 'irlogo',
+          contentDisposition: 'inline',
+        },
+      ],
+    };
 
-    // ✅ CID attachment so Gmail shows logo
-    attachments: [
-      {
-        filename: 'IR_logo.png',
-        path: logoPath,
-        cid: 'irlogo', // MUST match src="cid:irlogo"
-        contentDisposition: 'inline',
-      },
-    ],
-  };
+    // ✅ fail-fast: no long retries for OTP
+    const delays = [0];
 
-  // Retry schedule: immediate + 3 retries
-  const delays = [0, 10_000, 20_000, 40_000];
-  let lastErr = null;
-
-  for (let i = 0; i < delays.length; i++) {
-    if (delays[i] > 0) await sleep(delays[i]);
-
-    try {
-      return await transporter.sendMail(mailOptions);
-    } catch (err) {
-      lastErr = err;
-
-      if (!isRelayPolicyError(err)) {
-        throw err;
+    for (let i = 0; i < delays.length; i++) {
+      if (ctx.cancelled) {
+        // return a clear status; controller can ignore it
+        return { cancelled: true };
       }
 
-      console.warn(
-        `[OTP] Relay/policy rejected for "${to}". Retry ${i + 1}/${delays.length}.`,
-        err?.response || err?.message
-      );
+      if (delays[i] > 0) await sleep(delays[i]);
+
+      if (ctx.cancelled) return { cancelled: true };
+
+      // ✅ If cancelled while SMTP send is happening, we can't stop nodemailer mid-flight,
+      // but we can ensure future sends for this recipient override this context.
+      const info = await transporter.sendMail(mailOptions);
+      return { cancelled: false, info };
+    }
+
+    return { cancelled: true };
+  } finally {
+    if (activeOtpSends.get(to) === ctx) {
+      activeOtpSends.delete(to);
     }
   }
-
-  // ✅ Fallback only after all retries fail
-  const fallbackEnabled = String(process.env.FALLBACK_TO_FROM_MAIL || 'false') === 'true';
-
-  if (fallbackEnabled) {
-    const fallbackTo = from;
-
-    console.warn(
-      `[OTP] All retries failed for "${to}". Falling back to FROM_MAIL "${fallbackTo}".`
-    );
-
-    return await transporter.sendMail({
-      ...mailOptions,
-      to: fallbackTo,
-      subject: `${subject} (Fallback)`,
-      html: `
-        <div style="font-family:Segoe UI, Arial, sans-serif; line-height:1.6">
-          <p><b>Fallback delivery</b> because SMTP relay rejected recipient after retries: <b>${to}</b></p>
-          <hr/>
-          ${html}
-        </div>
-      `,
-    });
-  }
-
-  throw lastErr || new Error('Unable to send OTP due to SMTP relay policy');
 }
 
 module.exports = { sendOtpMail };

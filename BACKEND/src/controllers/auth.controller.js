@@ -55,7 +55,6 @@ async function requestOtp(req, res, next) {
     }
 
     const user = await authModel.findUserById(user_id);
-
     if (!user || user.password !== password) {
       const err = new Error('Invalid user_id or password');
       err.status = 401;
@@ -69,35 +68,43 @@ async function requestOtp(req, res, next) {
       throw err;
     }
 
-    const ttlMin = Number(process.env.OTP_TTL_MINUTES || 10);
     const reuseSec = Number(process.env.OTP_REUSE_SECONDS || 60);
+
+    // ✅ NEW: read otp state (otp, expires_at, used, attempts)
+    const otpState = await authModel.getOtpState(user_id);
 
     let otpToUse = null;
     let reused = false;
 
-    if (user.otp && user.otp_created_at) {
-      const createdAtMs = new Date(user.otp_created_at).getTime();
-      const ageMs = Date.now() - createdAtMs;
+    if (otpState?.otp && otpState?.otp_expires_at && otpState?.otp_used === false) {
+      const expiresAtMs = new Date(otpState.otp_expires_at).getTime();
+      const nowMs = Date.now();
 
-      const withinTtl = ageMs >= 0 && ageMs < ttlMin * 60 * 1000;
-      const withinReuseWindow = ageMs < reuseSec * 1000;
+      const notExpired = nowMs <= expiresAtMs;
 
-      if (withinTtl && withinReuseWindow) {
-        otpToUse = String(user.otp);
+      // reuse window uses otp_created_at if you want "reuse within X sec"
+      let withinReuseWindow = false;
+      if (otpState.otp_created_at) {
+        const createdAtMs = new Date(otpState.otp_created_at).getTime();
+        withinReuseWindow = (nowMs - createdAtMs) >= 0 && (nowMs - createdAtMs) < reuseSec * 1000;
+      }
+
+      if (notExpired && withinReuseWindow) {
+        otpToUse = String(otpState.otp);
         reused = true;
       }
     }
 
     if (!otpToUse) {
       otpToUse = genOtp();
-      await authModel.saveOtp(user_id, otpToUse);
+      await authModel.saveOtp(user_id, otpToUse); // ✅ will set expires_at, attempts=0, otp_used=false
     }
 
-    otpService
-      .sendOtp({ to: email, user_name: user.user_name, otp: otpToUse })
-      .catch((mailErr) =>
-        console.error('[OTP] Mail send failed:', mailErr?.message || mailErr)
-      );
+    await otpService.sendOtp({
+      to: email,
+      user_name: user.user_name,
+      otp: otpToUse,
+    });
 
     return res.json({
       success: true,
@@ -130,41 +137,62 @@ async function verifyOtp(req, res, next) {
       throw err;
     }
 
-    if (!user.otp) {
+    const otpState = await authModel.getOtpState(user_id);
+
+    if (!otpState?.otp || !otpState?.otp_expires_at) {
       const err = new Error('OTP not found. Please request again.');
       err.status = 401;
       throw err;
     }
 
-    const ttlMin = Number(process.env.OTP_TTL_MINUTES || 10);
-
-    if (user.otp_created_at) {
-      const createdAtMs = new Date(user.otp_created_at).getTime();
-      const ageMs = Date.now() - createdAtMs;
-
-      if (ageMs > ttlMin * 60 * 1000) {
-        await authModel.clearOtp(user_id);
-        const err = new Error('OTP expired. Please request again.');
-        err.status = 401;
-        throw err;
-      }
+    if (otpState.otp_used === true) {
+      const err = new Error('OTP already used. Please request again.');
+      err.status = 401;
+      throw err;
     }
 
-    if (String(user.otp) !== String(otp).trim()) {
+    const nowMs = Date.now();
+    const expiresAtMs = new Date(otpState.otp_expires_at).getTime();
+
+    if (nowMs > expiresAtMs) {
+      await authModel.clearOtp(user_id);
+      const err = new Error('OTP expired. Please request again.');
+      err.status = 401;
+      throw err;
+    }
+
+    const entered = String(otp).trim();
+    const stored = String(otpState.otp).trim();
+
+    if (entered !== stored) {
+      await authModel.incrementOtpAttempts(user_id);
+
+      // fetch attempts (or just compare using otpState.otp_attempts + 1)
+      const attempts = Number(otpState.otp_attempts || 0) + 1;
+      const maxAttempts = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+
+      if (attempts >= maxAttempts) {
+        await authModel.clearOtp(user_id);
+        const err = new Error('Too many invalid attempts. Please request a new OTP.');
+        err.status = 429;
+        throw err;
+      }
+
       const err = new Error('Invalid OTP');
       err.status = 401;
       throw err;
     }
 
-    await authModel.clearOtp(user_id);
+    // ✅ Success: mark used or clear
+    await authModel.clearOtp(user_id); // simplest & safest
 
-    res.json({
+    return res.json({
       success: true,
       user: {
         user_id: user.user_id,
         user_name: user.user_name,
         railway: user.zone,
-        division: user.division_code,   // ✅ FIXED
+        division: user.division_code,
         department: user.department_id,
       },
     });
@@ -172,6 +200,7 @@ async function verifyOtp(req, res, next) {
     next(err);
   }
 }
+
 
 /**
  * Resend OTP
@@ -200,20 +229,37 @@ async function resendOtp(req, res, next) {
       throw err;
     }
 
-    const otp = genOtp();
-    await authModel.saveOtp(user_id, otp);
+    const otpState = await authModel.getOtpState(user_id);
+
+    let otpToUse = null;
+
+    if (otpState?.otp && otpState?.otp_expires_at && otpState?.otp_used === false) {
+      const nowMs = Date.now();
+      const expiresAtMs = new Date(otpState.otp_expires_at).getTime();
+
+      if (nowMs <= expiresAtMs) {
+        otpToUse = String(otpState.otp);
+      }
+    }
+
+    if (!otpToUse) {
+      otpToUse = genOtp();
+      await authModel.saveOtp(user_id, otpToUse);
+    }
 
     await otpService.sendOtp({
       to: email,
       user_name: user.user_name,
-      otp,
+      otp: otpToUse,
     });
 
-    res.json({ success: true, message: 'OTP resent' });
+    return res.json({ success: true, message: 'OTP resent' });
   } catch (err) {
     next(err);
   }
 }
+
+
 
 
 
