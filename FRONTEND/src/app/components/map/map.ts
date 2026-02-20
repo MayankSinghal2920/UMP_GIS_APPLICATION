@@ -65,6 +65,17 @@ export class Map implements AfterViewInit, OnDestroy {
   private homeZoom?: number;
   private homeCaptured = false;
 
+  // ✅ Hide/restore layers during Station Edit
+  private editSuppressionSub?: Subscription;
+  private suppressedVis = new globalThis.Map<string, boolean>();
+
+  // IMPORTANT: must match id values in LandOffsetLayer / LandPlanOntrackLayer
+  private readonly LAND_OFFSET_ID = 'land_offset';
+  private readonly LAND_PLAN_ID = 'landplan_ontrack';
+
+  // ✅ debounce layer reload on move/zoom (prevents API spam + hangs)
+  private reloadTimer: any = null;
+
   constructor(
     private api: Api,
     private filters: FilterState,
@@ -80,7 +91,10 @@ export class Map implements AfterViewInit, OnDestroy {
   toggle(panel: WidgetPanel): void {
     const next = this.ui.activePanel === panel ? null : panel;
     this.ui.activePanel = next;
-    this.edit.enabled = next === 'edit';
+
+    // ✅ IMPORTANT: use enable()/disable() so stateChanged$ fires
+    if (next === 'edit') this.edit.enable();
+    else this.edit.disable();
 
     setTimeout(() => this.forceMapResize(), 0);
     setTimeout(() => this.forceMapResize(), 260);
@@ -97,6 +111,20 @@ export class Map implements AfterViewInit, OnDestroy {
     this.map.invalidateSize();
     requestAnimationFrame(() => this.map?.invalidateSize());
     setTimeout(() => this.map?.invalidateSize(), 350);
+  }
+
+  // ✅ debounce reload to avoid many calls during animated moves/zoom
+  private scheduleReload(): void {
+    if (!this.map) return;
+
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+
+    this.reloadTimer = setTimeout(() => {
+      if (!this.map) return;
+
+      // ✅ reload only visible layers (much cheaper than reloadAll)
+      this.layerManager.reloadVisible(this.map);
+    }, 180);
   }
 
   // ✅ Capture home AFTER the map has moved away from initial India view
@@ -128,11 +156,9 @@ export class Map implements AfterViewInit, OnDestroy {
       this.map.off('zoomend', trySave);
     };
 
-    // listen for real movement (division fitBounds/setView)
     this.map.on('moveend', trySave);
     this.map.on('zoomend', trySave);
 
-    // fallback polling (does NOT capture initial view)
     let tries = 0;
     const timer = setInterval(() => {
       if (!this.map || this.homeCaptured) {
@@ -160,7 +186,7 @@ export class Map implements AfterViewInit, OnDestroy {
     }
 
     this.map.invalidateSize();
-    this.map.setView(this.homeCenter, this.homeZoom, { animate: true });
+    this.map.setView(this.homeCenter, this.homeZoom, { animate: false }); // ✅ no animation
   }
 
   // ✅ remove highlight + drag marker
@@ -181,8 +207,8 @@ export class Map implements AfterViewInit, OnDestroy {
 
   // ✅ create draggable "circle" marker (circleMarker is NOT draggable)
   private createDraggableCircleMarker(ll: L.LatLng): L.Marker {
-    const size = 34;  // circle diameter
-    const border = 5; // border thickness
+    const size = 34;
+    const border = 5;
 
     const icon = L.divIcon({
       className: 'drag-circle-icon',
@@ -284,37 +310,40 @@ export class Map implements AfterViewInit, OnDestroy {
       this.forceMapResize();
 
       this.layerManager.addAll(this.map!);
-      this.layerManager.reloadAll(this.map!);
+      this.layerManager.reloadAll(this.map!); // initial load OK
 
       // ✅ capture home after division zoom settles
       this.captureHomeAfterFirstSettle();
 
-      this.onMoveOrZoom = () => this.layerManager.reloadAll(this.map!);
+      // ✅ Debounced reload on map move/zoom (prevents slowness/hang)
+      this.onMoveOrZoom = () => this.scheduleReload();
       this.map!.on('moveend', this.onMoveOrZoom);
       this.map!.on('zoomend', this.onMoveOrZoom);
 
+      // ✅ Hide/show land layers depending on edit mode/layer
+      this.editSuppressionSub?.unsubscribe();
+      this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
+        this.applyEditSuppression();
+      });
+      this.applyEditSuppression(); // apply once
+
       // ✅ Lock drag requests (from EditState)
       this.lockDragSub?.unsubscribe();
-this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
-  if (!this.dragMarker) return;
+      this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
+        if (!this.dragMarker) return;
 
-  // hard lock
-  this.dragMarker.dragging?.disable();
-  this.dragMarker.off('drag');
-  this.dragMarker.off('dragend');
+        this.dragMarker.dragging?.disable();
+        this.dragMarker.off('drag');
+        this.dragMarker.off('dragend');
 
-  // optional: visually confirm it locked
-  console.log('✅ Drag locked');
-});
-
-
+        console.log('✅ Drag locked');
+      });
 
       // ✅ Listen to zoom commands
       this.mapZoomSub?.unsubscribe();
       this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => {
         if (!this.map) return;
 
-        // always clear previous highlight/drag marker first
         this.clearZoomArtifacts();
 
         if (t.type === 'clear') return;
@@ -327,34 +356,26 @@ this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
         if (t.type === 'latlng') {
           const z = t.zoom ?? 17;
           const ll = L.latLng(t.lat, t.lng);
-
-          // NOTE: draggable is a custom flag you pass from edit-panel
           const draggable = !!(t as any).draggable;
 
           this.map.invalidateSize();
-          this.map.setView(ll, z, { animate: true });
+          this.map.setView(ll, z, { animate: false }); // ✅ no animation
 
           if (draggable) {
-            // ✅ draggable “circle” marker
             this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map);
 
-this.dragMarker.on('drag', () => {
-  const p = this.dragMarker!.getLatLng();
-  console.log('MAP DRAG =>', p.lat, p.lng);
-  this.edit.emitDragEnd(p.lat, p.lng);
-});
+            this.dragMarker.on('drag', () => {
+              const p = this.dragMarker!.getLatLng();
+              this.edit.emitDragEnd(p.lat, p.lng);
+            });
 
-this.dragMarker.on('dragend', () => {
-  const p = this.dragMarker!.getLatLng();
-  console.log('MAP DRAG END =>', p.lat, p.lng);
-  this.edit.emitDragEnd(p.lat, p.lng);
-});
+            this.dragMarker.on('dragend', () => {
+              const p = this.dragMarker!.getLatLng();
+              this.edit.emitDragEnd(p.lat, p.lng);
+            });
 
-
-            // keep reference for clearing
             this.zoomHighlight = this.dragMarker;
           } else {
-            // ✅ non-draggable highlight
             this.zoomHighlight = L.circleMarker(ll, {
               radius: 15,
               weight: 5,
@@ -372,7 +393,7 @@ this.dragMarker.on('dragend', () => {
           const z = t.zoom ?? 17;
 
           this.map.invalidateSize();
-          this.map.setView(ll, z, { animate: true });
+          this.map.setView(ll, z, { animate: false }); // ✅ no animation
 
           this.zoomHighlight = L.circleMarker(ll, {
             radius: 10,
@@ -388,8 +409,9 @@ this.dragMarker.on('dragend', () => {
             L.latLng(t.south, t.west),
             L.latLng(t.north, t.east)
           );
+
           this.map.invalidateSize();
-          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: true });
+          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); // ✅ no animation
           return;
         }
       });
@@ -407,7 +429,7 @@ this.dragMarker.on('dragend', () => {
           const gj = L.geoJSON(feature);
           const bounds = gj.getBounds();
           if (bounds?.isValid()) {
-            this.map.fitBounds(bounds.pad(0.2), { animate: true });
+            this.map.fitBounds(bounds.pad(0.2), { animate: false }); // ✅ no animation
           }
         } catch (e) {
           console.error('Zoom-to feature failed:', e);
@@ -416,16 +438,50 @@ this.dragMarker.on('dragend', () => {
     });
   }
 
+  /** Hide Land Offset + Land Plan while station edit is active; restore afterwards */
+  private applyEditSuppression(): void {
+    if (!this.map) return;
+
+    const shouldHide = this.edit.enabled && this.edit.editLayer === 'stations';
+    const ids = [this.LAND_OFFSET_ID, this.LAND_PLAN_ID];
+
+    if (shouldHide) {
+      ids.forEach((id) => {
+        const layer = this.layerManager.findById(id);
+        if (!layer) return;
+
+        if (!this.suppressedVis.has(id)) {
+          this.suppressedVis.set(id, !!layer.visible);
+        }
+
+        this.layerManager.setVisible(id, false, this.map!);
+      });
+    } else {
+      ids.forEach((id) => {
+        if (!this.suppressedVis.has(id)) return;
+
+        const prev = this.suppressedVis.get(id)!;
+        this.layerManager.setVisible(id, prev, this.map!);
+        this.suppressedVis.delete(id);
+      });
+    }
+  }
+
   ngOnDestroy(): void {
     this.zoomSub?.unsubscribe();
     this.sidebarSub?.unsubscribe();
     this.mapZoomSub?.unsubscribe();
     this.lockDragSub?.unsubscribe();
+    this.editSuppressionSub?.unsubscribe();
 
     this.zoomSub = undefined;
     this.sidebarSub = undefined;
     this.mapZoomSub = undefined;
     this.lockDragSub = undefined;
+    this.editSuppressionSub = undefined;
+
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    this.reloadTimer = null;
 
     if (this.map) this.clearZoomArtifacts();
 
@@ -450,6 +506,7 @@ this.dragMarker.on('dragend', () => {
       this.homeCaptured = false;
       this.dragMarker = undefined;
       this.zoomHighlight = undefined;
+      this.suppressedVis.clear();
     }
   }
 }
