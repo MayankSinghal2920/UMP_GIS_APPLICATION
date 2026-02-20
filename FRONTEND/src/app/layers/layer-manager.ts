@@ -103,5 +103,29 @@ export class LayerManager {
       });
     });
   }
+
+  // add these methods at bottom of LayerManager class
+
+findById(id: string): MapLayer | undefined {
+  return this.layers.find(l => l.id === id);
+}
+
+setVisible(id: string, visible: boolean, map?: L.Map) {
+  const layer = this.findById(id);
+  if (!layer) return;
+
+  layer.visible = visible;
+
+  if (!map) return;
+
+  if (visible) {
+    layer.addTo(map);
+    // also load if needed
+    try { layer.loadForMap(map); } catch {}
+  } else {
+    layer.removeFrom(map);
+  }
+}
+
 }
 

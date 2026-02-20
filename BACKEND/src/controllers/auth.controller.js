@@ -1,5 +1,7 @@
 const authModel = require('../models/auth.model');
 const otpService = require('../services/otp/otp-service');
+const activeResend = new Map(); // user_id -> true
+
 
 function genOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -45,32 +47,27 @@ async function login(req, res, next) {
  * Request OTP
  */
 async function requestOtp(req, res, next) {
+  console.log('[requestOtp] controller version: 2026-02-XX');
+
   try {
     const { user_id, password } = req.body || {};
 
     if (!user_id || !password) {
-      const err = new Error('Missing user_id or password');
-      err.status = 400;
-      throw err;
+      return res.status(400).json({ success: false, message: 'Missing user_id or password' });
     }
 
     const user = await authModel.findUserById(user_id);
     if (!user || user.password !== password) {
-      const err = new Error('Invalid user_id or password');
-      err.status = 401;
-      throw err;
+      return res.status(401).json({ success: false, message: 'Invalid user_id or password' });
     }
 
     const email = await authModel.getUserEmailById(user_id);
     if (!email) {
-      const err = new Error('Email not available for this user');
-      err.status = 400;
-      throw err;
+      return res.status(400).json({ success: false, message: 'Email not available for this user' });
     }
 
     const reuseSec = Number(process.env.OTP_REUSE_SECONDS || 60);
 
-    // ✅ NEW: read otp state (otp, expires_at, used, attempts)
     const otpState = await authModel.getOtpState(user_id);
 
     let otpToUse = null;
@@ -82,11 +79,11 @@ async function requestOtp(req, res, next) {
 
       const notExpired = nowMs <= expiresAtMs;
 
-      // reuse window uses otp_created_at if you want "reuse within X sec"
       let withinReuseWindow = false;
       if (otpState.otp_created_at) {
         const createdAtMs = new Date(otpState.otp_created_at).getTime();
-        withinReuseWindow = (nowMs - createdAtMs) >= 0 && (nowMs - createdAtMs) < reuseSec * 1000;
+        withinReuseWindow =
+          nowMs - createdAtMs >= 0 && nowMs - createdAtMs < reuseSec * 1000;
       }
 
       if (notExpired && withinReuseWindow) {
@@ -97,23 +94,39 @@ async function requestOtp(req, res, next) {
 
     if (!otpToUse) {
       otpToUse = genOtp();
-      await authModel.saveOtp(user_id, otpToUse); // ✅ will set expires_at, attempts=0, otp_used=false
+      await authModel.saveOtp(user_id, otpToUse);
     }
 
-    await otpService.sendOtp({
-      to: email,
-      user_name: user.user_name,
-      otp: otpToUse,
-    });
+    // ✅ Mail send (await) + safe error handling
+    try {
+      await otpService.sendOtp({
+        to: email,
+        user_name: user.user_name,
+        otp: otpToUse,
+      });
+    } catch (mailErr) {
+      // OTP is in DB, but email failed => return clear message
+      console.error('[OTP] Mail send failed:', {
+        to: email,
+        code: mailErr?.code,
+        responseCode: mailErr?.responseCode,
+        response: mailErr?.response,
+        message: mailErr?.message,
+      });
+
+      return res.status(502).json({
+        success: false,
+        message:
+          'OTP generated but email delivery failed (SMTP). Please try again or contact admin.',
+      });
+    }
 
     return res.json({
       success: true,
-      message: reused
-        ? 'Reusing last OTP. Please check email.'
-        : 'OTP sent to registered email',
+      message: reused ? 'Reusing last OTP. Please check email.' : 'OTP sent to registered email',
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 }
 
@@ -208,12 +221,17 @@ async function verifyOtp(req, res, next) {
 async function resendOtp(req, res, next) {
   try {
     const { user_id } = req.body || {};
-
     if (!user_id) {
       const err = new Error('Missing user_id');
       err.status = 400;
       throw err;
     }
+
+    // ✅ prevent parallel resend for same user
+    if (activeResend.get(user_id)) {
+      return res.status(429).json({ success: false, message: 'OTP resend already in progress. Please wait.' });
+    }
+    activeResend.set(user_id, true);
 
     const user = await authModel.findUserById(user_id);
     if (!user) {
@@ -232,19 +250,24 @@ async function resendOtp(req, res, next) {
     const otpState = await authModel.getOtpState(user_id);
 
     let otpToUse = null;
-
     if (otpState?.otp && otpState?.otp_expires_at && otpState?.otp_used === false) {
       const nowMs = Date.now();
       const expiresAtMs = new Date(otpState.otp_expires_at).getTime();
-
-      if (nowMs <= expiresAtMs) {
-        otpToUse = String(otpState.otp);
-      }
+      if (nowMs <= expiresAtMs) otpToUse = String(otpState.otp);
     }
 
     if (!otpToUse) {
       otpToUse = genOtp();
+      // ✅ IMPORTANT: ensure saveOtp stores exactly otpToUse
       await authModel.saveOtp(user_id, otpToUse);
+    }
+
+    // ✅ optional safety: re-read and confirm DB equals what you will email
+    const otpStateAfter = await authModel.getOtpState(user_id);
+    const dbOtp = otpStateAfter?.otp ? String(otpStateAfter.otp) : null;
+    if (dbOtp && dbOtp !== String(otpToUse)) {
+      // DB changed due to some other path; always send what's in DB
+      otpToUse = dbOtp;
     }
 
     await otpService.sendOtp({
@@ -256,8 +279,12 @@ async function resendOtp(req, res, next) {
     return res.json({ success: true, message: 'OTP resent' });
   } catch (err) {
     next(err);
+  } finally {
+    if (req?.body?.user_id) activeResend.delete(req.body.user_id);
   }
 }
+
+
 
 
 

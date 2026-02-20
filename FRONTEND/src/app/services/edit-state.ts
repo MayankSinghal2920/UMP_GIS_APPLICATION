@@ -19,6 +19,10 @@ export class EditState {
   private _lockDrag$ = new Subject<void>();
   readonly lockDrag$ = this._lockDrag$.asObservable();
 
+  private _stateChanged$ = new Subject<void>();
+  readonly stateChanged$ = this._stateChanged$.asObservable();
+  private notify() { this._stateChanged$.next(); }
+
   emitDragEnd(lat: number, lng: number) {
     this._dragEnd$.next({ lat, lng });
   }
@@ -27,19 +31,22 @@ export class EditState {
     this._lockDrag$.next();
   }
 
-  enable() {
+ enable() {
     this.enabled = true;
     this.reset();
+    this.notify();
   }
 
-  disable() {
+ disable() {
     this.enabled = false;
     this.reset();
+    this.notify();
   }
 
   setLayer(layer: EditableLayer) {
     this.editLayer = layer;
     this.resetSelection();
+    this.notify();
   }
 
   resetSelection() {
@@ -57,5 +64,7 @@ export class EditState {
     const id = feature?.id ?? feature?.properties?.objectid ?? null;
     this.selectedFeatureId = id;
     this.draft = { ...(feature.properties || {}) };
+    // optional notify, not needed for layer hide/show
+    // this.notify();
   }
 }
