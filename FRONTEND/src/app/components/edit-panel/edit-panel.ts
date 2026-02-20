@@ -57,6 +57,9 @@ export class EditPanel implements OnDestroy {
 
   /* ================== LAYER ================== */
   onLayerChange() {
+    // ✅ IMPORTANT: notify Map.ts to hide/show layers
+    this.edit.setLayer(this.edit.editLayer);
+
     this.mode = 'table';
     this.rows = [];
     this.total = 0;
@@ -176,70 +179,64 @@ export class EditPanel implements OnDestroy {
   // ================== GEOMETRY FLOW ==================
 
   /** Edit Geometry is ALWAYS enabled */
-  /** Edit Geometry is ALWAYS enabled */
-startGeometryEdit() {
-  if (!this.draft) return;
+  startGeometryEdit() {
+    if (!this.draft) return;
 
-  const lat = Number(this.draft.lat);
-  const lng = Number(this.draft.lng);
+    const lat = Number(this.draft.lat);
+    const lng = Number(this.draft.lng);
 
-  alert('Edit Geometry Mode is ON. You can now move the station point.');
+    alert('Edit Geometry Mode is ON. You can now move the station point.');
 
-  this.geomEditing = true;
+    this.geomEditing = true;
 
-  // show DRAGGABLE marker
-  this.mapZoom.zoomTo({
-    type: 'latlng',
-    lat,
-    lng,
-    zoom: 17,
-    draggable: true,
-  });
-
-  // listen for drag updates
-// subscribe once to drag-end updates (from EditState)
-this.dragSub?.unsubscribe();
-this.dragSub = this.edit.dragEnd$.subscribe(({ lat: newLat, lng: newLng }) => {
-  console.log('DRAG UPDATE =>', newLat, newLng);   // ✅ must print while dragging
-  this.draft.lat = newLat;
-  this.draft.lng = newLng;
-  this.cdr.detectChanges();
-});
-
-}
-
-
-
-  /** Save Geometry locks marker + disables itself */
-saveGeometry() {
-  if (!this.geomEditing) return;
-
-  alert('Geometry is fixed and Edit Geometry Mode is OFF.');
-
-  // turn off mode (disables Save button)
-  this.geomEditing = false;
-
-  // disable marker dragging in map.ts
-  this.edit.lockDrag();
-
-  // ✅ IMPORTANT: replace draggable marker with fixed circle highlight
-  const lat = Number(this.draft?.lat);
-  const lng = Number(this.draft?.lng);
-
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    // show DRAGGABLE marker
     this.mapZoom.zoomTo({
       type: 'latlng',
       lat,
       lng,
       zoom: 17,
-      draggable: false,
-    } as any);
+      draggable: true,
+    });
+
+    // subscribe once to drag-end updates (from EditState)
+    this.dragSub?.unsubscribe();
+    this.dragSub = this.edit.dragEnd$.subscribe(({ lat: newLat, lng: newLng }) => {
+      console.log('DRAG UPDATE =>', newLat, newLng);
+      if (!this.draft) return;
+      this.draft.lat = newLat;
+      this.draft.lng = newLng;
+      this.cdr.detectChanges();
+    });
   }
 
-  this.cdr.detectChanges();
-}
+  /** Save Geometry locks marker + disables itself */
+  saveGeometry() {
+    if (!this.geomEditing) return;
 
+    alert('Geometry is fixed and Edit Geometry Mode is OFF.');
 
+    // turn off mode (disables Save button)
+    this.geomEditing = false;
+
+    // disable marker dragging in map.ts
+    this.edit.lockDrag();
+
+    // replace draggable marker with fixed circle highlight
+    const lat = Number(this.draft?.lat);
+    const lng = Number(this.draft?.lng);
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      this.mapZoom.zoomTo({
+        type: 'latlng',
+        lat,
+        lng,
+        zoom: 17,
+        draggable: false,
+      } as any);
+    }
+
+    this.cdr.detectChanges();
+  }
 
   cancelEdit() {
     this.mode = 'table';
@@ -263,35 +260,33 @@ saveGeometry() {
       return;
     }
 
-const lat = Number(this.draft.lat);
-const lng = Number(this.draft.lng);
+    const lat = Number(this.draft.lat);
+    const lng = Number(this.draft.lng);
 
-const payload = {
-  stationtype: this.draft.stationtype,
-  distkm: this.draft.distkm,
-  distm: this.draft.distm,
-  state: this.draft.state,
-  district: this.draft.district,
-  constituency: this.draft.constituency,
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      this.error = 'New geometry not captured. Please drag the point and click Save Geometry.';
+      this.cdr.detectChanges();
+      return;
+    }
 
-  // ✅ NEW GEOMETRY (send both names so backend surely gets it)
-  lat,
-  lng,      // some APIs expect lng
-  lon: lng, // many APIs expect lon
-  longitude: lng, // if backend uses longitude
-  latitude: lat,  // if backend uses latitude
-};
+    const payload = {
+      stationtype: this.draft.stationtype,
+      distkm: this.draft.distkm,
+      distm: this.draft.distm,
+      state: this.draft.state,
+      district: this.draft.district,
+      constituency: this.draft.constituency,
 
-
-if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-  this.error = 'New geometry not captured. Please drag the point and click Save Geometry.';
-  this.cdr.detectChanges();
-  return;
-}
-
+      // geometry (send multiple aliases)
+      lat,
+      lng,
+      lon: lng,
+      longitude: lng,
+      latitude: lat,
+    };
 
     this.saving = true;
-console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
+    console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.api.updateStation(this.draft.objectid, payload).subscribe({
       next: () => {
@@ -328,6 +323,7 @@ console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.api.getStationByCode(this.draft.sttncode).subscribe({
       next: (row) => {
+        if (!this.draft) return;
         this.draft.sttnname = row?.station_name;
         this.draft.category = row?.category;
         this.validating = false;
@@ -383,8 +379,8 @@ console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.error = null;
 
-    // reset selection to start screen
-    this.edit.editLayer = null as any;
+    // ✅ reset selection + notify Map.ts
+    this.edit.setLayer(null);
 
     // clear map highlight (if any)
     this.mapZoom.clearHighlight();
@@ -397,6 +393,8 @@ console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.ui.activePanel = null;
     this.resetPanelState();
-    this.edit.enabled = false;
+
+    // ✅ IMPORTANT: disable edit mode + notify Map.ts to restore hidden layers
+    this.edit.disable();
   }
 }
