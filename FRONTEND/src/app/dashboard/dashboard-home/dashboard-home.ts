@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { Api } from 'src/app/services/api';
+
 
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
 
@@ -46,8 +48,23 @@ export class DashboardHome implements OnInit {
 
   constructor(
     private api: Api,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
+
+
+onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey: string }): void {
+  if (this.selectedMain !== 'MAKER') return;
+
+  // Navigate to map with backend-driven params
+  this.router.navigate(['/map'], {
+    queryParams: {
+      panel: 'edit',
+      layer: card.layerKey,     // ✅ from backend
+      status: card.statusKey    // ✅ from backend
+    }
+  });
+}
 
   ngOnInit(): void {
     this.loadDashboard();

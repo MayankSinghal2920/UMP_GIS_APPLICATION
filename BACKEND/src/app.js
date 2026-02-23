@@ -26,6 +26,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(compression());
+app.set("trust proxy", 1);
 
 
 // app.use('/assets', express.static(path.join(__dirname, '../public'), {
