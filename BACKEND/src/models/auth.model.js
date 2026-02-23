@@ -8,6 +8,8 @@ async function findUserById(userId) {
   const sql = `
     SELECT 
       u.user_id,
+      u.unit_type,
+      u.user_type,
       u.password,
       u.user_name,
       u.zone,
