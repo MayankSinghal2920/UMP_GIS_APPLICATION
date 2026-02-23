@@ -37,6 +37,8 @@ verifyOtp(user_id: string, otp: string) {
         localStorage.setItem('railway', u.railway || '');
         localStorage.setItem('division', u.division || '');
         localStorage.setItem('department', u.department || '');
+        localStorage.setItem('user_type', u.user_type || '');
+        localStorage.setItem('unit_type', u.unit_type || '');
       }
     })
   );

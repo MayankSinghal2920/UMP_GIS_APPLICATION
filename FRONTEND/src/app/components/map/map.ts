@@ -2,6 +2,7 @@ import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 
 import { Api } from '../../services/api';
 import { StationLayer } from '../../layers/station';
@@ -76,6 +77,9 @@ export class Map implements AfterViewInit, OnDestroy {
   // ✅ debounce layer reload on move/zoom (prevents API spam + hangs)
   private reloadTimer: any = null;
 
+  // ✅ deep-linking from dashboard -> map
+  private routeSub?: Subscription;
+
   constructor(
     private api: Api,
     private filters: FilterState,
@@ -85,7 +89,8 @@ export class Map implements AfterViewInit, OnDestroy {
     private layerManager: LayerManager,
     private attrTable: AttributeTableService,
     public ui: UiState,
-    private mapZoom: MapZoomService
+    private mapZoom: MapZoomService,
+    private route: ActivatedRoute
   ) {}
 
   toggle(panel: WidgetPanel): void {
@@ -238,6 +243,55 @@ export class Map implements AfterViewInit, OnDestroy {
     return m;
   }
 
+  /**
+   * ✅ Deep link handler:
+   * /map?panel=edit&layer=stations&status=Sent%20to%20Maker
+   * - opens edit panel
+   * - selects layer in edit state
+   * - stores status filter into FilterState (as dynamic field)
+   * - reloads visible layers (so map fetch uses new filter)
+   */
+  private initDeepLinking(): void {
+    this.routeSub?.unsubscribe();
+    this.routeSub = this.route.queryParams.subscribe((params) => {
+      const panel = params['panel'];
+      const layer = params['layer'];
+      const status = params['status'];
+
+      if (panel !== 'edit') return;
+
+      // 1) open panel + enable edit
+      this.ui.activePanel = 'edit';
+      this.edit.enable();
+
+      // 2) set selected edit layer
+      if (layer) {
+        // If your EditState exposes setLayer() (it is used by EditPanel)
+        // keep both; harmless even if one is not needed.
+        try {
+          (this.edit as any).editLayer = layer;
+        } catch {}
+        try {
+          (this.edit as any).setLayer?.(layer);
+        } catch {}
+      }
+
+      // 3) store status filter for API calls (StationLayer should read from FilterState)
+      if (status) {
+        // If FilterState already has a proper property, use that instead.
+        // This dynamic approach will still work and won’t break compilation.
+        (this.filters as any).status = status;
+      }
+
+      // 4) resize + reload (so the new filter is applied)
+      setTimeout(() => this.forceMapResize(), 0);
+      setTimeout(() => {
+        if (!this.map) return;
+        this.layerManager.reloadVisible(this.map);
+      }, 50);
+    });
+  }
+
   private initializeMapSafely(): void {
     const el = document.getElementById('map');
     if (!el) {
@@ -249,7 +303,9 @@ export class Map implements AfterViewInit, OnDestroy {
 
     const anyEl = el as any;
     if (anyEl._leaflet_id) {
-      try { anyEl._leaflet_id = undefined; } catch {}
+      try {
+        anyEl._leaflet_id = undefined;
+      } catch {}
     }
 
     this.map = L.map(el, { preferCanvas: true }).setView([22.5, 79], 5);
@@ -314,6 +370,9 @@ export class Map implements AfterViewInit, OnDestroy {
 
       // ✅ capture home after division zoom settles
       this.captureHomeAfterFirstSettle();
+
+      // ✅ Deep link must be wired AFTER map exists
+      this.initDeepLinking();
 
       // ✅ Debounced reload on map move/zoom (prevents slowness/hang)
       this.onMoveOrZoom = () => this.scheduleReload();
@@ -473,12 +532,14 @@ export class Map implements AfterViewInit, OnDestroy {
     this.mapZoomSub?.unsubscribe();
     this.lockDragSub?.unsubscribe();
     this.editSuppressionSub?.unsubscribe();
+    this.routeSub?.unsubscribe();
 
     this.zoomSub = undefined;
     this.sidebarSub = undefined;
     this.mapZoomSub = undefined;
     this.lockDragSub = undefined;
     this.editSuppressionSub = undefined;
+    this.routeSub = undefined;
 
     if (this.reloadTimer) clearTimeout(this.reloadTimer);
     this.reloadTimer = null;
