@@ -36,6 +36,8 @@ async function login(req, res, next) {
         railway: user.zone,
         division: user.division_code,   // ✅ FIXED
         department: user.department,
+        user_type: user.user_type,
+        unit_type: user.unit_type,
       },
     });
   } catch (err) {
@@ -205,8 +207,10 @@ async function verifyOtp(req, res, next) {
         user_id: user.user_id,
         user_name: user.user_name,
         railway: user.zone,
-        division: user.division_code,
+        division: user.division_code,   // ✅ FIXED
         department: user.department,
+        user_type: user.user_type,
+        unit_type: user.unit_type,
       },
     });
   } catch (err) {
