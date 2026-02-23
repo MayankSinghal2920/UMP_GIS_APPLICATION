@@ -20,7 +20,7 @@ export class Api {
   /* ===================== MAP DATA ===================== */
 
   getStations(bbox: string) {
-    return this.http.get<any>(`${this.BASE_URL}/api/stations`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/common/station`, {
       params: {
         bbox,
         division: this.getDivision(),
@@ -29,7 +29,7 @@ export class Api {
   }
 
   getTracks(bbox: string) {
-    return this.http.get<any>(`${this.BASE_URL}/api/tracks`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/common/railwayTrack`, {
       params: {
         bbox,
         division: this.getDivision(),
@@ -38,7 +38,7 @@ export class Api {
   }
 
   getkmposts(bbox: string) {
-    return this.http.get<any>(`${this.BASE_URL}/api/km_posts`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/common/kmPost`, {
       params: {
         bbox,
         division: this.getDivision(),
