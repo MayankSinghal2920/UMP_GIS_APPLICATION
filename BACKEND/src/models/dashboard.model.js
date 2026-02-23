@@ -1,5 +1,45 @@
 const pool = require('../config/db');
 
+
+function getStatusTextByType(type) {
+  if (type === 'MAKER') return 'Sent to Maker';
+  if (type === 'CHECKER') return 'Sent to Checker';
+  if (type === 'APPROVER') return 'Sent to Approver';
+  if (type === 'FINALIZED') return 'Approved';
+  return null;
+}
+
+async function getDashboardCards(division, type) {
+  const statusText = getStatusTextByType(type);
+
+  // layerKey is what your frontend/map understands (StationLayer id etc.)
+  const cards = [
+    { title: 'Station', layerKey: 'stations', table: 'sde.station' },
+    { title: 'Km Post', layerKey: 'km_post', table: 'sde.km_post' },
+    { title: 'Land Plan', layerKey: 'landplan_ontrack', table: 'sde.land_plan_on_track' },
+    // add others...
+  ];
+
+  // reuse existing getAssetCount()
+  const results = [];
+  for (const c of cards) {
+    const value = await getAssetCount(c.table, division, type);
+    results.push({
+      title: c.title,
+      value,
+      layerKey: c.layerKey,
+      statusKey: type,        // ✅ stable enum key for frontend
+      statusText: statusText  // ✅ actual DB status text (optional)
+    });
+  }
+
+  return results;
+}
+
+module.exports = {
+  // ...keep existing exports
+  getDashboardCards,
+};
 /* ================= GENERIC COUNT HELPER ================= */
 async function getAssetCount(tableName, division, type) {
   let statusCondition = '';
