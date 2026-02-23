@@ -15,19 +15,16 @@ async function findUserById(userId) {
       u.otp_created_at,
       u.email,
 
+      u.user_type,
+      u.unit_type,
+
       d.divcode AS division_code,
 
       dept.department_id,
       dept.department
-
     FROM user_master u
-
-    LEFT JOIN div_master d 
-      ON u.div_id = d.div_id
-
-    LEFT JOIN sde.department_table dept
-      ON u.department_id = dept.department_id
-
+    LEFT JOIN div_master d ON u.div_id = d.div_id
+    LEFT JOIN sde.department_table dept ON u.department_id = dept.department_id
     WHERE u.user_id = $1
     LIMIT 1;
   `;
@@ -35,7 +32,6 @@ async function findUserById(userId) {
   const { rows } = await pool.query(sql, [userId]);
   return rows[0];
 }
-
 /**
  * Get user's email for OTP delivery
  */
