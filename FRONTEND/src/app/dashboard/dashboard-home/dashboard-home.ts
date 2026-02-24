@@ -4,7 +4,6 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { Api } from 'src/app/services/api';
 
-
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
 
 interface MainCard {
@@ -14,9 +13,24 @@ interface MainCard {
   color: string;
 }
 
+type EditableLayerKey =
+  | 'stations'
+  | 'km_post'
+  | 'landplan_ontrack'
+  | 'land_offset'
+  | 'bridge_start'
+  | 'bridge_end'
+  | 'bridge_minor'
+  | 'levelxing'
+  | 'road_over_bridge'
+  | 'rub_lhs'
+  | 'ror';
+
 interface SubCard {
   title: string;
   value: number;
+  layerKey: string;   // map/edit-layer key
+  statusKey: string;  // MAKER/CHECKER/APPROVER/FINALIZED
 }
 
 @Component({
@@ -27,7 +41,6 @@ interface SubCard {
   styleUrl: './dashboard-home.css',
 })
 export class DashboardHome implements OnInit {
-
   selectedMain: CardType = 'TOTAL';
 
   mainCards: MainCard[] = [
@@ -38,13 +51,13 @@ export class DashboardHome implements OnInit {
     { key: 'FINALIZED', title: 'FINALIZED', value: 0, color: 'teal' },
   ];
 
-  subCardMap: Record<CardType, SubCard[]> = {
-    TOTAL: this.emptySubCards(),
-    MAKER: this.emptySubCards(),
-    CHECKER: this.emptySubCards(),
-    APPROVER: this.emptySubCards(),
-    FINALIZED: this.emptySubCards(),
-  };
+subCardMap: Record<CardType, SubCard[]> = {
+  TOTAL: this.emptySubCards('TOTAL'),
+  MAKER: this.emptySubCards('MAKER'),
+  CHECKER: this.emptySubCards('CHECKER'),
+  APPROVER: this.emptySubCards('APPROVER'),
+  FINALIZED: this.emptySubCards('FINALIZED'),
+};
 
   constructor(
     private api: Api,
@@ -52,17 +65,30 @@ export class DashboardHome implements OnInit {
     private router: Router
   ) {}
 
+  private getUserMainKey(): CardType | null {
+  const ut = (localStorage.getItem('user_type') || '').trim().toLowerCase();
+  if (ut === 'maker') return 'MAKER';
+  if (ut === 'checker') return 'CHECKER';
+  if (ut === 'approver') return 'APPROVER';
+  return null;
+}
+  // ✅ now card is SubCard, so template click works
+onSubCardClick(card: SubCard): void {
+  // Only Station sub-card triggers edit deep-link
+  if (card.layerKey !== 'stations') return;
 
-onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey: string }): void {
-  if (this.selectedMain !== 'MAKER') return;
+  const userMain = this.getUserMainKey();
+  if (!userMain) return;
 
-  // Navigate to map with backend-driven params
-  this.router.navigate(['/map'], {
+  // ✅ Only allow if user clicks their own role card
+  if (this.selectedMain !== userMain) return;
+
+  // ✅ Navigate to page that contains Map (your Home)
+  this.router.navigate(['/dashboard/railway-assets'], {
     queryParams: {
       panel: 'edit',
-      layer: card.layerKey,     // ✅ from backend
-      status: card.statusKey    // ✅ from backend
-    }
+      layer: 'stations',
+    },
   });
 }
 
@@ -72,7 +98,6 @@ onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey
 
   /* ================= LOAD DASHBOARD ================= */
   private loadDashboard(): void {
-
     const types: CardType[] = ['TOTAL', 'MAKER', 'CHECKER', 'APPROVER', 'FINALIZED'];
 
     const stationCalls: any = {};
@@ -86,40 +111,38 @@ onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey
     const kmPostCalls: any = {};
     const landPlanCalls: any = {};
 
-    types.forEach(type => {
-      stationCalls[type]     = this.api.getStationCount(type);
+    types.forEach((type) => {
+      stationCalls[type] = this.api.getStationCount(type);
       bridgeStartCalls[type] = this.api.getBridgeStartCount(type);
-      bridgeStopCalls[type]  = this.api.getBridgeStopCount(type);
+      bridgeStopCalls[type] = this.api.getBridgeStopCount(type);
       bridgeMinorCalls[type] = this.api.getBridgeMinorCount(type);
-      levelXingCalls[type]   = this.api.getLevelXingCount(type);
-      robCalls[type]         = this.api.getRoadOverBridgeCount(type);
-      rubLhsCalls[type]      = this.api.getRubLhsCount(type);
-      rorCalls[type]         = this.api.getRorCount(type);
+      levelXingCalls[type] = this.api.getLevelXingCount(type);
+      robCalls[type] = this.api.getRoadOverBridgeCount(type);
+      rubLhsCalls[type] = this.api.getRubLhsCount(type);
+      rorCalls[type] = this.api.getRorCount(type);
       kmPostCalls[type] = this.api.getKmPostCount(type);
       landPlanCalls[type] = this.api.getLandPlanCount(type);
     });
 
     forkJoin({
-      stations:     forkJoin(stationCalls),
-      bridgeStart:  forkJoin(bridgeStartCalls),
-      bridgeStop:   forkJoin(bridgeStopCalls),
-      bridgeMinor:  forkJoin(bridgeMinorCalls),
-      levelXing:    forkJoin(levelXingCalls),
-      rob:          forkJoin(robCalls),
-      rubLhs:       forkJoin(rubLhsCalls),
-      ror:          forkJoin(rorCalls),     
+      stations: forkJoin(stationCalls),
+      bridgeStart: forkJoin(bridgeStartCalls),
+      bridgeStop: forkJoin(bridgeStopCalls),
+      bridgeMinor: forkJoin(bridgeMinorCalls),
+      levelXing: forkJoin(levelXingCalls),
+      rob: forkJoin(robCalls),
+      rubLhs: forkJoin(rubLhsCalls),
+      ror: forkJoin(rorCalls),
       kmPost: forkJoin(kmPostCalls),
-      landPlan: forkJoin(landPlanCalls),    }).subscribe({
+      landPlan: forkJoin(landPlanCalls),
+    }).subscribe({
       next: (res: any) => {
-
-        
-
-        types.forEach(type => {
-          this.setSubCard(type, 'Station',        res.stations[type].count);
-          this.setSubCard(type, 'Bridge Start',   res.bridgeStart[type].count);
-          this.setSubCard(type, 'Bridge Stop',    res.bridgeStop[type].count);
-          this.setSubCard(type, 'Bridge Minor',   res.bridgeMinor[type].count);
-          this.setSubCard(type, 'Level Xing',     res.levelXing[type].count);
+        types.forEach((type) => {
+          this.setSubCard(type, 'Station', res.stations[type].count);
+          this.setSubCard(type, 'Bridge Start', res.bridgeStart[type].count);
+          this.setSubCard(type, 'Bridge Stop', res.bridgeStop[type].count);
+          this.setSubCard(type, 'Bridge Minor', res.bridgeMinor[type].count);
+          this.setSubCard(type, 'Level Xing', res.levelXing[type].count);
           this.setSubCard(type, 'Road Over Bridge', res.rob[type].count);
           this.setSubCard(type, 'Road Under Bridge', res.rubLhs[type].count);
           this.setSubCard(type, 'Rail Over Rail', res.ror[type].count);
@@ -127,12 +150,10 @@ onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey
           this.setSubCard(type, 'Land Plan Ontrack', res.landPlan[type].count);
         });
 
-       
-
         this.selectedMain = 'TOTAL';
         this.cdr.detectChanges();
       },
-      error: err => console.error('❌ Dashboard load failed', err)
+      error: (err) => console.error('❌ Dashboard load failed', err),
     });
   }
 
@@ -140,16 +161,16 @@ onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey
   private setSubCard(type: CardType, title: string, value: number): void {
     this.subCardMap = {
       ...this.subCardMap,
-      [type]: this.subCardMap[type].map(c =>
+      [type]: this.subCardMap[type].map((c) =>
         c.title === title ? { ...c, value } : c
-      )
+      ),
     };
     this.updateMain(type);
   }
 
   private updateMain(type: CardType): void {
     const sum = this.subCardMap[type].reduce((a, b) => a + b.value, 0);
-    this.mainCards = this.mainCards.map(c =>
+    this.mainCards = this.mainCards.map((c) =>
       c.key === type ? { ...c, value: sum } : c
     );
   }
@@ -163,21 +184,21 @@ onSubCardClick(card: { title: string; value: number; layerKey: string; statusKey
   }
 
   get activeColor(): string | undefined {
-    return this.mainCards.find(c => c.key === this.selectedMain)?.color;
+    return this.mainCards.find((c) => c.key === this.selectedMain)?.color;
   }
 
-  private emptySubCards(): SubCard[] {
-    return [
-      { title: 'KM Post', value: 0 },
-      { title: 'Road Over Bridge', value: 0 },
-      { title: 'Rail Over Rail', value: 0 },
-      { title: 'Road Under Bridge', value: 0 },
-      { title: 'Station', value: 0 },
-      { title: 'Level Xing', value: 0 },
-      { title: 'Bridge Start', value: 0 },
-      { title: 'Bridge Stop', value: 0 },
-      { title: 'Bridge Minor', value: 0 },
-      { title: 'Land Plan Ontrack', value: 0 },
-    ];
-  }
+private emptySubCards(statusKey: string): SubCard[] {
+  return [
+    { title: 'KM Post', value: 0, layerKey: 'km_post', statusKey },
+    { title: 'Road Over Bridge', value: 0, layerKey: 'road_over_bridge', statusKey },
+    { title: 'Rail Over Rail', value: 0, layerKey: 'ror', statusKey },
+    { title: 'Road Under Bridge', value: 0, layerKey: 'rub_lhs', statusKey },
+    { title: 'Station', value: 0, layerKey: 'stations', statusKey },
+    { title: 'Level Xing', value: 0, layerKey: 'levelxing', statusKey },
+    { title: 'Bridge Start', value: 0, layerKey: 'bridge_start', statusKey },
+    { title: 'Bridge Stop', value: 0, layerKey: 'bridge_end', statusKey },
+    { title: 'Bridge Minor', value: 0, layerKey: 'bridge_minor', statusKey },
+    { title: 'Land Plan Ontrack', value: 0, layerKey: 'landplan_ontrack', statusKey },
+  ];
+}
 }

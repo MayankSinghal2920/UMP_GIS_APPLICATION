@@ -1,20 +1,25 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { Auth } from '../services/auth';
+import { CanActivateFn, Router, UrlTree } from '@angular/router';
 
-export const authGuard: CanActivateFn = () => {
-  const auth = inject(Auth);
+/**
+ * AuthGuard for OTP-based login.
+ * Consider user logged-in if required user context exists in localStorage.
+ */
+export const authGuard: CanActivateFn = (_route, state): boolean | UrlTree => {
   const router = inject(Router);
 
-  const isLoggedIn = auth.isLoggedIn();
-  const division = localStorage.getItem('division');
+  const userId = (localStorage.getItem('user_id') || '').trim();
+  const division = (localStorage.getItem('division') || '').trim();
+  const userType = (localStorage.getItem('user_type') || '').trim();
 
-  // ✅ Allow dashboard ONLY when full user context exists
-  if (isLoggedIn && division) {
-    return true;
-  }
+  const ok = !!userId && !!division && !!userType;
 
-  // ❌ Missing context → force re-login
-  router.navigateByUrl('/login');
-  return false;
+  if (ok) return true;
+
+  // ✅ do NOT pass through panel/layer params; keep returnUrl clean
+  const cleanReturnUrl = (state?.url || '').split('?')[0] || '/';
+
+  return router.createUrlTree(['/login'], {
+    queryParams: { returnUrl: cleanReturnUrl },
+  });
 };

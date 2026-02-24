@@ -23,7 +23,7 @@ const ceaViewRoutes = require('./modules/departments/civilEngineeringAssets/view
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:4200' }));
 app.use(express.json());
 app.use(compression());
 app.set("trust proxy", 1);
