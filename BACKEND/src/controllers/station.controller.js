@@ -4,6 +4,8 @@ const parseBbox = require('../utils/parseBbox');
 /**
  * GET /api/stations
  */
+
+
 async function getStations(req, res, next) {
   try {
     const { bbox, division } = req.query;
@@ -174,15 +176,15 @@ async function getStationTable(req, res, next) {
       throw err;
     }
 
+    // ✅ No statusType — backend returns unfiltered rows
     const result = await stationModel.getStationTable(
-      page,
-      pageSize,
-      q,
-      division
+      Number(page),
+      Number(pageSize),
+      String(q || ''),
+      String(division || '').trim()
     );
 
     res.json(result);
-
   } catch (err) {
     next(err);
   }
