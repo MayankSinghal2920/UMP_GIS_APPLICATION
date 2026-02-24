@@ -100,22 +100,9 @@ getDivisionBufferKey(z: number) {
 
   /* ===================== STATION ADMIN ===================== */
 
-getStationTable(page: number, pageSize: number, search: string) {
-  const params: any = {
-    page,
-    pageSize,
-    division: this.getDivision(),   // ✅ MANDATORY
-  };
-
-  if (search) {
-    params.q = search;
-  }
-
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/stations/table`
-,
-    { params }
-  );
+getStationTable(page: number, pageSize: number, q: string, division: string) {
+  const params: any = { page, pageSize, q, division };
+return this.http.get<any>(`http://127.0.0.1:4000/api/stations/table`, { params });
 }
 
 
