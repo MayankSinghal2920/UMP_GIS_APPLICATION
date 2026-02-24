@@ -6,6 +6,8 @@ const pool = require('../config/db');
  * @param {Array} params
  * @param {string} division
  */
+
+
 async function getStationsGeoJSON(whereSql, params, division) {
   let divisionSql = '';
 
@@ -13,6 +15,9 @@ async function getStationsGeoJSON(whereSql, params, division) {
     params.push(division);
     divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
   }
+
+
+
 
   const sql = `
     SELECT jsonb_build_object(
@@ -295,7 +300,7 @@ async function getStationTable(page, pageSize, q, division) {
   `;
 
   const listSql = `
-    SELECT objectid, sttncode, distkm, distm, state, district, division
+    SELECT objectid, sttncode, distkm, distm, state, district, division, status
     FROM sde.station
     WHERE ${where}
     ORDER BY objectid
@@ -305,12 +310,19 @@ async function getStationTable(page, pageSize, q, division) {
   const { rows: totalRows } = await pool.query(totalSql, params);
   const { rows } = await pool.query(listSql, params);
 
-  return {
-    rows,
-    total: totalRows[0]?.total || 0,
-  };
+  return { rows, total: totalRows[0]?.total || 0 };
 }
 
+//   async function _debugDbInfo() {
+//   return pool.query(`
+//     SELECT
+//       current_database() AS db,
+//       current_schema() AS schema,
+//       inet_server_addr() AS server_ip,
+//       inet_server_port() AS server_port,
+//       current_user AS db_user
+//   `);
+// }
 
 
 module.exports = {
@@ -321,4 +333,5 @@ module.exports = {
      createStation,
   updateStation,
   deleteStation,
+  // _debugDbInfo,
 };
