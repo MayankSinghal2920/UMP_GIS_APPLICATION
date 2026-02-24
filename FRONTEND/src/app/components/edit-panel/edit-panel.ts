@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -15,15 +15,26 @@ import { MapZoomService } from 'src/app/services/map-zoom';
   templateUrl: './edit-panel.html',
   styleUrl: './edit-panel.css',
 })
-export class EditPanel implements OnDestroy {
-private allRows: any[] = [];
-private filteredRows: any[] = [];
+export class EditPanel implements OnInit, OnDestroy {
+  // ✅ holds all fetched rows from backend (unfiltered)
+  private allRows: any[] = [];
+
+  // ✅ rows after frontend status filter + search (if backend does not search)
+  private filteredRows: any[] = [];
+
+  // ✅ rows shown in UI (paged slice of filteredRows)
   rows: any[] = [];
-  total = 0;
+
+  // counts
+  total = 0; // (kept for compatibility)
+  filteredTotal = 0;
 
   page = 1;
   pageSize = 8;
-fetchSize = 200;  
+
+  // IMPORTANT: backend max is 200 (as per your model code), so we fetch in chunks
+  private fetchPageSize = 200;
+
   search = '';
   loading = false;
 
@@ -36,8 +47,14 @@ fetchSize = 200;
   error: string | null = null;
 
   // ================== GEOMETRY EDIT STATE ==================
-  geomEditing = false; // Save Geometry enabled only when true
+  geomEditing = false;
   private dragSub?: Subscription;
+
+  // ✅ Listen to edit state changes so programmatic layer selection triggers load
+  private stateSub?: Subscription;
+
+  // ✅ cancel/ignore older loads
+  private loadSeq = 0;
 
   constructor(
     public ui: UiState,
@@ -47,30 +64,62 @@ fetchSize = 200;
     private mapZoom: MapZoomService
   ) {}
 
+  ngOnInit(): void {
+    // ✅ When Home sets edit.enable() + edit.setLayer('stations'), auto-load here
+    this.stateSub = this.edit.stateChanged$.subscribe(() => {
+      if (!this.edit.enabled) return;
+
+      // load only for stations (extend similarly for other layers later)
+      if (this.edit.editLayer === 'stations') {
+        // do not reload if currently editing a row
+        if (this.mode === 'table') this.load(true);
+      }
+    });
+
+    // If already enabled when component creates (edge case)
+    if (this.edit.enabled && this.edit.editLayer === 'stations') {
+      this.load(true);
+    }
+  }
+
   ngOnDestroy(): void {
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
+
+    this.stateSub?.unsubscribe();
+    this.stateSub = undefined;
   }
 
   /* ================== GETTERS ================== */
   get totalPages(): number {
-    return Math.max(1, Math.ceil(this.total / this.pageSize));
+    return Math.max(1, Math.ceil(this.filteredTotal / this.pageSize));
   }
-get filteredTotal(): number {
-  return this.filteredRows.length;
-}
 
-get showingCount(): number {
-  return this.rows.length;
-}
+  get showingFrom(): number {
+    if (!this.filteredTotal) return 0;
+    return (this.page - 1) * this.pageSize + 1;
+  }
+
+  get showingTo(): number {
+    if (!this.filteredTotal) return 0;
+    return Math.min(this.filteredTotal, this.page * this.pageSize);
+  }
+
+  get showingText(): string {
+    return `${this.showingFrom}-${this.showingTo} of ${this.filteredTotal}`;
+  }
+
   /* ================== LAYER ================== */
   onLayerChange() {
-    // ✅ IMPORTANT: notify Map.ts to hide/show layers
+    // ✅ notify Map.ts to hide/show layers
     this.edit.setLayer(this.edit.editLayer);
 
     this.mode = 'table';
     this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
     this.total = 0;
+    this.filteredTotal = 0;
     this.page = 1;
     this.search = '';
     this.error = null;
@@ -83,108 +132,139 @@ get showingCount(): number {
     this.mapZoom.clearHighlight();
 
     if (this.edit.editLayer === 'stations') {
-      setTimeout(() => this.load(), 0);
+      setTimeout(() => this.load(true), 0);
     }
   }
 
-  private fetchAllStations(division: string, q: string): Promise<any[]> {
-  const pageSize = this.fetchSize; // keep 200
-  const all: any[] = [];
+  private getUserType(): string {
+    return (localStorage.getItem('user_type') || '').trim().toLowerCase();
+  }
 
-  const fetchPage = (page: number): Promise<any[]> => {
-    return new Promise((resolve, reject) => {
-      this.api.getStationTable(page, pageSize, q, division).subscribe({
+  /**
+   * ✅ Frontend status filtering:
+   * Maker => status NULL/blank
+   * Checker => "Sent to Checker"
+   * Approver => "Sent to Approver"
+   */
+  private isVisibleForUser(row: any): boolean {
+    const userType = this.getUserType();
+    const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
+
+    if (userType === 'maker') return status === '';
+    if (userType === 'checker') return status === 'sent to checker';
+    if (userType === 'approver') return status === 'sent to approver';
+
+    return true;
+  }
+
+  private applyPagination(): void {
+    const start = (this.page - 1) * this.pageSize;
+    const end = start + this.pageSize;
+
+    this.rows = this.filteredRows.slice(start, end);
+    this.filteredTotal = this.filteredRows.length;
+
+    // keep legacy total too (if your HTML uses it)
+    this.total = this.filteredTotal;
+  }
+
+  /* ================== TABLE LOAD ================== */
+
+  /**
+   * Loads ALL station rows from backend in chunks of 200 (page 1..N),
+   * then applies frontend filtering + local pagination.
+   *
+   * @param resetPage if true, page=1
+   */
+  load(resetPage = false): void {
+    if (this.edit.editLayer !== 'stations') return;
+
+    const division = (localStorage.getItem('division') || '').trim();
+    if (!division) {
+      this.error = 'Division missing in localStorage';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (resetPage) this.page = 1;
+
+    this.loading = true;
+    this.error = null;
+
+    const seq = ++this.loadSeq;
+    const collected: any[] = [];
+
+    const fetchOne = (p: number) => {
+      // ignore old requests
+      if (seq !== this.loadSeq) return;
+
+      this.api.getStationTable(p, this.fetchPageSize, this.search, division).subscribe({
         next: (res) => {
-          const rows = res?.rows || [];
-          all.push(...rows);
+          if (seq !== this.loadSeq) return;
 
-          // stop when this page returned fewer than pageSize (last page)
-          if (rows.length < pageSize) return resolve(all);
+          const rows = Array.isArray(res?.rows) ? res.rows : [];
+          collected.push(...rows);
 
-          // otherwise fetch next page
-          resolve(fetchPage(page + 1));
+          // If backend returned less than pageSize, we are done
+          if (rows.length < this.fetchPageSize) {
+            this.allRows = collected;
+
+            // ✅ frontend role/status filtering
+            this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
+
+            // ✅ local pagination only
+            this.applyPagination();
+
+            this.loading = false;
+            this.cdr.detectChanges();
+            return;
+          }
+
+          // else fetch next page
+          fetchOne(p + 1);
         },
-        error: (err) => reject(err),
+        error: (err) => {
+          if (seq !== this.loadSeq) return;
+
+          console.error('getStationTable failed', err);
+          this.allRows = [];
+          this.filteredRows = [];
+          this.rows = [];
+          this.total = 0;
+          this.filteredTotal = 0;
+
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
       });
-    });
-  };
+    };
 
-  return fetchPage(1);
-}
+    fetchOne(1);
+  }
 
-private getUserType(): string {
-  return (localStorage.getItem('user_type') || '').trim().toLowerCase();
-}
-
-private isVisibleForUser(row: any): boolean {
-  const userType = this.getUserType();
-  const status = (row?.status == null ? '' : String(row.status)).trim().toLowerCase();
-
-  if (userType === 'maker') return status === '';
-  if (userType === 'checker') return status === 'sent to checker';
-  if (userType === 'approver') return status === 'sent to approver';
-
-  return true; // default show all
-}
-
-private applyPagination(): void {
-  const start = (this.page - 1) * this.pageSize;
-  const end = start + this.pageSize;
-  this.rows = this.filteredRows.slice(start, end);
-  this.total = this.filteredRows.length;
-}
-  /* ================== TABLE ================== */
-async load(): Promise<void> {
-  this.loading = true;
-
-  const division = (localStorage.getItem('division') || '').trim();
-
-  try {
-    // ✅ fetch ALL rows across pages (no backend change)
-    this.allRows = await this.fetchAllStations(division, this.search);
-
-    // ✅ Frontend status filtering
-    this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
-
-    // reset to page 1 on fresh load/search
+  onSearchChange() {
     this.page = 1;
+    this.load(true);
+  }
 
-    // ✅ local pagination
+  nextPage() {
+    if (this.page >= this.totalPages) return;
+    this.page++;
+    // ✅ do NOT call backend again
     this.applyPagination();
-
-    this.loading = false;
-    this.cdr.detectChanges();
-  } catch (err) {
-    console.error('getStationTable failed', err);
-    this.allRows = [];
-    this.filteredRows = [];
-    this.rows = [];
-    this.total = 0;
-
-    this.loading = false;
     this.cdr.detectChanges();
   }
-}
-onSearchChange() {
-  this.page = 1;
-  this.load();
-}
 
-nextPage() {
-  if (this.page >= this.totalPages) return;
-  this.page++;
-  this.applyPagination();
-  this.cdr.detectChanges();
-}
-
-prevPage() {
-  if (this.page <= 1) return;
-  this.page--;
-  this.applyPagination();
-  this.cdr.detectChanges();
-}
+  prevPage() {
+    if (this.page <= 1) return;
+    this.page--;
+    // ✅ do NOT call backend again
+    this.applyPagination();
+    this.cdr.detectChanges();
+  }
 
   /* ================== EDIT ================== */
+
   editRow(row: any) {
     this.mode = 'edit';
     this.error = null;
@@ -204,12 +284,11 @@ prevPage() {
         const n = this.normalizeStation(full);
         this.draft = { ...this.draft, ...n };
 
-        // ensure draft always has latest lat/lng (used by geometry + send)
+        // ensure draft always has latest lat/lng
         this.draft.lat = n.lat;
         this.draft.lng = n.lng;
 
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
-          // just zoom + show non-draggable highlight by default
           this.mapZoom.zoomTo({
             type: 'latlng',
             lat: n.lat,
@@ -234,7 +313,7 @@ prevPage() {
       objectid: s?.objectid ?? s?.OBJECTID,
       sttncode: s?.sttncode ?? s?.station_code,
       sttnname: s?.sttnname ?? s?.station_name,
-      stationtype: s?.sttntype ?? s?.stationtype, // backend variations
+      stationtype: s?.sttntype ?? s?.stationtype,
       category: s?.category,
       distkm: s?.distkm,
       distm: s?.distm,
@@ -248,7 +327,6 @@ prevPage() {
 
   // ================== GEOMETRY FLOW ==================
 
-  /** Edit Geometry is ALWAYS enabled */
   startGeometryEdit() {
     if (!this.draft) return;
 
@@ -259,7 +337,6 @@ prevPage() {
 
     this.geomEditing = true;
 
-    // show DRAGGABLE marker
     this.mapZoom.zoomTo({
       type: 'latlng',
       lat,
@@ -268,10 +345,8 @@ prevPage() {
       draggable: true,
     });
 
-    // subscribe once to drag-end updates (from EditState)
     this.dragSub?.unsubscribe();
     this.dragSub = this.edit.dragEnd$.subscribe(({ lat: newLat, lng: newLng }) => {
-      console.log('DRAG UPDATE =>', newLat, newLng);
       if (!this.draft) return;
       this.draft.lat = newLat;
       this.draft.lng = newLng;
@@ -279,19 +354,14 @@ prevPage() {
     });
   }
 
-  /** Save Geometry locks marker + disables itself */
   saveGeometry() {
     if (!this.geomEditing) return;
 
     alert('Geometry is fixed and Edit Geometry Mode is OFF.');
 
-    // turn off mode (disables Save button)
     this.geomEditing = false;
-
-    // disable marker dragging in map.ts
     this.edit.lockDrag();
 
-    // replace draggable marker with fixed circle highlight
     const lat = Number(this.draft?.lat);
     const lng = Number(this.draft?.lng);
 
@@ -313,12 +383,10 @@ prevPage() {
     this.draft = null;
     this.error = null;
 
-    // reset geometry state
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
 
-    // zoom back to home/division + clear highlight
     this.mapZoom.zoomHome();
     this.mapZoom.clearHighlight();
   }
@@ -347,7 +415,6 @@ prevPage() {
       district: this.draft.district,
       constituency: this.draft.constituency,
 
-      // geometry (send multiple aliases)
       lat,
       lng,
       lon: lng,
@@ -356,26 +423,22 @@ prevPage() {
     };
 
     this.saving = true;
-    console.log('SEND payload lat/lng:', this.draft?.lat, this.draft?.lng, payload);
 
     this.api.updateStation(this.draft.objectid, payload).subscribe({
       next: () => {
         this.saving = false;
 
-        // reset view
         this.mode = 'table';
         this.draft = null;
 
-        // reset geometry
         this.geomEditing = false;
         this.dragSub?.unsubscribe();
         this.dragSub = undefined;
 
-        // zoom home + clear highlight
         this.mapZoom.zoomHome();
         this.mapZoom.clearHighlight();
 
-        setTimeout(() => this.load(), 0);
+        setTimeout(() => this.load(false), 0);
         this.cdr.detectChanges();
       },
       error: () => {
@@ -414,8 +477,14 @@ prevPage() {
     this.api.deleteStation(row.objectid).subscribe({
       next: () => {
         this.deleting = false;
-        if (this.rows.length === 1 && this.page > 1) this.page--;
-        this.load();
+
+        // remove locally then repaginate
+        this.allRows = this.allRows.filter((r) => r.objectid !== row.objectid);
+        this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
+
+        if (this.page > this.totalPages) this.page = this.totalPages;
+        this.applyPagination();
+
         this.cdr.detectChanges();
       },
       error: () => {
@@ -428,7 +497,11 @@ prevPage() {
   private resetPanelState() {
     this.mode = 'table';
     this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+
     this.total = 0;
+    this.filteredTotal = 0;
 
     this.page = 1;
     this.pageSize = 8;
@@ -442,29 +515,23 @@ prevPage() {
     this.deleting = false;
     this.validating = false;
 
-    // geometry reset
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
 
     this.error = null;
 
-    // ✅ reset selection + notify Map.ts
-    this.edit.setLayer(null);
-
-    // clear map highlight (if any)
+    this.edit.setLayer(null as any);
     this.mapZoom.clearHighlight();
   }
 
   close() {
-    // zoom out on close
     this.mapZoom.zoomHome();
     this.mapZoom.clearHighlight();
 
     this.ui.activePanel = null;
     this.resetPanelState();
 
-    // ✅ IMPORTANT: disable edit mode + notify Map.ts to restore hidden layers
     this.edit.disable();
   }
 }
