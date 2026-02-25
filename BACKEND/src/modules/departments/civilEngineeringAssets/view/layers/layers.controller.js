@@ -1,3 +1,5 @@
+// src/modules/departments/civilEngineeringAssets/view/layers/layers.controller.js
+
 const config = require('./layers.config');
 const model = require('./layers.model');
 const parseBbox = require('../../../../../utils/parseBbox');
@@ -15,7 +17,18 @@ async function getLayer(req, res, next) {
       throw err;
     }
 
-    const { where, params } = parseBbox(bbox);
+    let where;
+    let params;
+
+    // Special case: ignore bbox
+    if (layerConfig.ignoreBbox) {
+      where = layerConfig.customWhere || '1=1';
+      params = [];
+    } else {
+      const parsed = parseBbox(bbox);
+      where = parsed.where;
+      params = parsed.params;
+    }
 
     const geojson = await model.getLayerGeoJSON(
       layerConfig,
@@ -24,7 +37,9 @@ async function getLayer(req, res, next) {
       division?.trim()
     );
 
-    res.json(geojson || { type: 'FeatureCollection', features: [] });
+    res.json(
+      geojson || { type: 'FeatureCollection', features: [] }
+    );
 
   } catch (err) {
     next(err);
