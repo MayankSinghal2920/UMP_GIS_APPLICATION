@@ -47,7 +47,7 @@ export class Api {
   }
 
   getlandboundary(bbox: string) {
-    return this.http.get<any>(`${this.BASE_URL}/api/land_boundary`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landBoundary`, {
       params: {
         bbox,
         division: this.getDivision(),   // ✅ added
@@ -56,7 +56,7 @@ export class Api {
   }
 
   getLandPlanOntrack(z: number) {
-    return this.http.get<any>(`${this.BASE_URL}/api/land_plan_on_track`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landPlanOnTrack`, {
       params: {
         division: this.getDivision(), // ✅ from localStorage
         z: z.toString(),              // zoom level
@@ -65,7 +65,7 @@ export class Api {
   }
 
   getLandOffset(bbox: string) {
-    return this.http.get<any>(`${this.BASE_URL}/api/land_offset`, {
+    return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landOffset`, {
       params: {
         bbox,
         division: this.getDivision(),   // ✅ added
@@ -75,11 +75,19 @@ export class Api {
 
   /* ===================== DIVISION BUFFER ===================== */
 
-getDivisionBuffer(z: number) {
-  return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
+// getDivisionBuffer(z: number) {
+//   return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
+//     params: {
+//       division: this.getDivision(),   // ✅ only here
+//       z: z.toString(),
+//     }
+//   });
+// }
+
+getDivisionBuffer() {
+  return this.http.get<any>(`${this.BASE_URL}/api/cea/view/divisionBuffer`, {
     params: {
-      division: this.getDivision(),   // ✅ only here
-      z: z.toString(),
+      division: this.getDivision()
     }
   });
 }
@@ -112,7 +120,7 @@ getStationTable(page: number, pageSize: number, search: string) {
   }
 
   return this.http.get<any>(
-    `${this.BASE_URL}/api/stations/table`
+    `${this.BASE_URL}/api/cea/edit/station/table`
 ,
     { params }
   );
@@ -123,7 +131,7 @@ getStationTable(page: number, pageSize: number, search: string) {
 /* ===================== UPDATE STATION ===================== */
 updateStation(id: number, payload: any) {
   return this.http.put(
-    `${this.BASE_URL}/api/stations/${id}`
+    `${this.BASE_URL}/api/cea/edit/station/${id}`
 ,
     payload,
     { params: { division: this.getDivision() } }
@@ -132,16 +140,16 @@ updateStation(id: number, payload: any) {
 
 deleteStation(id: number) {
   return this.http.delete(
-    `${this.BASE_URL}/api/stations/${id}`
+    `${this.BASE_URL}/api/cea/edit/station/${id}`
 ,
     { params: { division: this.getDivision() } }
   );
 }
 
 /* ===================== CREATE STATION ===================== */
-createStation(id: number, payload: any) {
+createStation(payload: any) {
   return this.http.post(
-    `${this.BASE_URL}/api/stations`
+    `${this.BASE_URL}/api/cea/edit/station`
 ,
     payload,
     { params: { division: this.getDivision() } }
@@ -205,7 +213,7 @@ login(username: string, password: string): Observable<any> {
 /* ===================== GET STATUS COUNT ===================== */
   getStationById(id: number) {
     const params = new HttpParams().set('division', this.getDivision());
-    return this.http.get<any>(`${this.BASE_URL}/api/stations/${id}`
+    return this.http.get<any>(`${this.BASE_URL}/api/cea/edit/station/${id}`
 , { params });
   }
 
@@ -215,23 +223,13 @@ getStationByCode(code: string): Observable<any> {
   }
 
 
-  /* ===================== DASHBOARD ===================== */
 
-getStationCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/stations/count`,
-    {
-      params: {
-        division: this.getDivision(),  // ✅ from localStorage
-        type: type                     // TOTAL / MAKER / CHECKER / etc.
-      }
-    }
-  );
-}
 
-getBridgeStartCount(type: string) {
+/* ===================== CEA DASHBOARD (Dynamic) ===================== */
+
+private getDashboardCount(asset: string, type: string) {
   return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/bridge-start/count`,
+    `${this.BASE_URL}/api/cea/view/dashboard/${asset}/count`,
     {
       params: {
         division: this.getDivision(),
@@ -239,106 +237,50 @@ getBridgeStartCount(type: string) {
       }
     }
   );
+}
+
+/* ---- Station ---- */
+getStationCount(type: string) {
+  return this.getDashboardCount('station', type);
+}
+
+/* ---- Bridges ---- */
+getBridgeStartCount(type: string) {
+  return this.getDashboardCount('bridgeStart', type);
 }
 
 getBridgeStopCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/bridge-end/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('bridgeEnd', type);
 }
 
 getBridgeMinorCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/bridge-minor/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('bridgeMinor', type);
 }
 
-/* ===================== DASHBOARD – OTHER ASSETS ===================== */
-
+/* ---- Other Assets ---- */
 getLevelXingCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/level-xing/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('levelXing', type);
 }
 
 getRoadOverBridgeCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/road-over-bridge/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('roadOverBridge', type);
 }
 
 getRubLhsCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/rub-lhs/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('rubLhs', type);
 }
 
 getRorCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/ror/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('ror', type);
 }
 
 getKmPostCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/km-post/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('kmPost', type);
 }
 
 getLandPlanCount(type: string) {
-  return this.http.get<any>(
-    `${this.BASE_URL}/api/dashboard/land-plan/count`,
-    {
-      params: {
-        division: this.getDivision(),
-        type
-      }
-    }
-  );
+  return this.getDashboardCount('landPlan', type);
 }
-
 
 
 
