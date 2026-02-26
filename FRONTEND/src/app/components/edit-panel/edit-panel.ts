@@ -198,7 +198,7 @@ export class EditPanel implements OnInit, OnDestroy {
       // ignore old requests
       if (seq !== this.loadSeq) return;
 
-      this.api.getStationTable(p, this.fetchPageSize, this.search, division).subscribe({
+      this.api.getStationTable(p, this.fetchPageSize, this.search).subscribe({
         next: (res) => {
           if (seq !== this.loadSeq) return;
 
@@ -281,6 +281,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.api.getStationById(id).subscribe({
       next: (full) => {
+
         const n = this.normalizeStation(full);
         this.draft = { ...this.draft, ...n };
 
@@ -320,8 +321,9 @@ export class EditPanel implements OnInit, OnDestroy {
       state: s?.state,
       district: s?.district,
       constituency: s?.constituncy ?? s?.constituency,
-      lat: s?.lat ?? s?.latitude,
-      lng: s?.lon ?? s?.lng ?? s?.longitude,
+      lat: Number(s?.lat ?? s?.ycoord ?? s?.latitude),
+      lng: Number(s?.lon ?? s?.lng ?? s?.xcoord ?? s?.longitude),
+
     };
   }
 
