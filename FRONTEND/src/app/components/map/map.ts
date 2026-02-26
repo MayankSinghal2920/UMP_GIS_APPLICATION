@@ -2,7 +2,8 @@ import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
 import { Api } from '../../services/api';
 import { StationLayer } from '../../layers/station';
@@ -96,7 +97,8 @@ export class Map implements AfterViewInit, OnDestroy {
     private attrTable: AttributeTableService,
     public ui: UiState,
     private mapZoom: MapZoomService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   toggle(panel: WidgetPanel): void {
@@ -300,14 +302,47 @@ export class Map implements AfterViewInit, OnDestroy {
         anyEl._leaflet_id = undefined;
       } catch {}
     }
-
+// ✅ hard reset UI before map is created (refresh safe)
+this.ui.activePanel = null;
+this.edit.disable();
     this.map = L.map(el, { preferCanvas: true }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
-    this.sidebarSub = this.ui.layoutChanged$.subscribe(() => {
-      setTimeout(() => this.forceMapResize(), 320);
-    });
+// ✅ sidebarSub now handles both:
+// 1) sidebar collapse/expand -> resize map
+// 2) sidebar navigation (route change) -> reset map UI if leaving map page
+this.sidebarSub?.unsubscribe();
+this.sidebarSub = new Subscription();
 
+// 1) existing resize behavior
+this.sidebarSub.add(
+  this.ui.layoutChanged$.subscribe(() => {
+    setTimeout(() => this.forceMapResize(), 320);
+  })
+);
+
+// 2) NEW: reset widgets when sidebar navigates away from map page
+this.sidebarSub.add(
+  this.router.events
+    .pipe(filter((e) => e instanceof NavigationStart))
+    .subscribe((e: any) => {
+      const fromUrl = this.router.url || '';
+      const toUrl = e?.url || '';
+
+      const isMapPage = (u: string) =>
+        u.includes('/dashboard/railway-assets') || u.includes('/map');
+
+      // only when leaving map page
+      if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
+        // ✅ reset only (do NOT destroy map)
+        this.ui.activePanel = null;
+        this.edit.disable();
+        this.mapZoom.clearHighlight();
+        this.clearZoomArtifacts();
+        this.applyEditSuppression();
+      }
+    })
+);
     const base = L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
       { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles © Esri' }
@@ -356,6 +391,14 @@ export class Map implements AfterViewInit, OnDestroy {
 
     this.map.whenReady(() => {
       this.forceMapResize();
+
+
+      // ✅ On refresh/first load: always start with all panels closed
+// (deep-linking will re-open if panel=edit is present)
+this.ui.activePanel = null;
+this.edit.disable();
+this.clearZoomArtifacts();
+this.mapZoom.clearHighlight();
 
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
