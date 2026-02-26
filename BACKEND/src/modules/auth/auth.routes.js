@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
-const authController = require('../controllers/auth.controller');
-const captchaService = require('../services/captcha/captchaService'); // ✅ ADD THIS
+const authController = require('./auth.controller');
+
+const captchaService = require('../../services/captcha/captchaService'); // ✅ ADD THIS
 
 // Legacy (pre-OTP) login. Kept for backward compatibility.
 router.post('/login', authController.login);

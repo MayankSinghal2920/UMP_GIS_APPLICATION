@@ -95,11 +95,17 @@ getDivisionBuffer() {
 
   /* ===================== INDIA BOUNDARY ===================== */
 
-  getIndiaBoundary(bbox: string, z: number) {
-    return this.http.get<any>(`${this.BASE_URL}/api/india_boundary`, {
-      params: { bbox, z },
-    });
-  }
+  // getIndiaBoundary(bbox: string, z: number) {
+  //   return this.http.get<any>(`${this.BASE_URL}/api/india_boundary`, {
+  //     params: { bbox, z },
+  //   });
+  // }
+  getIndiaBoundary(bbox: string) {
+  return this.http.get<any>(`${this.BASE_URL}/api/common/indiaBoundary`, {
+    params: { bbox }
+  });
+}
+
 
   /* ===================== STATION ADMIN ===================== */
 
