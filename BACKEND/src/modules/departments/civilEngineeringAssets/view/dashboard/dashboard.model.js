@@ -1,22 +1,23 @@
-// src/modules/departments/civilEngineeringAssets/view/dashboard/dashboard.model.js
-
 const pool = require('../../../../../config/db');
 
 async function getCount(tableName, division, type) {
   let statusCondition = '';
-  const params = [division];
+  const params = [division];   // ✅ division always first param
 
   if (type === 'MAKER') {
-    params.push('Sent to Maker');
-    statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'CHECKER') {
+    // ✅ Maker = status IS NULL but still within division
+    statusCondition = 'AND status IS NULL';
+  } 
+  else if (type === 'CHECKER') {
     params.push('Sent to Checker');
     statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'APPROVER') {
+  } 
+  else if (type === 'APPROVER') {
     params.push('Sent to Approver');
     statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'FINALIZED') {
-    params.push('Approved');
+  } 
+  else if (type === 'FINALIZED') {
+    params.push('Sent to Database');
     statusCondition = 'AND UPPER(status) = UPPER($2)';
   }
 
