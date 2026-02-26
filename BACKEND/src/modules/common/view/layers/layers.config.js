@@ -16,5 +16,12 @@ module.exports = {
     table: 'sde.dli_track_1',
     idColumn: 'objectid',
     geometryColumn: 'shape'
-  }
+  },
+  
+  indiaBoundary: {
+  table: 'sde.india_boundry',
+  idColumn: 'objectid',
+  geometryColumn: 'shape',
+  hasDivision: false   // 👈 IMPORTANT
+}
 };

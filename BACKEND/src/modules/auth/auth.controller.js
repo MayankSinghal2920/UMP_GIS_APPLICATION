@@ -1,5 +1,5 @@
-const authModel = require('../models/auth.model');
-const otpService = require('../services/otp/otp-service');
+const authModel = require('./auth.model');
+const otpService = require('../../services/otp/otp-service');
 const activeResend = new Map(); // user_id -> true
 
 

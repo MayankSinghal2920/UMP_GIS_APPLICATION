@@ -3,10 +3,10 @@ const pool = require('../../../../config/db');
 async function getLayerGeoJSON(layerConfig, whereSql, params, division) {
   let divisionSql = '';
 
-  if (division) {
-    params.push(division);
-    divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
-  }
+ if (division && layerConfig.hasDivision !== false) {
+  params.push(division);
+  divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
+}
 
   const sql = `
     SELECT jsonb_build_object(
