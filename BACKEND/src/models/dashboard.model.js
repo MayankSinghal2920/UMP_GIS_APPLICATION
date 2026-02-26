@@ -2,10 +2,10 @@ const pool = require('../config/db');
 
 
 function getStatusTextByType(type) {
-  if (type === 'MAKER') return 'Sent to Maker';
+  if (type === 'MAKER') return null;                 // ✅ Maker = NULL status
   if (type === 'CHECKER') return 'Sent to Checker';
   if (type === 'APPROVER') return 'Sent to Approver';
-  if (type === 'FINALIZED') return 'Approved';
+  if (type === 'FINALIZED') return 'Sent to Database'; // ✅ changed
   return null;
 }
 
@@ -42,21 +42,28 @@ module.exports = {
 };
 /* ================= GENERIC COUNT HELPER ================= */
 async function getAssetCount(tableName, division, type) {
-  let statusCondition = '';
   const params = [division];
+  let statusCondition = '';
 
-  if (type === 'MAKER') {
-    params.push('Sent to Maker');
-    statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'CHECKER') {
+  const t = String(type || '').toUpperCase();
+
+  if (t === 'MAKER') {
+    // ✅ Maker = status NULL (optionally include blanks)
+    statusCondition = `AND status IS NULL`;
+    // If your DB has empty strings too, use:
+    // statusCondition = `AND (status IS NULL OR TRIM(status) = '')`;
+  } 
+  else if (t === 'CHECKER') {
     params.push('Sent to Checker');
-    statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'APPROVER') {
+    statusCondition = `AND UPPER(status) = UPPER($${params.length})`;
+  } 
+  else if (t === 'APPROVER') {
     params.push('Sent to Approver');
-    statusCondition = 'AND UPPER(status) = UPPER($2)';
-  } else if (type === 'FINALIZED') {
-    params.push('Approved');
-    statusCondition = 'AND UPPER(status) = UPPER($2)';
+    statusCondition = `AND UPPER(status) = UPPER($${params.length})`;
+  } 
+  else if (t === 'FINALIZED') {
+    params.push('Sent to Database');                 // ✅ changed
+    statusCondition = `AND UPPER(status) = UPPER($${params.length})`;
   }
 
   const sql = `
@@ -73,6 +80,8 @@ async function getAssetCount(tableName, division, type) {
 /* ================= EXPORT WRAPPERS ================= */
 
 module.exports = {
+  getDashboardCards,
+
   getStationCount: (division, type) =>
     getAssetCount('sde.station', division, type),
 
@@ -97,10 +106,9 @@ module.exports = {
   getRorCount: (division, type) =>
     getAssetCount('sde.ror', division, type),
 
-
   getKmPostCount: (division, type) =>
-  getAssetCount('sde.km_post', division, type),
+    getAssetCount('sde.km_post', division, type),
 
-getLandPlanCount: (division, type) =>
-  getAssetCount('sde.land_plan_on_track', division, type),
+  getLandPlanCount: (division, type) =>
+    getAssetCount('sde.land_plan_on_track', division, type),
 };
