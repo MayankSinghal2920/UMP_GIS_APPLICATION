@@ -16,12 +16,14 @@ import { MapZoomService } from 'src/app/services/map-zoom';
   styleUrl: './edit-panel.css',
 })
 export class EditPanel implements OnDestroy {
+private allRows: any[] = [];
+private filteredRows: any[] = [];
   rows: any[] = [];
   total = 0;
 
   page = 1;
   pageSize = 8;
-
+fetchSize = 200;  
   search = '';
   loading = false;
 
@@ -54,7 +56,13 @@ export class EditPanel implements OnDestroy {
   get totalPages(): number {
     return Math.max(1, Math.ceil(this.total / this.pageSize));
   }
+get filteredTotal(): number {
+  return this.filteredRows.length;
+}
 
+get showingCount(): number {
+  return this.rows.length;
+}
   /* ================== LAYER ================== */
   onLayerChange() {
     // ✅ IMPORTANT: notify Map.ts to hide/show layers
@@ -79,40 +87,102 @@ export class EditPanel implements OnDestroy {
     }
   }
 
-  /* ================== TABLE ================== */
-  load() {
-    this.loading = true;
+  private fetchAllStations(division: string, q: string): Promise<any[]> {
+  const pageSize = this.fetchSize; // keep 200
+  const all: any[] = [];
 
-    this.api.getStationTable(this.page, this.pageSize, this.search).subscribe({
-      next: (res) => {
-        this.rows = res.rows || [];
-        this.total = res.total || 0;
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
+  const fetchPage = (page: number): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      this.api.getStationTable(page, pageSize, q, division).subscribe({
+        next: (res) => {
+          const rows = res?.rows || [];
+          all.push(...rows);
+
+          // stop when this page returned fewer than pageSize (last page)
+          if (rows.length < pageSize) return resolve(all);
+
+          // otherwise fetch next page
+          resolve(fetchPage(page + 1));
+        },
+        error: (err) => reject(err),
+      });
     });
-  }
+  };
 
-  onSearchChange() {
+  return fetchPage(1);
+}
+
+private getUserType(): string {
+  return (localStorage.getItem('user_type') || '').trim().toLowerCase();
+}
+
+private isVisibleForUser(row: any): boolean {
+  const userType = this.getUserType();
+  const status = (row?.status == null ? '' : String(row.status)).trim().toLowerCase();
+
+  if (userType === 'maker') return status === '';
+  if (userType === 'checker') return status === 'sent to checker';
+  if (userType === 'approver') return status === 'sent to approver';
+
+  return true; // default show all
+}
+
+private applyPagination(): void {
+  const start = (this.page - 1) * this.pageSize;
+  const end = start + this.pageSize;
+  this.rows = this.filteredRows.slice(start, end);
+  this.total = this.filteredRows.length;
+}
+  /* ================== TABLE ================== */
+async load(): Promise<void> {
+  this.loading = true;
+
+  const division = (localStorage.getItem('division') || '').trim();
+
+  try {
+    // ✅ fetch ALL rows across pages (no backend change)
+    this.allRows = await this.fetchAllStations(division, this.search);
+
+    // ✅ Frontend status filtering
+    this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
+
+    // reset to page 1 on fresh load/search
     this.page = 1;
-    this.load();
-  }
 
-  nextPage() {
-    if (this.page * this.pageSize >= this.total) return;
-    this.page++;
-    this.load();
-  }
+    // ✅ local pagination
+    this.applyPagination();
 
-  prevPage() {
-    if (this.page === 1) return;
-    this.page--;
-    this.load();
+    this.loading = false;
+    this.cdr.detectChanges();
+  } catch (err) {
+    console.error('getStationTable failed', err);
+    this.allRows = [];
+    this.filteredRows = [];
+    this.rows = [];
+    this.total = 0;
+
+    this.loading = false;
+    this.cdr.detectChanges();
   }
+}
+onSearchChange() {
+  this.page = 1;
+  this.load();
+}
+
+nextPage() {
+  if (this.page >= this.totalPages) return;
+  this.page++;
+  this.applyPagination();
+  this.cdr.detectChanges();
+}
+
+prevPage() {
+  if (this.page <= 1) return;
+  this.page--;
+  this.applyPagination();
+  this.cdr.detectChanges();
+}
 
   /* ================== EDIT ================== */
   editRow(row: any) {

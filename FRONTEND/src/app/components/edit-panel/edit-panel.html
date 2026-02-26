@@ -28,6 +28,10 @@
       </label>
     </div>
 
+    <!-- <div class="table-meta" *ngIf="mode === 'table' && edit.editLayer === 'stations'">
+  Showing {{ showingCount }} of {{ filteredTotal }} records (Page {{ page }} / {{ totalPages }})
+</div> -->
+
     <!-- ================= TABLE MODE ================= -->
     <ng-container *ngIf="edit.editLayer === 'stations' && mode === 'table'">
 
