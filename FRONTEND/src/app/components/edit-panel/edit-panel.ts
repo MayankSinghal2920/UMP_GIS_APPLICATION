@@ -201,6 +201,7 @@ prevPage() {
 
     this.api.getStationById(id).subscribe({
       next: (full) => {
+
         const n = this.normalizeStation(full);
         this.draft = { ...this.draft, ...n };
 
@@ -241,8 +242,9 @@ prevPage() {
       state: s?.state,
       district: s?.district,
       constituency: s?.constituncy ?? s?.constituency,
-      lat: s?.lat ?? s?.latitude,
-      lng: s?.lon ?? s?.lng ?? s?.longitude,
+      lat: Number(s?.lat ?? s?.ycoord ?? s?.latitude),
+      lng: Number(s?.lon ?? s?.lng ?? s?.xcoord ?? s?.longitude),
+
     };
   }
 

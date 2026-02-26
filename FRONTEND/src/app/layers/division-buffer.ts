@@ -59,7 +59,7 @@ const key = this.api.getDivisionBufferKey(z); // ✅ division stays in Api
 if (key === this.lastKey) return;
 this.lastKey = key;
 
-    this.api.getDivisionBuffer(z).subscribe({
+    this.api.getDivisionBuffer().subscribe({
 next: (res: any) => {
   const geojson = res || { type: 'FeatureCollection', features: [] };
 
