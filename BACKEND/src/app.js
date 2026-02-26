@@ -49,7 +49,7 @@ app.get('/__health', (req, res) => {
   res.json({ ok: true });
 });
 
-// app.use('/api/stations', stationRoutes);
+app.use('/api/stations', stationRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 // app.use('/api/km_posts', kmPostRoutes);
