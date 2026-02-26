@@ -66,7 +66,7 @@ export class IndiaBoundaryLayer implements MapLayer {
     if (key === this.lastKey) return;
     this.lastKey = key;
 
-    this.api.getIndiaBoundary(bbox, z).subscribe({
+    this.api.getIndiaBoundary(bbox).subscribe({
       next: (geojson: any) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);

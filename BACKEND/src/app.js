@@ -5,16 +5,7 @@ const path = require('path');
 
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
-const stationRoutes = require('./routes/station.routes');
-const authRoutes = require('./routes/auth.routes');
-const dashboardRoutes = require('./routes/dashboard.routes');
-const kmPostRoutes = require('./routes/kmPost.routes');
-const landPlanRoutes = require('./routes/landPlan.routes');
-const indiaBoundaryRoutes = require('./routes/indiaBoundary.routes');
-const divisionBufferRoutes = require('./routes/divisionBuffer.routes');
-const landOffsetRoutes = require('./routes/landOffset.routes');
-const landBoundaryRoutes = require('./routes/landBoundary.routes');
-const trackRoutes = require('./routes/track.routes');
+const authRoutes = require('./modules/auth/auth.routes');
 const commonLayersRoutes = require('./modules/common/view/layers/layers.routes');
 const ceaViewRoutes = require('./modules/departments/civilEngineeringAssets/view/layers/layers.routes');
 const ceaDashboardRoutes = require(
@@ -49,16 +40,8 @@ app.get('/__health', (req, res) => {
   res.json({ ok: true });
 });
 
-app.use('/api/stations', stationRoutes);
+
 app.use('/api/auth', authRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/km_posts', kmPostRoutes);
-app.use('/api/land_plan_on_track', landPlanRoutes);
-app.use('/api/india_boundary', indiaBoundaryRoutes);
-app.use('/api/division_buffer', divisionBufferRoutes);
-app.use('/api/land_offset', landOffsetRoutes);
-app.use('/api/land_boundary', landBoundaryRoutes);
-// app.use('/api/tracks', trackRoutes);
 app.use('/api/common', commonLayersRoutes);
 app.use('/api/cea/view', ceaViewRoutes);
 app.use('/api/cea/view/dashboard', ceaDashboardRoutes);
