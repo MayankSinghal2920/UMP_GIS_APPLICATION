@@ -17,7 +17,12 @@ const landBoundaryRoutes = require('./routes/landBoundary.routes');
 const trackRoutes = require('./routes/track.routes');
 const commonLayersRoutes = require('./modules/common/view/layers/layers.routes');
 const ceaViewRoutes = require('./modules/departments/civilEngineeringAssets/view/layers/layers.routes');
-
+const ceaDashboardRoutes = require(
+  './modules/departments/civilEngineeringAssets/view/dashboard/dashboard.routes'
+);
+const ceaEditRoutes = require(
+  './modules/departments/civilEngineeringAssets/edit/edit.routes'
+);
 
 
 
@@ -56,6 +61,8 @@ app.use('/api/land_boundary', landBoundaryRoutes);
 // app.use('/api/tracks', trackRoutes);
 app.use('/api/common', commonLayersRoutes);
 app.use('/api/cea/view', ceaViewRoutes);
+app.use('/api/cea/view/dashboard', ceaDashboardRoutes);
+app.use('/api/cea/edit', ceaEditRoutes);
 
 
 
