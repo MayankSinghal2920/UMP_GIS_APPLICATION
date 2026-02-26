@@ -6,15 +6,14 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class Api {
-
-  private BASE_URL = 'http://127.0.0.1:4000';
+  private readonly BASE_URL = 'http://127.0.0.1:4000';
 
   constructor(private http: HttpClient) {}
 
   /* ===================== COMMON ===================== */
 
-  private getDivision() {
-    return localStorage.getItem('division') || '';
+  private getDivision(): string {
+    return (localStorage.getItem('division') || '').trim();
   }
 
   /* ===================== MAP DATA ===================== */
@@ -24,7 +23,7 @@ export class Api {
       params: {
         bbox,
         division: this.getDivision(),
-      }
+      },
     });
   }
 
@@ -33,7 +32,7 @@ export class Api {
       params: {
         bbox,
         division: this.getDivision(),
-      }
+      },
     });
   }
 
@@ -42,7 +41,7 @@ export class Api {
       params: {
         bbox,
         division: this.getDivision(),
-      }
+      },
     });
   }
 
@@ -50,17 +49,17 @@ export class Api {
     return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landBoundary`, {
       params: {
         bbox,
-        division: this.getDivision(),   // ✅ added
-      }
+        division: this.getDivision(),
+      },
     });
   }
 
   getLandPlanOntrack(z: number) {
     return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landPlanOnTrack`, {
       params: {
-        division: this.getDivision(), // ✅ from localStorage
-        z: z.toString(),              // zoom level
-      }
+        division: this.getDivision(),
+        z: z.toString(),
+      },
     });
   }
 
@@ -68,21 +67,15 @@ export class Api {
     return this.http.get<any>(`${this.BASE_URL}/api/cea/view/landOffset`, {
       params: {
         bbox,
-        division: this.getDivision(),   // ✅ added
-      }
+        division: this.getDivision(),
+      },
     });
   }
 
   /* ===================== DIVISION BUFFER ===================== */
 
-// getDivisionBuffer(z: number) {
-//   return this.http.get<any>(`${this.BASE_URL}/api/division_buffer`, {
-//     params: {
-//       division: this.getDivision(),   // ✅ only here
-//       z: z.toString(),
-//     }
-//   });
-// }
+
+
 
 getDivisionBuffer() {
   return this.http.get<any>(`${this.BASE_URL}/api/cea/view/divisionBuffer`, {
@@ -92,21 +85,29 @@ getDivisionBuffer() {
   });
 }
 
-/** ✅ cache/reload key (division stays inside Api only) */
-getDivisionBufferKey(z: number) {
-  return `division=${this.getDivision()}|z=${z}`; // ✅ only here
-}
 
+
+
+  /** ✅ cache/reload key (division stays inside Api only) */
+  getDivisionBufferKey(z: number) {
+    return `division=${this.getDivision()}|z=${z}`;
+  }
 
   /* ===================== INDIA BOUNDARY ===================== */
 
   getIndiaBoundary(bbox: string, z: number) {
     return this.http.get<any>(`${this.BASE_URL}/api/india_boundary`, {
-      params: { bbox, z }
+      params: { bbox, z },
     });
   }
 
   /* ===================== STATION ADMIN ===================== */
+
+  // getStationTable(page: number, pageSize: number, q: string, division: string) {
+  //   const params: any = { page, pageSize, q, division };
+  //   return this.http.get<any>(`${this.BASE_URL}/api/stations/table`, { params });
+  // }
+
 
 getStationTable(page: number, pageSize: number, search: string) {
   const params: any = {
@@ -158,56 +159,7 @@ createStation(payload: any) {
 }
 
 
-  /* ===================== AUTH with otp===================== */
 
-/* ===================== AUTH (OTP FLOW) ===================== */
-
-// Step-1: validate credentials + send OTP email
-requestOtp(username: string, password: string): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/request-otp`, {
-    user_id: username,
-    password,
-  });
-}
-
-// Step-2: verify OTP (DB stored) and return user payload
-verifyOtp(username: string, otp: string): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/verify-otp`, {
-    user_id: username,
-    otp,
-  });
-}
-
-// Optional: resend OTP (new OTP stored in DB and mailed)
-resendOtp(username: string): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/resend-otp`, {
-    user_id: username,
-  });
-}
-
-/* ===================== AUTH (Captcha FLOW) ===================== */
-
-getNewCaptcha(): Observable<any> {
-  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/new`);
-}
-
-validateCaptcha(captchaId: string, captchaValue: string): Observable<any> {
-  const params = new HttpParams()
-    .set('captchaId', captchaId)
-    .set('captchaValue', captchaValue);
-
-  return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/validate`, { params });
-}
-
-
-
-/* OPTIONAL: keep legacy login if needed */
-login(username: string, password: string): Observable<any> {
-  return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
-    user_id: username,
-    password,
-  });
-}
 
 
 
@@ -218,10 +170,60 @@ login(username: string, password: string): Observable<any> {
 , { params });
   }
 
-getStationByCode(code: string): Observable<any> {
+  getStationByCode(code: string): Observable<any> {
     const c = String(code || '').trim().toUpperCase();
-    return this.http.get<any>(`${this.BASE_URL}/api/station_codes/${encodeURIComponent(c)}`);
+    return this.http.get<any>(
+      `${this.BASE_URL}/api/station_codes/${encodeURIComponent(c)}`
+    );
   }
+
+
+
+  /* ===================== AUTH (OTP FLOW) ===================== */
+
+  requestOtp(username: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/api/auth/request-otp`, {
+      user_id: username,
+      password,
+    });
+  }
+
+  verifyOtp(username: string, otp: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/api/auth/verify-otp`, {
+      user_id: username,
+      otp,
+    });
+  }
+
+  resendOtp(username: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/api/auth/resend-otp`, {
+      user_id: username,
+    });
+  }
+
+  /* ===================== AUTH (Captcha FLOW) ===================== */
+
+  getNewCaptcha(): Observable<any> {
+    return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/new`);
+  }
+
+  validateCaptcha(captchaId: string, captchaValue: string): Observable<any> {
+    const params = new HttpParams()
+      .set('captchaId', captchaId)
+      .set('captchaValue', captchaValue);
+
+    return this.http.get<any>(`${this.BASE_URL}/api/auth/captcha/validate`, { params });
+  }
+
+  /* OPTIONAL: legacy login */
+  login(username: string, password: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/api/auth/login`, {
+      user_id: username,
+      password,
+    });
+  }
+
+
 
 
 
@@ -232,13 +234,14 @@ private getDashboardCount(asset: string, type: string) {
   return this.http.get<any>(
     `${this.BASE_URL}/api/cea/view/dashboard/${asset}/count`,
     {
+
       params: {
         division: this.getDivision(),
-        type
-      }
-    }
-  );
-}
+        type,
+      },
+    });
+  }
+
 
 /* ---- Station ---- */
 getStationCount(type: string) {
@@ -286,3 +289,4 @@ getLandPlanCount(type: string) {
 
 
 }
+

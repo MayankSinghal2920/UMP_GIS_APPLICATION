@@ -15,15 +15,16 @@
   </div>
 
   <!-- ================= SUB CARDS ================= -->
-  <div class="sub-cards">
-    <div
-      class="sub-card"
-      *ngFor="let card of activeSubCards"
-      [attr.data-color]="activeColor"
-    >
-      <div class="sub-title">{{ card.title }}</div>
-      <div class="sub-value">{{ card.value }}</div>
-    </div>
+<div class="sub-cards">
+  <div
+    class="sub-card"
+    *ngFor="let card of activeSubCards"
+    [attr.data-color]="activeColor"
+    (click)="onSubCardClick(card)"
+  >
+    <div class="sub-title">{{ card.title }}</div>
+    <div class="sub-value">{{ card.value }}</div>
   </div>
+</div>
 
 </div>

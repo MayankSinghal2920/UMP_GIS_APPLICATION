@@ -32,6 +32,12 @@ import { AttributeTableComponent } from '../attribute-table/attribute-table';
 
 type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
 
+/**
+ * Match what your EditPanel dropdown uses:
+ * edit-panel.html has: value="stations" and value="landplan"
+ */
+type EditableLayer = 'stations' | 'landplan';
+
 @Component({
   selector: 'app-map',
   standalone: true,
@@ -97,7 +103,6 @@ export class Map implements AfterViewInit, OnDestroy {
     const next = this.ui.activePanel === panel ? null : panel;
     this.ui.activePanel = next;
 
-    // ✅ IMPORTANT: use enable()/disable() so stateChanged$ fires
     if (next === 'edit') this.edit.enable();
     else this.edit.disable();
 
@@ -118,7 +123,6 @@ export class Map implements AfterViewInit, OnDestroy {
     setTimeout(() => this.map?.invalidateSize(), 350);
   }
 
-  // ✅ debounce reload to avoid many calls during animated moves/zoom
   private scheduleReload(): void {
     if (!this.map) return;
 
@@ -126,13 +130,10 @@ export class Map implements AfterViewInit, OnDestroy {
 
     this.reloadTimer = setTimeout(() => {
       if (!this.map) return;
-
-      // ✅ reload only visible layers (much cheaper than reloadAll)
       this.layerManager.reloadVisible(this.map);
     }, 180);
   }
 
-  // ✅ Capture home AFTER the map has moved away from initial India view
   private captureHomeAfterFirstSettle(): void {
     if (!this.map) return;
     if (this.homeCaptured) return;
@@ -144,18 +145,16 @@ export class Map implements AfterViewInit, OnDestroy {
       if (!this.map) return true;
       const z = this.map.getZoom();
       const c = this.map.getCenter();
-      return z === initialZoom && c.distanceTo(initialCenter) < 50_000; // 50 km
+      return z === initialZoom && c.distanceTo(initialCenter) < 50_000;
     };
 
     const trySave = () => {
       if (!this.map || this.homeCaptured) return;
-      if (isInitialView()) return; // ✅ do NOT capture India view
+      if (isInitialView()) return;
 
       this.homeCenter = this.map.getCenter();
       this.homeZoom = this.map.getZoom();
       this.homeCaptured = true;
-
-      console.log('✅ HOME CAPTURED:', this.homeCenter, this.homeZoom);
 
       this.map.off('moveend', trySave);
       this.map.off('zoomend', trySave);
@@ -177,7 +176,6 @@ export class Map implements AfterViewInit, OnDestroy {
         clearInterval(timer);
         this.map.off('moveend', trySave);
         this.map.off('zoomend', trySave);
-        console.warn('⚠️ Home not captured yet (division zoom may not have happened).');
       }
     }, 200);
   }
@@ -186,15 +184,13 @@ export class Map implements AfterViewInit, OnDestroy {
     if (!this.map) return;
 
     if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') {
-      console.warn('⚠️ Home not captured yet. Skipping zoomHome.');
       return;
     }
 
     this.map.invalidateSize();
-    this.map.setView(this.homeCenter, this.homeZoom, { animate: false }); // ✅ no animation
+    this.map.setView(this.homeCenter, this.homeZoom, { animate: false });
   }
 
-  // ✅ remove highlight + drag marker
   private clearZoomArtifacts(): void {
     if (!this.map) return;
 
@@ -210,7 +206,6 @@ export class Map implements AfterViewInit, OnDestroy {
     this.dragMarker = undefined;
   }
 
-  // ✅ create draggable "circle" marker (circleMarker is NOT draggable)
   private createDraggableCircleMarker(ll: L.LatLng): L.Marker {
     const size = 34;
     const border = 5;
@@ -243,52 +238,50 @@ export class Map implements AfterViewInit, OnDestroy {
     return m;
   }
 
+  private isEditableLayer(x: any): x is EditableLayer {
+    return x === 'stations' || x === 'landplan';
+  }
+
   /**
-   * ✅ Deep link handler:
-   * /map?panel=edit&layer=stations&status=Sent%20to%20Maker
-   * - opens edit panel
-   * - selects layer in edit state
-   * - stores status filter into FilterState (as dynamic field)
-   * - reloads visible layers (so map fetch uses new filter)
+   * ✅ Deep link:
+   * /map?panel=edit&layer=stations
    */
   private initDeepLinking(): void {
     this.routeSub?.unsubscribe();
-    this.routeSub = this.route.queryParams.subscribe((params) => {
-      const panel = params['panel'];
-      const layer = params['layer'];
-      const status = params['status'];
 
+    this.routeSub = this.route.queryParams.subscribe((params) => {
+      const panel = String(params['panel'] || '').trim().toLowerCase();
       if (panel !== 'edit') return;
+
+      const layerParam = String(params['layer'] || '').trim();
 
       // 1) open panel + enable edit
       this.ui.activePanel = 'edit';
       this.edit.enable();
 
-      // 2) set selected edit layer
-      if (layer) {
-        // If your EditState exposes setLayer() (it is used by EditPanel)
-        // keep both; harmless even if one is not needed.
-        try {
-          (this.edit as any).editLayer = layer;
-        } catch {}
-        try {
-          (this.edit as any).setLayer?.(layer);
-        } catch {}
+      // 2) set layer safely (fix TS2345)
+      if (this.isEditableLayer(layerParam)) {
+        const safeLayer = layerParam as EditableLayer;
+
+        // update edit state
+        (this.edit as any).editLayer = safeLayer;
+        this.edit.setLayer(safeLayer as any);
+
+        /**
+         * IMPORTANT:
+         * EditPanel loads data in onLayerChange().
+         * Since EditPanel is not directly callable here, we "re-trigger"
+         * by setting same layer again on next tick.
+         */
+        setTimeout(() => {
+          (this.edit as any).editLayer = safeLayer;
+          this.edit.setLayer(safeLayer as any);
+        }, 0);
       }
 
-      // 3) store status filter for API calls (StationLayer should read from FilterState)
-      if (status) {
-        // If FilterState already has a proper property, use that instead.
-        // This dynamic approach will still work and won’t break compilation.
-        (this.filters as any).status = status;
-      }
-
-      // 4) resize + reload (so the new filter is applied)
+      // 3) resize (panel open)
       setTimeout(() => this.forceMapResize(), 0);
-      setTimeout(() => {
-        if (!this.map) return;
-        this.layerManager.reloadVisible(this.map);
-      }, 50);
+      setTimeout(() => this.forceMapResize(), 260);
     });
   }
 
@@ -322,7 +315,6 @@ export class Map implements AfterViewInit, OnDestroy {
 
     base.once('load', () => this.forceMapResize());
 
-    /* Register layers once */
     this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
     this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
 
@@ -366,27 +358,23 @@ export class Map implements AfterViewInit, OnDestroy {
       this.forceMapResize();
 
       this.layerManager.addAll(this.map!);
-      this.layerManager.reloadAll(this.map!); // initial load OK
+      this.layerManager.reloadAll(this.map!);
 
-      // ✅ capture home after division zoom settles
       this.captureHomeAfterFirstSettle();
 
-      // ✅ Deep link must be wired AFTER map exists
+      // ✅ Deep link AFTER map exists
       this.initDeepLinking();
 
-      // ✅ Debounced reload on map move/zoom (prevents slowness/hang)
       this.onMoveOrZoom = () => this.scheduleReload();
       this.map!.on('moveend', this.onMoveOrZoom);
       this.map!.on('zoomend', this.onMoveOrZoom);
 
-      // ✅ Hide/show land layers depending on edit mode/layer
       this.editSuppressionSub?.unsubscribe();
       this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
         this.applyEditSuppression();
       });
-      this.applyEditSuppression(); // apply once
+      this.applyEditSuppression();
 
-      // ✅ Lock drag requests (from EditState)
       this.lockDragSub?.unsubscribe();
       this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
         if (!this.dragMarker) return;
@@ -394,11 +382,8 @@ export class Map implements AfterViewInit, OnDestroy {
         this.dragMarker.dragging?.disable();
         this.dragMarker.off('drag');
         this.dragMarker.off('dragend');
-
-        console.log('✅ Drag locked');
       });
 
-      // ✅ Listen to zoom commands
       this.mapZoomSub?.unsubscribe();
       this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => {
         if (!this.map) return;
@@ -418,7 +403,7 @@ export class Map implements AfterViewInit, OnDestroy {
           const draggable = !!(t as any).draggable;
 
           this.map.invalidateSize();
-          this.map.setView(ll, z, { animate: false }); // ✅ no animation
+          this.map.setView(ll, z, { animate: false });
 
           if (draggable) {
             this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map);
@@ -452,7 +437,7 @@ export class Map implements AfterViewInit, OnDestroy {
           const z = t.zoom ?? 17;
 
           this.map.invalidateSize();
-          this.map.setView(ll, z, { animate: false }); // ✅ no animation
+          this.map.setView(ll, z, { animate: false });
 
           this.zoomHighlight = L.circleMarker(ll, {
             radius: 10,
@@ -470,12 +455,11 @@ export class Map implements AfterViewInit, OnDestroy {
           );
 
           this.map.invalidateSize();
-          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); // ✅ no animation
+          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false });
           return;
         }
       });
 
-      // Existing attribute table zoom
       this.zoomSub?.unsubscribe();
       this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => {
         if (!this.map) return;
@@ -488,20 +472,17 @@ export class Map implements AfterViewInit, OnDestroy {
           const gj = L.geoJSON(feature);
           const bounds = gj.getBounds();
           if (bounds?.isValid()) {
-            this.map.fitBounds(bounds.pad(0.2), { animate: false }); // ✅ no animation
+            this.map.fitBounds(bounds.pad(0.2), { animate: false });
           }
-        } catch (e) {
-          console.error('Zoom-to feature failed:', e);
-        }
+        } catch (e) {}
       });
     });
   }
 
-  /** Hide Land Offset + Land Plan while station edit is active; restore afterwards */
   private applyEditSuppression(): void {
     if (!this.map) return;
 
-    const shouldHide = this.edit.enabled && this.edit.editLayer === 'stations';
+    const shouldHide = this.edit.enabled && (this.edit as any).editLayer === 'stations';
     const ids = [this.LAND_OFFSET_ID, this.LAND_PLAN_ID];
 
     if (shouldHide) {
