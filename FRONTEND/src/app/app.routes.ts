@@ -4,6 +4,12 @@ import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
 import { authGuard } from './guards/auth-guard';
 import { DashboardHome } from './dashboard/dashboard-home/dashboard-home';
 import { HomeComponent } from './components/home/home';
+import { UserManagementComponent } from './dashboard/user-management/user-management';
+import { adminGuard } from './guards/admin-guard';
+
+
+
+
 
 export const routes: Routes = [
 
@@ -27,6 +33,12 @@ export const routes: Routes = [
         component: HomeComponent,
         data: {title: 'Railway Asset Editing'}
       },
+       {
+      path: 'user-management',
+      component: UserManagementComponent,
+      canActivate: [adminGuard], 
+      data: { title: 'User Management' }
+    }
     ]
   },
 
