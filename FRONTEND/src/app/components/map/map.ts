@@ -5,17 +5,19 @@ import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
-import { Api } from '../../services/api';
-import { StationLayer } from '../../layers/station';
-import { TrackLayer } from '../../layers/track';
-import { KmPostLayer } from '../../layers/km-post';
-import { IndiaBoundaryLayer } from '../../layers/india-boundary';
-import { LandBoundaryLayer } from '../../layers/land-boundary';
-import { LandPlanOntrackLayer } from 'src/app/layers/landplan-ontrack';
-import { LandOffsetLayer } from 'src/app/layers/land-offset';
-import { DivisionBufferLayer } from '../../layers/division-buffer';
+import { Api } from '../../api/api';
+import { StationLayer } from '../../departments/civil_engineering_assets/editing/station';
+import { LandBoundaryLayer } from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
+import { LandPlanOntrackLayer } from 'src/app/departments/civil_engineering_assets/editing/landplan-ontrack';
+import { LandOffsetLayer } from 'src/app/departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
+import {
+  DivisionBufferLayer,
+  IndiaBoundaryLayer,
+  KmPostLayer,
+  TrackLayer,
+} from '../../departments/common';
 
-import { LayerManager } from '../../layers/layer-manager';
+import { LayerManager } from '../../services/layer-manager';
 import { MapRegistry } from '../../services/map-registry';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
@@ -372,7 +374,7 @@ this.sidebarSub.add(
     );
 
     this.layerManager.registerOnce(
-      new LandPlanOntrackLayer(this.api, (g) =>
+      new LandPlanOntrackLayer(this.api, this.edit, (g) =>
         this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
       )
     );

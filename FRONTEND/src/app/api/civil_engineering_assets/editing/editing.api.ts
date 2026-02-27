@@ -1,0 +1,49 @@
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { BASE_URL, getDivision } from '../../shared/api-utils';
+
+@Injectable({ providedIn: 'root' })
+export class CivilEngineeringAssetsEditingApi {
+  constructor(private http: HttpClient) {}
+
+  getStationTable(page: number, pageSize: number, search: string) {
+    const params: any = {
+      page,
+      pageSize,
+      division: getDivision(),
+    };
+    if (search) params.q = search;
+
+    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/table`, { params });
+  }
+
+  updateStation(id: number, payload: any) {
+    return this.http.put(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
+  deleteStation(id: number) {
+    return this.http.delete(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, {
+      params: { division: getDivision() },
+    });
+  }
+
+  createStation(payload: any) {
+    return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
+  getStationById(id: number) {
+    const params = new HttpParams().set('division', getDivision());
+    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, { params });
+  }
+
+  getStationByCode(code: string): Observable<any> {
+    const c = String(code || '').trim().toUpperCase();
+    return this.http.get<any>(`${BASE_URL}/api/station_codes/${encodeURIComponent(c)}`);
+  }
+}
+

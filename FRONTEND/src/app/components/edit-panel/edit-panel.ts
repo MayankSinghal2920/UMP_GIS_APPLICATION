@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
 import { EditState } from '../../services/edit-state';
-import { Api } from 'src/app/services/api';
+import { Api } from 'src/app/api/api';
 import { UiState } from '../../services/ui-state';
 import { MapZoomService } from 'src/app/services/map-zoom';
 

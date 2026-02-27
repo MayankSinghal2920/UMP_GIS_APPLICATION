@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
-export type EditableLayer = 'stations' | null;
+export type EditableLayer = 'stations' | 'landplan' | null;
 
 @Injectable({ providedIn: 'root' })
 export class EditState {

@@ -42,11 +42,14 @@ app.get('/__health', (req, res) => {
 
 
 app.use('/api/auth', authRoutes);
-app.use('/api/common', commonLayersRoutes);
-app.use('/api/cea/view', ceaViewRoutes);
-app.use('/api/cea/view/dashboard', ceaDashboardRoutes);
-app.use('/api/cea/edit', ceaEditRoutes);
 
+// ✅ change these two:
+app.use('/api/common/view/layers', commonLayersRoutes);
+app.use('/api/civil_engineering_assets/view/layers', ceaViewRoutes);
+
+// keep as-is
+app.use('/api/civil_engineering_assets/view/dashboard', ceaDashboardRoutes);
+app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
 
 
 

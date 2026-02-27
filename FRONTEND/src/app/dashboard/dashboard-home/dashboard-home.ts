@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { Api } from 'src/app/services/api';
+import { Api } from 'src/app/api/api';
 
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
 

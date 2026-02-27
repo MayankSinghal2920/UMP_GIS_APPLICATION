@@ -1,13 +1,12 @@
 import * as L from 'leaflet';
-import { Api } from '../services/api';
-import { MapLayer } from './interface';
+import { Api } from '../../api/api';
+import { MapLayer } from '../../services/interface';
 
 export class KmPostLayer implements MapLayer {
   id = 'km_posts';
   title = 'KM Posts';
   visible = true;
 
-  // ✅ KM posts visible only at zoom >= 10
   private readonly MIN_ZOOM = 10;
 
   legend = {
@@ -19,7 +18,7 @@ export class KmPostLayer implements MapLayer {
   private layer: L.GeoJSON;
   private lastBbox = '';
   private isLoading = false;
-  private isOnMap = false; // ✅ missing earlier
+  private isOnMap = false;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -32,7 +31,6 @@ export class KmPostLayer implements MapLayer {
           opacity: 1,
           fillOpacity: 0.95,
         }),
-
       onEachFeature: (feature: any, layer: any) => {
         const p = feature?.properties || {};
         layer.bindPopup(`
@@ -65,42 +63,37 @@ export class KmPostLayer implements MapLayer {
 
   loadForMap(map: L.Map) {
     if (!this.visible) return;
-  
+
     const z = map.getZoom();
-  
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-  
-    // ✅ Always fetch data (for attribute table) — not dependent on zoom
-    if ((bbox === this.lastBbox) || this.isLoading) {
-      // still ensure correct draw state even if not refetching
+
+    if (bbox === this.lastBbox || this.isLoading) {
       if (z < this.MIN_ZOOM) {
-        this.layer.clearLayers(); // hide on map
+        this.layer.clearLayers();
       } else {
         this.addTo(map);
       }
       return;
     }
-  
+
     this.lastBbox = bbox;
     this.isLoading = true;
-  
+
     this.api.getkmposts(bbox).subscribe({
       next: (geojson: any) => {
-        // ✅ ALWAYS push to attribute table
         this.onData?.(geojson);
-  
-        // ✅ Render on map only if zoom >= MIN_ZOOM
+
         if (z < this.MIN_ZOOM) {
           this.layer.clearLayers();
           this.isLoading = false;
           return;
         }
-  
+
         this.addTo(map);
         this.layer.clearLayers();
         this.layer.addData(geojson);
-  
+
         this.isLoading = false;
       },
       error: (err: any) => {
@@ -109,7 +102,4 @@ export class KmPostLayer implements MapLayer {
       },
     });
   }
-  
 }
-
-
