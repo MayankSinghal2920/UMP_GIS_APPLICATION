@@ -65,4 +65,13 @@ verifyOtp(user_id: string, otp: string) {
   isLoggedIn(): boolean {
     return !!localStorage.getItem('user_id');
   }
+
+  getUserType(): string {
+  return localStorage.getItem('user_type') || '';
+}
+
+isAdmin(): boolean {
+  return this.getUserType() === 'Admin';
+}
+
 }

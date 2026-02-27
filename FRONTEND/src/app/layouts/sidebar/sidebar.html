@@ -1,8 +1,6 @@
-<div class="sidebar" [class.collapsed]="(collapsed$ | async)">
-
+<div class="sidebar" [class.collapsed]="collapsed$ | async">
   <!-- HEADER -->
   <div class="sidebar-header">
-
     <!-- COLLAPSED: hamburger icon -->
     <button
       class="sidebar-toggle"
@@ -27,13 +25,15 @@
     >
       <i class="bi bi-chevron-left"></i>
     </button>
-
   </div>
 
   <!-- MENU -->
   <ul class="menu">
-
-    <li routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+    <li
+      routerLink="/dashboard"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
       <i class="bi bi-speedometer2"></i>
       <span *ngIf="!(collapsed$ | async)">Dashboard</span>
     </li>
@@ -43,9 +43,16 @@
       <span *ngIf="!(collapsed$ | async)">Profile</span>
     </li>
 
+    <li *ngIf="isAdmin" routerLink="/dashboard/user-management">
+      <i class="bi bi-people"></i>
+      <span *ngIf="!(collapsed$ | async)">User Management</span>
+    </li>
+
     <li routerLink="/dashboard/railway-assets">
       <i class="bi bi-map"></i>
-      <span *ngIf="!(collapsed$ | async)">Railway Asset Editing</span>
+      <span *ngIf="!(collapsed$ | async)">
+        {{ isAdmin ? 'GIS Map View' : 'Railway Asset Editing' }}
+      </span>
     </li>
 
     <li routerLink="/dashboard/feedback">
@@ -62,6 +69,5 @@
       <i class="bi bi-file-earmark-plus"></i>
       <span *ngIf="!(collapsed$ | async)">Add Shapefile</span>
     </li>
-
   </ul>
 </div>
