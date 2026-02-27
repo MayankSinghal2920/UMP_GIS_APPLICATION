@@ -556,3 +556,49 @@
   gap: 14px;
   font-size: 14px;
 }
+
+.pager {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafbfc;
+  font-size: 13px;
+}
+
+.pager-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: #2c3e94;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: #1e2e6d;
+}
+
+.nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pager-right {
+  margin-left: auto;
+  font-weight: 500;
+  color: #2c3e94;
+  white-space: nowrap;
+}
+
+.pager-separator {
+  margin: 0 8px;
+  opacity: 0.5;
+}

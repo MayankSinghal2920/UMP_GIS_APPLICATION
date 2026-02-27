@@ -295,4 +295,3 @@ getLandPlanCount(type: string) {
 
 
 }
-

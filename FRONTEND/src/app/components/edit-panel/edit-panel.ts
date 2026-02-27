@@ -109,6 +109,7 @@ export class EditPanel implements OnInit, OnDestroy {
     return `${this.showingFrom}-${this.showingTo} of ${this.filteredTotal}`;
   }
 
+  
   /* ================== LAYER ================== */
   onLayerChange() {
     // ✅ notify Map.ts to hide/show layers
