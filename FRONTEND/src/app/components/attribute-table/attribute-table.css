@@ -1,12 +1,14 @@
 /* Bottom dock container */
 /* Always stay above right-side widget panels */
 :host {
-  position: fixed;          /* or absolute, but fixed is safest for overlay */
+  position: fixed;
+  /* or absolute, but fixed is safest for overlay */
   left: 0;
   right: 0;
   bottom: 0;
 
-  z-index: 3000 !important; /* higher than right-panel (1001) */
+  z-index: 3000 !important;
+  /* higher than right-panel (1001) */
   pointer-events: auto;
 }
 
@@ -17,7 +19,8 @@
   bottom: 0;
   z-index: 9999;
 
-  background: #111827;          /* 🔥 fallback blue */
+  background: #111827;
+  /* 🔥 fallback blue */
   border-top: none;
   box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -25,7 +28,8 @@
 
 /* Toggle bar fills collapsed area */
 .attr-toggle-bar {
-  height: 34px;                 /* ✅ SAME as collapsedHeight */
+  height: 34px;
+  /* ✅ SAME as collapsedHeight */
   background: #111827;
   cursor: pointer;
   position: relative;
@@ -47,7 +51,7 @@
   justify-content: center;
 
   border-radius: 3px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Arrow (pure CSS triangle) */
@@ -57,7 +61,8 @@
 
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 8px solid #ffffff; /* default: points UP (collapsed state) */
+  border-top: 8px solid #ffffff;
+  /* default: points UP (collapsed state) */
 }
 
 /* When open, show DOWN arrow */
