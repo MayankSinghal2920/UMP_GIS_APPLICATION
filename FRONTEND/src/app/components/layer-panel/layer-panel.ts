@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { UiState } from '../../services/ui-state';
-import { LayerManager } from '../../layers/layer-manager';
+import { LayerManager } from '../../services/layer-manager';
 import { MapRegistry } from '../../services/map-registry';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

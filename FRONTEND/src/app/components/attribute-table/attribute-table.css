@@ -1,12 +1,22 @@
 /* Bottom dock container */
 /* Always stay above right-side widget panels */
 :host {
+<<<<<<< HEAD
   position: fixed;          /* or absolute, but fixed is safest for overlay */
+=======
+  position: fixed;
+  /* or absolute, but fixed is safest for overlay */
+>>>>>>> origin/UMP-Amogh
   left: 0;
   right: 0;
   bottom: 0;
 
+<<<<<<< HEAD
   z-index: 3000 !important; /* higher than right-panel (1001) */
+=======
+  z-index: 3000 !important;
+  /* higher than right-panel (1001) */
+>>>>>>> origin/UMP-Amogh
   pointer-events: auto;
 }
 
@@ -17,7 +27,12 @@
   bottom: 0;
   z-index: 9999;
 
+<<<<<<< HEAD
   background: #111827;          /* 🔥 fallback blue */
+=======
+  background: #111827;
+  /* 🔥 fallback blue */
+>>>>>>> origin/UMP-Amogh
   border-top: none;
   box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -25,7 +40,12 @@
 
 /* Toggle bar fills collapsed area */
 .attr-toggle-bar {
+<<<<<<< HEAD
   height: 34px;                 /* ✅ SAME as collapsedHeight */
+=======
+  height: 34px;
+  /* ✅ SAME as collapsedHeight */
+>>>>>>> origin/UMP-Amogh
   background: #111827;
   cursor: pointer;
   position: relative;
@@ -47,7 +67,11 @@
   justify-content: center;
 
   border-radius: 3px;
+<<<<<<< HEAD
   background: rgba(255,255,255,0.08);
+=======
+  background: rgba(255, 255, 255, 0.08);
+>>>>>>> origin/UMP-Amogh
 }
 
 /* Arrow (pure CSS triangle) */
@@ -57,7 +81,12 @@
 
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
+<<<<<<< HEAD
   border-top: 8px solid #ffffff; /* default: points UP (collapsed state) */
+=======
+  border-top: 8px solid #ffffff;
+  /* default: points UP (collapsed state) */
+>>>>>>> origin/UMP-Amogh
 }
 
 /* When open, show DOWN arrow */
@@ -138,4 +167,8 @@
   border-bottom: 2px solid #999;
   white-space: nowrap;
   box-shadow: inset 0 -1px 0 #999;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/UMP-Amogh

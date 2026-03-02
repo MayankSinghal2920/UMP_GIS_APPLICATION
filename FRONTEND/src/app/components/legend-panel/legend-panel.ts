@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
-import { LayerManager } from '../../layers/layer-manager';
+import { LayerManager } from '../../services/layer-manager';
 import { UiState } from '../../services/ui-state';
 
 

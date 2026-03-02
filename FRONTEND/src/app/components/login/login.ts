@@ -7,7 +7,11 @@ import { NgZone } from '@angular/core';
 import { timeout, catchError, of } from 'rxjs';
 
 import { Auth } from '../../services/auth';
+<<<<<<< HEAD
 import { Api } from '../../services/api';
+=======
+import { Api } from '../../api/api';
+>>>>>>> origin/UMP-Amogh
 
 type Step = 'LOGIN' | 'OTP';
 
@@ -116,7 +120,11 @@ private showError(message: string) {
           setTimeout(() => this.loadCaptcha('retry-missing-fields'), 400);
         }
       },
+<<<<<<< HEAD
       error: (err) => {
+=======
+      error: (err: any) => {
+>>>>>>> origin/UMP-Amogh
         console.error('[CAPTCHA] load failed:', err);
         this.captchaLoading = false;
         setTimeout(() => this.loadCaptcha('retry-error'), 800);
@@ -204,7 +212,11 @@ this.api
               setTimeout(() => this.loadCaptcha('back-to-login-after-requestOtp-fail'), 0);
             }
           },
+<<<<<<< HEAD
           error: (err) => {
+=======
+          error: (err: any) => {
+>>>>>>> origin/UMP-Amogh
             this.otpSending = false;
 
             const backendMessage =
@@ -221,7 +233,11 @@ this.api
         });
       },
 
+<<<<<<< HEAD
       error: (err) => {
+=======
+      error: (err: any) => {
+>>>>>>> origin/UMP-Amogh
         this.loading = false;
 
         const backendMessage =
@@ -259,7 +275,11 @@ verifyOtp() {
         this.showError(res?.message || 'Invalid OTP');
       }
     },
+<<<<<<< HEAD
     error: (err) => {
+=======
+    error: (err: any) => {
+>>>>>>> origin/UMP-Amogh
       this.loading = false;
 
       const msg =
@@ -302,7 +322,11 @@ verifyOtp() {
           this.showError(res?.message || res?.error || 'Failed to resend OTP');
         }
       },
+<<<<<<< HEAD
       error: (err) => {
+=======
+      error: (err: any) => {
+>>>>>>> origin/UMP-Amogh
         this.loading = false;
         this.showError(err?.error?.message || 'Server error while resending OTP');
       },
