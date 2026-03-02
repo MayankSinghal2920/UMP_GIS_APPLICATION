@@ -199,4 +199,3 @@ export class Api {
     return this.getDashboardCount('landPlan', type);
   }
 }
-

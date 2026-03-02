@@ -9,7 +9,6 @@ export class TrackLayer implements MapLayer {
   visible = true;
 
   legend = {
-
     type: 'line' as const,
     color: 'black',
     label: 'Railway Track',
@@ -50,7 +49,6 @@ export class TrackLayer implements MapLayer {
       next: (geojson: GeoJsonObject) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);
-
         this.onData?.(geojson);
       },
       error: (err: any) => console.error('Track layer error', err),

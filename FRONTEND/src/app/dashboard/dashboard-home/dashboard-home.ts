@@ -4,7 +4,6 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { Api } from 'src/app/api/api';
 
-
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
 
 interface MainCard {
@@ -66,9 +65,7 @@ subCardMap: Record<CardType, SubCard[]> = {
     private router: Router
   ) {}
 
-
 private getUserMainKey(): CardType | 'ADMIN' | null {
-
   const ut = (localStorage.getItem('user_type') || '').trim().toLowerCase();
   if (ut === 'maker') return 'MAKER';
   if (ut === 'checker') return 'CHECKER';
@@ -78,14 +75,11 @@ private getUserMainKey(): CardType | 'ADMIN' | null {
 }
   // ✅ now card is SubCard, so template click works
 onSubCardClick(card: SubCard): void {
-
   // Only Station sub-card triggers deep-link (keep this rule)
-
   if (card.layerKey !== 'stations') return;
 
   const userMain = this.getUserMainKey();
   if (!userMain) return;
-
 
   // ✅ Admin can click from any main card
   const allowed =
@@ -95,7 +89,6 @@ onSubCardClick(card: SubCard): void {
   if (!allowed) return;
 
   // ✅ Navigate to page that contains Map (Home)
-
   this.router.navigate(['/dashboard/railway-assets'], {
     queryParams: {
       panel: 'edit',
@@ -189,7 +182,6 @@ onSubCardClick(card: SubCard): void {
     );
   }
 
-
 onMainCardClick(key: CardType): void {
   const userMain = this.getUserMainKey();
 
@@ -204,7 +196,6 @@ onMainCardClick(key: CardType): void {
     this.selectedMain = key;
   }
 }
-
 
   get activeSubCards(): SubCard[] {
     return this.subCardMap[this.selectedMain];

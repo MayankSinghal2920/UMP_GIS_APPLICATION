@@ -2,21 +2,6 @@ import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
-<<<<<<< HEAD
-import { ActivatedRoute } from '@angular/router';
-
-import { Api } from '../../services/api';
-import { StationLayer } from '../../layers/station';
-import { TrackLayer } from '../../layers/track';
-import { KmPostLayer } from '../../layers/km-post';
-import { IndiaBoundaryLayer } from '../../layers/india-boundary';
-import { LandBoundaryLayer } from '../../layers/land-boundary';
-import { LandPlanOntrackLayer } from 'src/app/layers/landplan-ontrack';
-import { LandOffsetLayer } from 'src/app/layers/land-offset';
-import { DivisionBufferLayer } from '../../layers/division-buffer';
-
-import { LayerManager } from '../../layers/layer-manager';
-=======
 import { filter } from 'rxjs/operators';
 import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
@@ -33,7 +18,6 @@ import {
 } from '../../departments/common';
 
 import { LayerManager } from '../../services/layer-manager';
->>>>>>> origin/UMP-Amogh
 import { MapRegistry } from '../../services/map-registry';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
@@ -115,12 +99,8 @@ export class Map implements AfterViewInit, OnDestroy {
     private attrTable: AttributeTableService,
     public ui: UiState,
     private mapZoom: MapZoomService,
-<<<<<<< HEAD
-    private route: ActivatedRoute
-=======
     private route: ActivatedRoute,
     private router: Router
->>>>>>> origin/UMP-Amogh
   ) {}
 
   toggle(panel: WidgetPanel): void {
@@ -324,16 +304,6 @@ export class Map implements AfterViewInit, OnDestroy {
         anyEl._leaflet_id = undefined;
       } catch {}
     }
-<<<<<<< HEAD
-
-    this.map = L.map(el, { preferCanvas: true }).setView([22.5, 79], 5);
-    this.mapRegistry.setMap(this.map);
-
-    this.sidebarSub = this.ui.layoutChanged$.subscribe(() => {
-      setTimeout(() => this.forceMapResize(), 320);
-    });
-
-=======
 // ✅ hard reset UI before map is created (refresh safe)
 this.ui.activePanel = null;
 this.edit.disable();
@@ -375,7 +345,6 @@ this.sidebarSub.add(
       }
     })
 );
->>>>>>> origin/UMP-Amogh
     const base = L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
       { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles © Esri' }
@@ -405,11 +374,7 @@ this.sidebarSub.add(
     );
 
     this.layerManager.registerOnce(
-<<<<<<< HEAD
-      new LandPlanOntrackLayer(this.api, (g) =>
-=======
       new LandPlanOntrackLayer(this.api, this.edit, (g) =>
->>>>>>> origin/UMP-Amogh
         this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
       )
     );
@@ -429,8 +394,6 @@ this.sidebarSub.add(
     this.map.whenReady(() => {
       this.forceMapResize();
 
-<<<<<<< HEAD
-=======
 
       // ✅ On refresh/first load: always start with all panels closed
 // (deep-linking will re-open if panel=edit is present)
@@ -439,7 +402,6 @@ this.edit.disable();
 this.clearZoomArtifacts();
 this.mapZoom.clearHighlight();
 
->>>>>>> origin/UMP-Amogh
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
 
@@ -634,8 +596,4 @@ this.mapZoom.clearHighlight();
       this.suppressedVis.clear();
     }
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> origin/UMP-Amogh

@@ -4,11 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
 import { EditState } from '../../services/edit-state';
-<<<<<<< HEAD
-import { Api } from 'src/app/services/api';
-=======
 import { Api } from 'src/app/api/api';
->>>>>>> origin/UMP-Amogh
 import { UiState } from '../../services/ui-state';
 import { MapZoomService } from 'src/app/services/map-zoom';
 
@@ -113,10 +109,7 @@ export class EditPanel implements OnInit, OnDestroy {
     return `${this.showingFrom}-${this.showingTo} of ${this.filteredTotal}`;
   }
 
-<<<<<<< HEAD
-=======
   
->>>>>>> origin/UMP-Amogh
   /* ================== LAYER ================== */
   onLayerChange() {
     // ✅ notify Map.ts to hide/show layers
@@ -544,8 +537,4 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.edit.disable();
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> origin/UMP-Amogh
