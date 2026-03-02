@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { UiState } from '../../services/ui-state';
 import { FilterState } from '../../services/filter-state';
 import { MapRegistry } from '../../services/map-registry';
-import { LayerManager } from '../../layers/layer-manager';
+import { LayerManager } from '../../services/layer-manager';
 
 
 @Component({

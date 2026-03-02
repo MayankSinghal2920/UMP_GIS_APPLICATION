@@ -1,20 +1,19 @@
 import { GeoJsonObject } from 'geojson';
 import * as L from 'leaflet';
-import { Api } from '../services/api';
-import { MapLayer } from './interface';
+import { Api } from '../../api/api';
+import { MapLayer } from '../../services/interface';
 
 export class TrackLayer implements MapLayer {
-
   id = 'tracks';
   title = 'Railway Tracks';
-  visible = true; // OFF by default
+  visible = true;
 
   legend = {
-  type: 'line' as const,
-  color: 'black',
-  label: 'Railway Track'
-};
-    
+    type: 'line' as const,
+    color: 'black',
+    label: 'Railway Track',
+  };
+
   private layer!: L.GeoJSON;
   private lastBbox = '';
 
@@ -22,8 +21,8 @@ export class TrackLayer implements MapLayer {
     this.layer = L.geoJSON(null, {
       style: {
         color: 'black',
-        weight: 2
-      }
+        weight: 2,
+      },
     });
   }
 
@@ -50,9 +49,9 @@ export class TrackLayer implements MapLayer {
       next: (geojson: GeoJsonObject) => {
         this.layer.clearLayers();
         this.layer.addData(geojson);
-        this.onData?.(geojson); 
+        this.onData?.(geojson);
       },
-      error: (err: any) => console.error('Track layer error', err)
+      error: (err: any) => console.error('Track layer error', err),
     });
   }
 }

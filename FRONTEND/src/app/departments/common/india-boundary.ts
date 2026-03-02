@@ -1,11 +1,11 @@
 import * as L from 'leaflet';
-import { Api } from '../services/api';
-import { MapLayer } from './interface';
+import { Api } from '../../api/api';
+import { MapLayer } from '../../services/interface';
 
 export class IndiaBoundaryLayer implements MapLayer {
   id = 'india_boundary';
   title = 'India Boundary';
-  visible = true; // ON by default
+  visible = true;
 
   legend = {
     type: 'polygon' as const,
@@ -20,9 +20,9 @@ export class IndiaBoundaryLayer implements MapLayer {
   constructor(private api: Api) {
     this.layer = L.geoJSON(null, {
       style: () => ({
-        color: '#111827',      // border
+        color: '#111827',
         weight: 2,
-        fillColor: '#000000',  // fill
+        fillColor: '#000000',
         fillOpacity: 0,
       }),
       interactive: false,
@@ -32,15 +32,10 @@ export class IndiaBoundaryLayer implements MapLayer {
   addTo(map: L.Map) {
     if (!this.visible) return;
 
-    // ✅ Ensure boundary always stays behind markers/overlays
     const paneName = 'indiaBoundaryPane';
-
     if (!this.paneReady) {
       if (!map.getPane(paneName)) {
         map.createPane(paneName);
-        // Leaflet defaults:
-        // tilePane = 200, overlayPane = 400, markerPane = 600
-        // So keep boundary under overlays/markers but above tiles.
         map.getPane(paneName)!.style.zIndex = '300';
       }
       (this.layer as any).options.pane = paneName;
@@ -61,7 +56,6 @@ export class IndiaBoundaryLayer implements MapLayer {
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const z = map.getZoom();
 
-    // prevent repeated calls
     const key = `${bbox}|${z}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -75,4 +69,3 @@ export class IndiaBoundaryLayer implements MapLayer {
     });
   }
 }
-

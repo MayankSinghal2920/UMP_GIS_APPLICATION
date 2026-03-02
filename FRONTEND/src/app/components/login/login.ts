@@ -7,7 +7,7 @@ import { NgZone } from '@angular/core';
 import { timeout, catchError, of } from 'rxjs';
 
 import { Auth } from '../../services/auth';
-import { Api } from '../../services/api';
+import { Api } from '../../api/api';
 
 type Step = 'LOGIN' | 'OTP';
 
@@ -116,7 +116,7 @@ private showError(message: string) {
           setTimeout(() => this.loadCaptcha('retry-missing-fields'), 400);
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('[CAPTCHA] load failed:', err);
         this.captchaLoading = false;
         setTimeout(() => this.loadCaptcha('retry-error'), 800);
@@ -204,7 +204,7 @@ this.api
               setTimeout(() => this.loadCaptcha('back-to-login-after-requestOtp-fail'), 0);
             }
           },
-          error: (err) => {
+          error: (err: any) => {
             this.otpSending = false;
 
             const backendMessage =
@@ -221,7 +221,7 @@ this.api
         });
       },
 
-      error: (err) => {
+      error: (err: any) => {
         this.loading = false;
 
         const backendMessage =
@@ -259,7 +259,7 @@ verifyOtp() {
         this.showError(res?.message || 'Invalid OTP');
       }
     },
-    error: (err) => {
+    error: (err: any) => {
       this.loading = false;
 
       const msg =
@@ -302,7 +302,7 @@ verifyOtp() {
           this.showError(res?.message || res?.error || 'Failed to resend OTP');
         }
       },
-      error: (err) => {
+      error: (err: any) => {
         this.loading = false;
         this.showError(err?.error?.message || 'Server error while resending OTP');
       },

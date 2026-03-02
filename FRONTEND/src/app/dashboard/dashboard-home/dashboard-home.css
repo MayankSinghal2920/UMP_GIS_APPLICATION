@@ -156,6 +156,24 @@
   border-color: #20c997;
 }
 
+.dashboard-note {
+  margin-top: 18px;
+  padding: 12px 16px;
+  background: #eef4ff;
+  border-left: 4px solid #2c3e94;
+  font-size: 16px;
+  font-weight: 500;
+  color: #2c3e94;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-icon {
+  font-size: 16px;
+}
+
 /* ================= ANIMATION ================= */
 @keyframes fadeIn {
   from {

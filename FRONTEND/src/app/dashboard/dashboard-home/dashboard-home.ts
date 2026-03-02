@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { Api } from 'src/app/services/api';
+import { Api } from 'src/app/api/api';
 
 type CardType = 'TOTAL' | 'MAKER' | 'CHECKER' | 'APPROVER' | 'FINALIZED';
 
@@ -65,29 +65,36 @@ subCardMap: Record<CardType, SubCard[]> = {
     private router: Router
   ) {}
 
-  private getUserMainKey(): CardType | null {
+private getUserMainKey(): CardType | 'ADMIN' | null {
   const ut = (localStorage.getItem('user_type') || '').trim().toLowerCase();
   if (ut === 'maker') return 'MAKER';
   if (ut === 'checker') return 'CHECKER';
   if (ut === 'approver') return 'APPROVER';
+  if (ut === 'admin') return 'ADMIN';
   return null;
 }
   // ✅ now card is SubCard, so template click works
 onSubCardClick(card: SubCard): void {
-  // Only Station sub-card triggers edit deep-link
+  // Only Station sub-card triggers deep-link (keep this rule)
   if (card.layerKey !== 'stations') return;
 
   const userMain = this.getUserMainKey();
   if (!userMain) return;
 
-  // ✅ Only allow if user clicks their own role card
-  if (this.selectedMain !== userMain) return;
+  // ✅ Admin can click from any main card
+  const allowed =
+    userMain === 'ADMIN' ||
+    this.selectedMain === userMain;
 
-  // ✅ Navigate to page that contains Map (your Home)
+  if (!allowed) return;
+
+  // ✅ Navigate to page that contains Map (Home)
   this.router.navigate(['/dashboard/railway-assets'], {
     queryParams: {
       panel: 'edit',
       layer: 'stations',
+      // optional: send which card was clicked
+      // status: card.statusKey,
     },
   });
 }
@@ -175,9 +182,20 @@ onSubCardClick(card: SubCard): void {
     );
   }
 
-  onMainCardClick(key: CardType): void {
+onMainCardClick(key: CardType): void {
+  const userMain = this.getUserMainKey();
+
+  // ✅ Admin can open any main card
+  if (userMain === 'ADMIN') {
+    this.selectedMain = key;
+    return;
+  }
+
+  // ✅ Non-admin: only their own card + TOTAL allowed
+  if (key === 'TOTAL' || key === userMain) {
     this.selectedMain = key;
   }
+}
 
   get activeSubCards(): SubCard[] {
     return this.subCardMap[this.selectedMain];
