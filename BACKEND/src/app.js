@@ -14,6 +14,7 @@ const ceaDashboardRoutes = require(
 const ceaEditRoutes = require(
   './modules/departments/civilEngineeringAssets/edit/edit.routes'
 );
+const ratingRoutes = require('./modules/rating/rating.routes');
 
 
 
@@ -51,6 +52,7 @@ app.use('/api/civil_engineering_assets/view/layers', ceaViewRoutes);
 // keep as-is
 app.use('/api/civil_engineering_assets/view/dashboard', ceaDashboardRoutes);
 app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
+app.use('/api/rating', ratingRoutes);
 
 
 

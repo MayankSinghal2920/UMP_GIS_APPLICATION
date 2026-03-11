@@ -21,6 +21,7 @@ export class StationViewingLayer implements MapLayer {
   protected layer: L.GeoJSON;
   private lastBbox = '';
   private isOnMap = false;
+  private onZoomEndHandler?: () => void;
 
   constructor(
     protected api: Api,
@@ -74,12 +75,18 @@ export class StationViewingLayer implements MapLayer {
       this.layer.addTo(map);
       this.isOnMap = true;
 
-      map.on('zoomend', () => this.updateLabels(map));
+      if (!this.onZoomEndHandler) {
+        this.onZoomEndHandler = () => this.updateLabels(map);
+      }
+      map.on('zoomend', this.onZoomEndHandler);
       this.updateLabels(map);
     }
   }
 
   removeFrom(map: L.Map) {
+    if (this.onZoomEndHandler) {
+      map.off('zoomend', this.onZoomEndHandler);
+    }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     this.isOnMap = false;
   }
@@ -281,6 +288,10 @@ export class LandOffsetLayer implements MapLayer {
   private layer: L.GeoJSON;
   private decorators: L.LayerGroup;
   private lastKey = '';
+  private isOnMap = false;
+  private onZoomEndHandler?: () => void;
+  private requestSeq = 0;
+  private readonly DECORATOR_ZOOM = 13;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.decorators = L.layerGroup();
@@ -300,28 +311,70 @@ export class LandOffsetLayer implements MapLayer {
   }
 
   addTo(map: L.Map) {
-    this.layer.addTo(map);
-    this.decorators.addTo(map);
+    if (!this.onZoomEndHandler) {
+      this.onZoomEndHandler = () => this.syncVisibility(map);
+    }
+
+    if (!this.isOnMap) {
+      map.on('zoomend', this.onZoomEndHandler);
+      this.isOnMap = true;
+    }
+
+    this.syncVisibility(map);
   }
 
   removeFrom(map: L.Map) {
+    if (this.onZoomEndHandler) {
+      map.off('zoomend', this.onZoomEndHandler);
+    }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
+    this.layer.clearLayers();
+    this.decorators.clearLayers();
+    this.lastKey = '';
+    this.isOnMap = false;
+  }
+
+  private syncVisibility(map: L.Map) {
+    if (this.canShow(map)) {
+      if (!map.hasLayer(this.layer)) this.layer.addTo(map);
+      if (map.getZoom() >= this.DECORATOR_ZOOM) {
+        if (!map.hasLayer(this.decorators)) this.decorators.addTo(map);
+      } else if (map.hasLayer(this.decorators)) {
+        map.removeLayer(this.decorators);
+        this.decorators.clearLayers();
+      }
+      return;
+    }
+
+    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
+    this.layer.clearLayers();
+    this.decorators.clearLayers();
+    this.lastKey = '';
   }
 
   loadForMap(map: L.Map) {
     if (!this.visible) return;
+    if (!this.canShow(map)) {
+      this.syncVisibility(map);
+      return;
+    }
+
+    this.syncVisibility(map);
 
     const b = map.getBounds();
     const z = map.getZoom();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
 
     const key = `${bbox}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
+    const requestId = ++this.requestSeq;
 
     this.api.getLandOffset(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         if (!geojson) return;
 
         const fc =
@@ -345,6 +398,10 @@ export class LandOffsetLayer implements MapLayer {
         this.layer.clearLayers();
         this.decorators.clearLayers();
         this.layer.addData(fc);
+
+        if (z < this.DECORATOR_ZOOM) {
+          return;
+        }
 
         this.layer.eachLayer((lyr: any) => {
           if (!(lyr instanceof L.Polyline) || lyr instanceof L.Polygon) return;
@@ -395,6 +452,8 @@ export class LandBoundaryLayer implements MapLayer {
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
+  private isOnMap = false;
+  private onZoomEndHandler?: () => void;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -410,23 +469,32 @@ export class LandBoundaryLayer implements MapLayer {
   }
 
   addTo(map: L.Map) {
-    map.on('zoomend', () => {
-      if (this.canShow(map)) {
-        if (!map.hasLayer(this.layer)) this.layer.addTo(map);
-        this.loadForMap(map);
-      } else {
-        if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
-      }
-    });
+    if (!this.onZoomEndHandler) {
+      this.onZoomEndHandler = () => {
+        if (this.canShow(map)) {
+          if (!map.hasLayer(this.layer)) this.layer.addTo(map);
+        } else if (map.hasLayer(this.layer)) {
+          map.removeLayer(this.layer);
+        }
+      };
+    }
+
+    if (!this.isOnMap) {
+      map.on('zoomend', this.onZoomEndHandler);
+      this.isOnMap = true;
+    }
 
     if (this.canShow(map)) {
-      this.layer.addTo(map);
+      if (!map.hasLayer(this.layer)) this.layer.addTo(map);
     }
   }
 
   removeFrom(map: L.Map) {
-    map.off('zoomend');
-    map.removeLayer(this.layer);
+    if (this.onZoomEndHandler) {
+      map.off('zoomend', this.onZoomEndHandler);
+    }
+    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    this.isOnMap = false;
   }
 
   loadForMap(map: L.Map) {
@@ -440,7 +508,7 @@ export class LandBoundaryLayer implements MapLayer {
       if (z < this.minZoom) {
         this.layer.clearLayers();
       } else {
-        this.addTo(map);
+        if (!map.hasLayer(this.layer)) this.layer.addTo(map);
       }
       return;
     }
@@ -455,7 +523,7 @@ export class LandBoundaryLayer implements MapLayer {
           return;
         }
 
-        this.addTo(map);
+        if (!map.hasLayer(this.layer)) this.layer.addTo(map);
         this.layer.clearLayers();
         this.layer.addData(geojson);
       },
