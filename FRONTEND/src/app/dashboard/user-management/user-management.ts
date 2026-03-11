@@ -17,6 +17,9 @@ export class UserManagementComponent implements OnInit {
   searchText: string = '';
   activeRoleFilter: string = 'Total';
 
+  pageSize = 12;
+  currentPage = 1;
+
   stats = [
     { label: 'Total', value: 0 },
     { label: 'Admin', value: 0 },
@@ -42,9 +45,7 @@ export class UserManagementComponent implements OnInit {
 
         this.calculateStats();
 
-         this.cdr.detectChanges();
-
-        console.log('Users loaded:', this.users);
+        this.cdr.detectChanges();
 
       },
       error: (err) => {
@@ -60,17 +61,18 @@ export class UserManagementComponent implements OnInit {
 
     if (!term) {
       this.filteredUsers = [...this.users];
-      return;
+    } else {
+      this.filteredUsers = this.users.filter(user =>
+        user.user_name?.toLowerCase().includes(term) ||
+        user.user_type?.toLowerCase().includes(term) ||
+        user.zone?.toLowerCase().includes(term) ||
+        user.division?.toLowerCase().includes(term) ||
+        user.designation?.toLowerCase().includes(term) ||
+        user.hrmsid?.toLowerCase().includes(term)
+      );
     }
 
-    this.filteredUsers = this.users.filter(user =>
-      user.user_name?.toLowerCase().includes(term) ||
-      user.user_type?.toLowerCase().includes(term) ||
-      user.zone?.toLowerCase().includes(term) ||
-      user.division?.toLowerCase().includes(term) ||
-      user.designation?.toLowerCase().includes(term) ||
-      user.hrmsid?.toLowerCase().includes(term)
-    );
+    this.currentPage = 1;
 
   }
 
@@ -102,21 +104,53 @@ export class UserManagementComponent implements OnInit {
 
   }
 
-  trackById(index: number, item: any) {
-  return item.objectid;
-}
+  filterByRole(role: string) {
 
-filterByRole(role: string) {
+    this.activeRoleFilter = role;
 
-  this.activeRoleFilter = role;
+    if (role === 'Total') {
+      this.filteredUsers = [...this.users];
+    } else {
+      this.filteredUsers = this.users.filter(user => user.user_type === role);
+    }
 
-  if (role === 'Total') {
-    this.filteredUsers = [...this.users];
-    return;
+    this.currentPage = 1;
+
   }
 
-  this.filteredUsers = this.users.filter(user => user.user_type === role);
+  trackById(index: number, item: any) {
+    return item.objectid;
+  }
 
-}
+  get paginatedUsers() {
+
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+
+    return this.filteredUsers.slice(start, end);
+
+  }
+
+  get totalPages() {
+    return Math.ceil(this.filteredUsers.length / this.pageSize);
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+    }
+  }
 
 }
