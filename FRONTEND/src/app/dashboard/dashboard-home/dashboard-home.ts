@@ -183,18 +183,9 @@ onSubCardClick(card: SubCard): void {
   }
 
 onMainCardClick(key: CardType): void {
-  const userMain = this.getUserMainKey();
-
-  // ✅ Admin can open any main card
-  if (userMain === 'ADMIN') {
-    this.selectedMain = key;
-    return;
-  }
-
-  // ✅ Non-admin: only their own card + TOTAL allowed
-  if (key === 'TOTAL' || key === userMain) {
-    this.selectedMain = key;
-  }
+  // Main cards are always clickable for every logged-in user.
+  // Sub-card click access remains role-gated in onSubCardClick().
+  this.selectedMain = key;
 }
 
   get activeSubCards(): SubCard[] {
