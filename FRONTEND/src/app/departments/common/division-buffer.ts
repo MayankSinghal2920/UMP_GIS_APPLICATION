@@ -6,11 +6,16 @@ export class DivisionBufferLayer implements MapLayer {
   id = 'division_buffer';
   title = 'Division Buffer';
   visible = true;
+  layerGroup = 'common' as const;
 
   legend = {
     type: 'polygon' as const,
     color: 'black',
     label: 'Division Buffer',
+    fillColor: '#93c5fd',
+    fillOpacity: 0.1,
+    strokeColor: 'black',
+    strokeWidth: 2,
   };
 
   private layer: L.GeoJSON;

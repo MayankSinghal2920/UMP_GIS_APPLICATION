@@ -6,6 +6,7 @@ export class KmPostLayer implements MapLayer {
   id = 'km_posts';
   title = 'KM Posts';
   visible = true;
+  layerGroup = 'common' as const;
 
   private readonly MIN_ZOOM = 10;
 
@@ -13,6 +14,11 @@ export class KmPostLayer implements MapLayer {
     type: 'point' as const,
     color: '#2563eb',
     label: 'KM Post',
+    fillColor: '#2563eb',
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWidth: 1,
+    radius: 7,
   };
 
   private layer: L.GeoJSON;
@@ -24,12 +30,12 @@ export class KmPostLayer implements MapLayer {
     this.layer = L.geoJSON(null, {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         L.circleMarker(latlng, {
-          radius: 6,
+          radius: 7,
           fillColor: '#2563eb',
           color: '#ffffff',
           weight: 1,
           opacity: 1,
-          fillOpacity: 0.95,
+          fillOpacity: 1.5,
         }),
       onEachFeature: (feature: any, layer: any) => {
         const p = feature?.properties || {};

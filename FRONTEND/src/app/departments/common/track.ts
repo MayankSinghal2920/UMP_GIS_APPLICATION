@@ -7,11 +7,14 @@ export class TrackLayer implements MapLayer {
   id = 'tracks';
   title = 'Railway Tracks';
   visible = true;
+  layerGroup = 'common' as const;
 
   legend = {
     type: 'line' as const,
     color: 'black',
     label: 'Railway Track',
+    strokeColor: 'black',
+    strokeWidth: 2,
   };
 
   private layer!: L.GeoJSON;

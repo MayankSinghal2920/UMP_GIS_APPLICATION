@@ -9,6 +9,7 @@ export class StationViewingLayer implements MapLayer {
   id = 'stations';
   title = 'Stations';
   visible = true;
+  layerGroup = 'department' as const;
 
   protected readonly LABEL_ZOOM = 12;
 
@@ -16,6 +17,11 @@ export class StationViewingLayer implements MapLayer {
     type: 'point' as const,
     color: '#d32f2f',
     label: 'Railway Station',
+    fillColor: '#d32f2f',
+    fillOpacity: 0.9,
+    strokeColor: '#ffffff',
+    strokeWidth: 1,
+    radius: 7,
   };
 
   protected layer: L.GeoJSON;
@@ -31,7 +37,7 @@ export class StationViewingLayer implements MapLayer {
     this.layer = L.geoJSON(null, {
       pointToLayer: (feature: any, latlng: L.LatLng) => {
         const marker = L.circleMarker(latlng, {
-          radius: 6,
+          radius: 7,
           fillColor: '#d32f2f',
           color: '#ffffff',
           weight: 1,
@@ -132,6 +138,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   id = 'landplan_ontrack';
   title = 'Landplan Ontrack';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
@@ -139,6 +146,10 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     type: 'polygon' as const,
     color: '#FFA500',
     label: 'Landplan Ontrack',
+    fillColor: '#FFA500',
+    fillOpacity: 0.15,
+    strokeColor: '#FFA500',
+    strokeWidth: 3,
   };
 
   protected layer: L.GeoJSON;
@@ -276,6 +287,7 @@ export class LandOffsetLayer implements MapLayer {
   id = 'land_offset';
   title = 'Land Offset';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 11;
 
@@ -283,6 +295,8 @@ export class LandOffsetLayer implements MapLayer {
     type: 'line' as const,
     color: '#000000',
     label: 'Land Offset',
+    strokeColor: '#000000',
+    strokeWidth: 2,
   };
 
   private layer: L.GeoJSON;
@@ -441,6 +455,7 @@ export class LandBoundaryLayer implements MapLayer {
   id = 'landboundary';
   title = 'Land Boundary';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
@@ -448,6 +463,8 @@ export class LandBoundaryLayer implements MapLayer {
     type: 'line' as const,
     color: 'orange',
     label: 'Land Boundary',
+    strokeColor: 'orange',
+    strokeWidth: 3,
   };
 
   private layer!: L.GeoJSON;

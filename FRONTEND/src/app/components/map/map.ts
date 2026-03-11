@@ -21,7 +21,7 @@ import { LayerManager } from '../../services/layer-manager';
 import { MapRegistry } from '../../services/map-registry';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
-import { AttributeTableService } from '../../services/attribute-table';
+import { AttributeTableService, LayerKey } from '../../services/attribute-table';
 import { UiState } from '../../services/ui-state';
 
 import { MapZoomService, ZoomTarget } from 'src/app/services/map-zoom';
@@ -40,6 +40,10 @@ type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
  * edit-panel.html has: value="stations" and value="landplan"
  */
 type EditableLayer = 'stations' | 'landplan';
+type DepartmentModuleKey =
+  | 'civil_engineering_assets'
+  | 'civil_engineering_assets_offtrack'
+  | 'unknown';
 
 @Component({
   selector: 'app-map',
@@ -59,6 +63,7 @@ export class Map implements AfterViewInit, OnDestroy {
   private map?: L.Map;
 
   private zoomSub?: Subscription;
+  private clearSelectionSub?: Subscription;
   private highlightLayer?: L.GeoJSON;
   private onMoveOrZoom?: () => void;
   private sidebarSub?: Subscription;
@@ -88,6 +93,13 @@ export class Map implements AfterViewInit, OnDestroy {
 
   // ✅ deep-linking from dashboard -> map
   private routeSub?: Subscription;
+
+  private readonly departmentAliases: Record<string, DepartmentModuleKey> = {
+    'civil engineering assets': 'civil_engineering_assets',
+    'civil engineering assets offtrack': 'civil_engineering_assets_offtrack',
+    'civil_engineering_assets': 'civil_engineering_assets',
+    'civil_engineering_assets_offtrack': 'civil_engineering_assets_offtrack',
+  };
 
   constructor(
     private api: Api,
@@ -246,6 +258,101 @@ export class Map implements AfterViewInit, OnDestroy {
     return x === 'stations' || x === 'landplan';
   }
 
+  private normalizeDepartmentName(value: string | null | undefined): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private resolveDepartmentModule(): { key: DepartmentModuleKey; label: string } {
+    const rawDepartment = localStorage.getItem('department') || '';
+    const normalized = this.normalizeDepartmentName(rawDepartment);
+    const key = this.departmentAliases[normalized] || 'unknown';
+
+    if (key === 'civil_engineering_assets') {
+      return {
+        key,
+        label: 'Civil Engineering Assets Layers',
+      };
+    }
+
+    if (key === 'civil_engineering_assets_offtrack') {
+      return {
+        key,
+        label: 'Civil Engineering Assets Offtrack Layers',
+      };
+    }
+
+    return {
+      key,
+      label: rawDepartment?.trim() || 'Department Layers',
+    };
+  }
+
+  private registerDepartmentLayers(): void {
+    const department = this.resolveDepartmentModule();
+    const attributeTabs: LayerKey[] = ['Km Post', 'Railway Track'];
+
+    this.layerManager.clear();
+    this.layerManager.setActiveDepartmentLabel(department.label);
+
+    this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
+    this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
+    this.layerManager.registerOnce(
+      new TrackLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Railway Track', g)
+      )
+    );
+    this.layerManager.registerOnce(
+      new KmPostLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Km Post', g)
+      )
+    );
+
+    if (
+      department.key !== 'civil_engineering_assets' &&
+      department.key !== 'civil_engineering_assets_offtrack'
+    ) {
+      this.attrTable.setTabs(attributeTabs);
+      return;
+    }
+
+    attributeTabs.unshift(
+      'Station',
+      'Land Plan Ontrack',
+      'Land Offset',
+      'Land Boundary'
+    );
+
+    this.layerManager.registerOnce(
+      new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
+        this.attrTable.pushFeatureCollection('Station', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandOffsetLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Land Offset', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandBoundaryLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Land Boundary', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandPlanOntrackLayer(this.api, this.edit, (g) =>
+        this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+      )
+    );
+
+    this.attrTable.setTabs(attributeTabs);
+  }
+
   /**
    * ✅ Deep link:
    * /map?panel=edit&layer=stations
@@ -360,44 +467,7 @@ this.sidebarSub.add(
 
     base.once('load', () => this.forceMapResize());
 
-    this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
-    this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
-
-    this.layerManager.registerOnce(
-      new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
-        this.attrTable.pushFeatureCollection('Station', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandOffsetLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Land Offset', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandBoundaryLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Land Boundary', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandPlanOntrackLayer(this.api, this.edit, (g) =>
-        this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new TrackLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Railway Track', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new KmPostLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Km Post', g)
-      )
-    );
+    this.registerDepartmentLayers();
 
     this.map.whenReady(() => {
       this.forceMapResize();
@@ -528,6 +598,13 @@ this.mapZoom.clearHighlight();
           }
         } catch (e) {}
       });
+
+      this.clearSelectionSub?.unsubscribe();
+      this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => {
+        if (!this.map) return;
+        this.clearZoomArtifacts();
+        this.zoomToHome();
+      });
     });
   }
 
@@ -561,6 +638,7 @@ this.mapZoom.clearHighlight();
 
   ngOnDestroy(): void {
     this.zoomSub?.unsubscribe();
+    this.clearSelectionSub?.unsubscribe();
     this.sidebarSub?.unsubscribe();
     this.mapZoomSub?.unsubscribe();
     this.lockDragSub?.unsubscribe();
@@ -568,6 +646,7 @@ this.mapZoom.clearHighlight();
     this.routeSub?.unsubscribe();
 
     this.zoomSub = undefined;
+    this.clearSelectionSub = undefined;
     this.sidebarSub = undefined;
     this.mapZoomSub = undefined;
     this.lockDragSub = undefined;

@@ -2,13 +2,22 @@ import * as L from 'leaflet';
 import { Injectable } from '@angular/core';
 import { MapLayer } from './interface';
 
+export interface LayerGroupView {
+  key: 'common' | 'department';
+  title: string;
+  layers: MapLayer[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class LayerManager {
   private layers: MapLayer[] = [];
+  private activeDepartmentLabel = 'Department Layers';
+  private groupedLayers: LayerGroupView[] = [];
 
   // ✅ use only for quick tests; prefer registerOnce
   register(layer: MapLayer) {
     this.layers.push(layer);
+    this.rebuildGroups();
   }
 
   // ✅ prevents duplicates by id (IMPORTANT in Angular services)
@@ -17,14 +26,17 @@ export class LayerManager {
     if (idx !== -1) {
       // replace existing instance (so latest constructor deps are used)
       this.layers[idx] = layer;
+      this.rebuildGroups();
       return;
     }
     this.layers.push(layer);
+    this.rebuildGroups();
   }
 
   // ✅ call this when you want a fresh start (optional)
   clear() {
     this.layers = [];
+    this.groupedLayers = [];
   }
 
   addAll(map: L.Map) {
@@ -70,6 +82,39 @@ export class LayerManager {
 
   getLayers(): MapLayer[] {
     return this.layers;
+  }
+
+  setActiveDepartmentLabel(label: string) {
+    this.activeDepartmentLabel = label?.trim() || 'Department Layers';
+    this.rebuildGroups();
+  }
+
+  getGroupedLayers(): LayerGroupView[] {
+    return this.groupedLayers;
+  }
+
+  private rebuildGroups() {
+    const commonLayers = this.layers.filter((layer) => layer.layerGroup === 'common');
+    const departmentLayers = this.layers.filter((layer) => layer.layerGroup !== 'common');
+    const groups: LayerGroupView[] = [];
+
+    if (commonLayers.length) {
+      groups.push({
+        key: 'common',
+        title: 'Common Layers',
+        layers: commonLayers,
+      });
+    }
+
+    if (departmentLayers.length) {
+      groups.push({
+        key: 'department',
+        title: this.activeDepartmentLabel,
+        layers: departmentLayers,
+      });
+    }
+
+    this.groupedLayers = groups;
   }
 
   // Show / hide layers based on `visible` flag

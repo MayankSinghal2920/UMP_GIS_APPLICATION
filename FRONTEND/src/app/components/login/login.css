@@ -20,6 +20,34 @@ html, body {
   z-index: 0;
 }
 
+.train-loader-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(4, 34, 73, 0.96), rgba(2, 24, 53, 0.98));
+}
+
+.train-loader-card{
+  width: min(190px, 46vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+  box-shadow:
+    0 14px 34px rgba(0,0,0,0.32),
+    inset 0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.train-loader-gif{
+  width: min(140px, 34vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,0.22));
+}
+
 /* Softer vignette overlay (premium) */
 body::before{
   content: "";

@@ -13,23 +13,61 @@
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  font-size: 18px;
+}
 
-  font-size: 20px; /* consistent with other panels */
+.legend-item:last-child {
+  margin-bottom: 0;
 }
 
 .symbol {
-  margin-right: 10px;
+  margin-right: 12px;
+  border: 2px solid transparent;
+  flex: 0 0 auto;
+  box-sizing: border-box;
 }
 
 .symbol.point {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
 }
 
 .symbol.line {
-  width: 22px;
-  height: 4px;
+  width: 30px;
+  height: 0;
+  border: none;
+  border-top-width: 3px;
+  border-top-style: solid;
+  background: transparent !important;
+  position: relative;
 }
 
+.symbol-arrow-line::before,
+.symbol-arrow-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transform: translateY(-50%);
+}
+
+.symbol-arrow-line::before {
+  left: -1px;
+  border-right: 8px solid currentColor;
+}
+
+.symbol-arrow-line::after {
+  right: -1px;
+  border-left: 8px solid currentColor;
+}
+
+.symbol.polygon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}

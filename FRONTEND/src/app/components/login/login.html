@@ -3,6 +3,17 @@
 ================================ -->
 <img src="assets/images/i.jpg" class="bg-map" alt="Map background" />
 
+<div class="train-loader-overlay" *ngIf="showTrainAnimation">
+  <div class="train-loader-card">
+    <img
+      [src]="trainAnimationSrc"
+      class="train-loader-gif"
+      alt="Train loading animation"
+      (error)="onTrainAnimationError($event)"
+    />
+  </div>
+</div>
+
 <!-- ===============================
      LANGUAGE PILL (TOP RIGHT)
 ================================ -->

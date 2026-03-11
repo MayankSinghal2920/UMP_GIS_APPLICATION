@@ -8,9 +8,10 @@ import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-layer-panel',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './layer-panel.html',
-  styleUrl: './layer-panel.css',
+  styleUrls: ['./layer-panel.css'],
 })
 export class LayerPanel {
 constructor(public ui: UiState,                 
