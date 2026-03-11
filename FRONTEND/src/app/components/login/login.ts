@@ -23,6 +23,8 @@ export class Login implements OnInit, AfterViewInit, OnDestroy {
   showTrainAnimation = false;
   trainAnimationSrc = '/assets/images/Train.gif';
   trainAnimationReady = false;
+  loginFadingOut = false;
+  loaderFadingOut = false;
 
   // Step 1
   username = '';
@@ -47,6 +49,7 @@ export class Login implements OnInit, AfterViewInit, OnDestroy {
 
   private errorTimer: any = null;
   private redirectTimer: any = null;
+  private finalRedirectTimer: any = null;
 
   constructor(
     private auth: Auth,
@@ -332,13 +335,19 @@ verifyOtp() {
   }
 
   private startPostLoginAnimation() {
+    this.loginFadingOut = true;
     this.showTrainAnimation = true;
     this.cdr.detectChanges();
 
     requestAnimationFrame(() => {
       this.redirectTimer = setTimeout(() => {
+        this.loaderFadingOut = true;
+        this.cdr.detectChanges();
+      }, 1100);
+
+      this.finalRedirectTimer = setTimeout(() => {
         this.router.navigateByUrl('/dashboard');
-      }, 1500);
+      }, 1450);
     });
   }
 
@@ -354,6 +363,10 @@ verifyOtp() {
     if (this.redirectTimer) {
       clearTimeout(this.redirectTimer);
       this.redirectTimer = null;
+    }
+    if (this.finalRedirectTimer) {
+      clearTimeout(this.finalRedirectTimer);
+      this.finalRedirectTimer = null;
     }
   }
 }
