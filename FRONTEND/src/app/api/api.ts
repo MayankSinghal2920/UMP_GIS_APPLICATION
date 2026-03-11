@@ -4,6 +4,7 @@ import { CommonDashboardApi } from './common/dashboard/dashboard.api';
 import { CommonViewingApi } from './common/viewing/common-viewing.api';
 import { CivilEngineeringAssetsViewingApi } from './civil_engineering_assets/viewing/viewing.api';
 import { CivilEngineeringAssetsEditingApi } from './civil_engineering_assets/editing/editing.api';
+import { RatingApi } from './rating/rating.api';
 
 @Injectable({ providedIn: 'root' })
 export class Api {
@@ -12,7 +13,8 @@ export class Api {
     private commonViewingApi: CommonViewingApi,
     private commonDashboardApi: CommonDashboardApi,
     private ceaViewingApi: CivilEngineeringAssetsViewingApi,
-    private ceaEditingApi: CivilEngineeringAssetsEditingApi
+    private ceaEditingApi: CivilEngineeringAssetsEditingApi,
+    private ratingApi: RatingApi
   ) {}
 
   // common layers
@@ -116,5 +118,13 @@ export class Api {
   }
   getLandPlanCount(type: string) {
     return this.commonDashboardApi.getLandPlanCount(type);
+  }
+
+  // rating
+  rating(obj: any) {
+    return this.ratingApi.rating(obj);
+  }
+  getRating(obj: any) {
+    return this.ratingApi.getRating(obj);
   }
 }

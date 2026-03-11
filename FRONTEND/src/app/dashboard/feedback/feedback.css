@@ -1,0 +1,19 @@
+.feedback-card{
+border-radius:10px;
+}
+
+.card{
+border-radius:10px;
+}
+
+textarea{
+resize:none;
+}
+
+@media (max-width:768px){
+
+.card{
+margin:10px;
+}
+
+}

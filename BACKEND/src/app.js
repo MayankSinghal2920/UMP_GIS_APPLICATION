@@ -15,6 +15,13 @@ const ceaEditRoutes = require(
   './modules/departments/civilEngineeringAssets/edit/edit.routes'
 );
 
+const userManagementRoutes = require(
+  './modules/user-management/view/users/users.routes'
+);
+
+const ratingRoutes = require('./modules/rating/rating.routes');
+
+
 
 
 const app = express();
@@ -52,6 +59,9 @@ app.use('/api/civil_engineering_assets/view/layers', ceaViewRoutes);
 // keep as-is
 app.use('/api/civil_engineering_assets/view/dashboard', ceaDashboardRoutes);
 app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
+app.use('/api/rating', ratingRoutes);
+
+app.use('/api/user-management/view/users', userManagementRoutes);
 
 
 

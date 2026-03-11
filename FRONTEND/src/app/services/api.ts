@@ -198,4 +198,45 @@ export class Api {
   getLandPlanCount(type: string) {
     return this.getDashboardCount('landPlan', type);
   }
+
+
+
+/* ===================== USER MANAGEMENT ===================== */
+
+getUsers(): Observable<any> {
+
+  const params = new HttpParams()
+    .set('division', this.getDivision());
+
+  return this.http.get<any>(
+    `${this.BASE_URL}/api/user-management/view/users`,
+    { params }
+  );
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
