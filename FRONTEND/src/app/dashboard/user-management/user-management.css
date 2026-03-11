@@ -57,11 +57,17 @@
 .stats-card {
   border-radius: 6px;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .stats-card:hover {
-  background-color: #f5f5f5;
+  background-color: #f5f7ff;
+}
+
+
+.stats-card.active-filter {
+  border-left: 4px solid #2a3fbd;
+  background-color: #eef2ff;
 }
 
 .stats-body {

@@ -1,18 +1,21 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Api } from 'src/app/services/api';
-import { ChangeDetectorRef } from '@angular/core';
 
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './user-management.html',
   styleUrl: './user-management.css'
 })
 export class UserManagementComponent implements OnInit {
 
   users: any[] = [];
+  filteredUsers: any[] = [];
+  searchText: string = '';
+  activeRoleFilter: string = 'Total';
 
   stats = [
     { label: 'Total', value: 0 },
@@ -33,11 +36,16 @@ export class UserManagementComponent implements OnInit {
 
     this.api.getUsers().subscribe({
       next: (res) => {
+
         this.users = res || [];
+        this.filteredUsers = [...this.users];
 
         this.calculateStats();
+
+         this.cdr.detectChanges();
+
         console.log('Users loaded:', this.users);
-         this.cdr.detectChanges(); 
+
       },
       error: (err) => {
         console.error('Failed to load users', err);
@@ -46,7 +54,27 @@ export class UserManagementComponent implements OnInit {
 
   }
 
-    calculateStats() {
+  searchUsers(): void {
+
+    const term = this.searchText.toLowerCase().trim();
+
+    if (!term) {
+      this.filteredUsers = [...this.users];
+      return;
+    }
+
+    this.filteredUsers = this.users.filter(user =>
+      user.user_name?.toLowerCase().includes(term) ||
+      user.user_type?.toLowerCase().includes(term) ||
+      user.zone?.toLowerCase().includes(term) ||
+      user.division?.toLowerCase().includes(term) ||
+      user.designation?.toLowerCase().includes(term) ||
+      user.hrmsid?.toLowerCase().includes(term)
+    );
+
+  }
+
+  calculateStats() {
 
     const counts: any = {
       Total: this.users.length,
@@ -74,5 +102,21 @@ export class UserManagementComponent implements OnInit {
 
   }
 
+  trackById(index: number, item: any) {
+  return item.objectid;
+}
+
+filterByRole(role: string) {
+
+  this.activeRoleFilter = role;
+
+  if (role === 'Total') {
+    this.filteredUsers = [...this.users];
+    return;
+  }
+
+  this.filteredUsers = this.users.filter(user => user.user_type === role);
+
+}
 
 }
