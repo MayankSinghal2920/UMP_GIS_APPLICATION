@@ -8,6 +8,20 @@ import { Api } from 'src/app/api/api';
 import { UiState } from '../../services/ui-state';
 import { MapZoomService } from 'src/app/services/map-zoom';
 
+type EditLayerKey = string;
+type LayerGroupKey = 'bridge';
+type MakerTabKey = 'edit' | 'rejected' | 'sent_for_deletion';
+type CheckerTabKey = 'pending' | 'approved' | 'deletion_proposed';
+
+type TableColumn = {
+  key: string;
+  label: string;
+  universal?: boolean;
+  layers?: EditLayerKey[];
+  layerGroups?: LayerGroupKey[];
+  stationLink?: boolean;
+};
+
 @Component({
   selector: 'app-edit-panel',
   standalone: true,
@@ -45,6 +59,9 @@ export class EditPanel implements OnInit, OnDestroy {
   deleting = false;
   validating = false;
   error: string | null = null;
+  makerTab: MakerTabKey = 'edit';
+  checkerTab: CheckerTabKey = 'pending';
+  rejectedLayer: EditLayerKey | null = null;
 
   // ================== GEOMETRY EDIT STATE ==================
   geomEditing = false;
@@ -55,6 +72,21 @@ export class EditPanel implements OnInit, OnDestroy {
 
   // ✅ cancel/ignore older loads
   private loadSeq = 0;
+
+  private tableColumns: TableColumn[] = [
+    { key: 'sttncode', label: 'Station Code', layers: ['stations'], stationLink: true },
+    { key: 'distkm', label: 'Dist (km)', universal: true },
+    { key: 'distm', label: 'Dist (m)', universal: true },
+    { key: 'state', label: 'State', universal: true },
+    { key: 'district', label: 'District', universal: true },
+    { key: 'bridgetype', label: 'Bridge Type', layerGroups: ['bridge'] },
+    { key: 'spanconf', label: 'Span Configuration', layerGroups: ['bridge'] },
+    { key: 'bridgeno', label: 'Bridge No.', layerGroups: ['bridge'] },
+    { key: 'distfromkm', label: 'From KM', layers: ['landplan'] },
+    { key: 'distfromm', label: 'From M', layers: ['landplan'] },
+    { key: 'disttokm', label: 'To KM', layers: ['landplan'] },
+    { key: 'disttom', label: 'To M', layers: ['landplan'] },
+  ];
 
   constructor(
     public ui: UiState,
@@ -109,6 +141,65 @@ export class EditPanel implements OnInit, OnDestroy {
     return `${this.showingFrom}-${this.showingTo} of ${this.filteredTotal}`;
   }
 
+  get activeTableColumns(): TableColumn[] {
+    const layer = this.currentTableLayer;
+    if (!layer) return [];
+    const columns = this.tableColumns.filter((c) => {
+      if (c.universal) return true;
+      if (c.layers?.includes(layer)) return true;
+      if (c.layerGroups?.some((g) => this.isLayerInGroup(layer, g))) return true;
+      return false;
+    });
+    if (this.isMakerRejectedView()) {
+      columns.push({ key: 'comments', label: 'Comments' });
+    }
+    return columns;
+  }
+
+  get tableColSpan(): number {
+    return this.activeTableColumns.length + 1; // + actions column
+  }
+
+  getCellValue(row: any, key: string): any {
+    if (!row) return null;
+    if (key === 'sttntype') return row?.sttntype ?? row?.stationtype;
+    if (key === 'bridgeno') return row?.bridgeno ?? row?.rorno;
+    if (key === 'comments') {
+      return row?.comments ?? row?.comment ?? row?.remarks ?? row?.remark ?? row?.reject_reason ?? row?.rejected_reason;
+    }
+    return row?.[key];
+  }
+
+  formatCell(row: any, key: string): string {
+    const value = this.getCellValue(row, key);
+    if (value == null || value === '') return '--';
+    return String(value);
+  }
+
+  getDeletionPendingWith(row: any): string {
+    const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
+    if (!status) return '--';
+    if (status === 'sent to checker for deletion') return 'Checker';
+    if (status === 'sent to approver for deletion') return 'Approver';
+    if (status === 'sent for deletion' || status === 'sent to database') return 'Database';
+    return row?.status ?? '--';
+  }
+
+  private isLayerInGroup(layer: string, group: LayerGroupKey): boolean {
+    const normalized = String(layer || '').trim().toLowerCase();
+    if (!normalized) return false;
+
+    if (group === 'bridge') {
+      return (
+        normalized.includes('bridge') ||
+        normalized.includes('rail over rail') ||
+        normalized === 'ror'
+      );
+    }
+
+    return false;
+  }
+
   
   /* ================== LAYER ================== */
   onLayerChange() {
@@ -132,13 +223,140 @@ export class EditPanel implements OnInit, OnDestroy {
     this.dragSub = undefined;
     this.mapZoom.clearHighlight();
 
-    if (this.edit.editLayer === 'stations') {
-      setTimeout(() => this.load(true), 0);
-    }
+    if (this.edit.editLayer) setTimeout(() => this.load(true), 0);
   }
 
   private getUserType(): string {
-    return (localStorage.getItem('user_type') || '').trim().toLowerCase();
+    const value = localStorage.getItem('user_type') || localStorage.getItem('type') || '';
+    return value.trim().toLowerCase();
+  }
+
+  isChecker(): boolean {
+    return this.getUserType() === 'checker';
+  }
+
+  isMaker(): boolean {
+    return this.getUserType() === 'maker';
+  }
+
+  isApprover(): boolean {
+    return this.getUserType() === 'approver';
+  }
+
+  isReviewer(): boolean {
+    return this.isChecker() || this.isApprover();
+  }
+
+  setMakerTab(tab: MakerTabKey) {
+    this.makerTab = tab;
+    this.mode = 'table';
+    this.draft = null;
+    this.search = '';
+    this.page = 1;
+    this.error = null;
+    this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+    this.total = 0;
+    this.filteredTotal = 0;
+    if (tab === 'edit') {
+      this.rejectedLayer = null;
+      this.edit.setLayer(null as any);
+      this.edit.editLayer = null as any;
+    } else if (tab !== 'rejected') {
+      this.rejectedLayer = null;
+    }
+  }
+
+  setCheckerTab(tab: CheckerTabKey) {
+    this.checkerTab = tab;
+    this.mode = 'table';
+    this.draft = null;
+    this.search = '';
+    this.page = 1;
+    this.error = null;
+    this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+    this.total = 0;
+    this.filteredTotal = 0;
+    this.edit.setLayer(null as any);
+    this.edit.editLayer = null as any;
+  }
+
+  isCheckerSentToApproverView(): boolean {
+    return this.isReviewer() && this.mode === 'table' && this.checkerTab === 'approved';
+  }
+
+  isCheckerDeletionProposedView(): boolean {
+    return this.isReviewer() && this.checkerTab === 'deletion_proposed';
+  }
+
+  isMakerRejectedView(): boolean {
+    return this.isMaker() && this.mode === 'table' && this.makerTab === 'rejected';
+  }
+
+  isMakerSentForDeletionView(): boolean {
+    return this.isMaker() && this.makerTab === 'sent_for_deletion';
+  }
+
+  get currentTableLayer(): EditLayerKey | null {
+    if (this.isMakerRejectedView()) return this.rejectedLayer;
+    return (this.edit.editLayer as EditLayerKey | null) ?? null;
+  }
+
+  onRejectedLayerChange() {
+    this.mode = 'table';
+    this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+    this.total = 0;
+    this.filteredTotal = 0;
+    this.page = 1;
+    this.search = '';
+    this.error = null;
+    this.draft = null;
+
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.clearHighlight();
+
+    this.edit.setLayer((this.rejectedLayer as any) ?? null);
+    if (this.rejectedLayer) setTimeout(() => this.load(true), 0);
+  }
+
+  acceptRow(row: any) {
+    alert(`Accept action clicked for station ${row?.sttncode || ''}.`);
+  }
+
+  rejectRow(row: any) {
+    alert(`Reject action clicked for station ${row?.sttncode || ''}.`);
+  }
+
+  forwardDraft() {
+    if (!this.draft) return;
+    this.acceptRow(this.draft);
+  }
+
+  sentBackDraft() {
+    if (!this.draft) return;
+    this.rejectRow(this.draft);
+  }
+
+  sendToApproverDraft() {
+    if (!this.draft) return;
+    this.forwardDraft();
+  }
+
+  sendBackToMakerDraft() {
+    if (!this.draft) return;
+    this.sentBackDraft();
+  }
+
+  saveToDatabaseDraft() {
+    if (!this.draft) return;
+    alert(`Save to Database clicked for station ${this.draft?.sttncode || ''}.`);
   }
 
   /**
@@ -178,7 +396,18 @@ export class EditPanel implements OnInit, OnDestroy {
    * @param resetPage if true, page=1
    */
   load(resetPage = false): void {
-    if (this.edit.editLayer !== 'stations') return;
+    const layer = this.currentTableLayer;
+    if (layer !== 'stations') {
+      this.allRows = [];
+      this.filteredRows = [];
+      this.rows = [];
+      this.total = 0;
+      this.filteredTotal = 0;
+      this.loading = false;
+      this.error = null;
+      this.cdr.detectChanges();
+      return;
+    }
 
     const division = (localStorage.getItem('division') || '').trim();
     if (!division) {
@@ -211,7 +440,7 @@ export class EditPanel implements OnInit, OnDestroy {
             this.allRows = collected;
 
             // ✅ frontend role/status filtering
-            this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
+            this.filteredRows = this.allRows.filter((r) => this.isVisibleForCurrentView(r));
 
             // ✅ local pagination only
             this.applyPagination();
@@ -243,6 +472,39 @@ export class EditPanel implements OnInit, OnDestroy {
     fetchOne(1);
   }
 
+  private isVisibleForCurrentView(row: any): boolean {
+    if (this.isMaker() && this.mode === 'table' && this.makerTab === 'sent_for_deletion') {
+      const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
+      return (
+        status === 'sent to checker for deletion' ||
+        status === 'sent to approver for deletion' ||
+        status === 'sent for deletion'
+      );
+    }
+
+    if (this.isMakerRejectedView()) {
+      const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
+      return status === 'sent back to maker';
+    }
+
+    if (this.isReviewer() && this.mode === 'table') {
+      const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
+      if (this.checkerTab === 'pending') {
+        return this.isApprover() ? status === 'sent to approver' : status === 'sent to checker';
+      }
+      if (this.checkerTab === 'approved') {
+        return status === 'sent to database';
+      }
+      if (this.checkerTab === 'deletion_proposed') {
+        return this.isApprover()
+          ? status === 'sent to approver for deletion'
+          : status === 'sent to checker for deletion';
+      }
+    }
+
+    return this.isVisibleForUser(row);
+  }
+
   onSearchChange() {
     this.page = 1;
     this.load(true);
@@ -271,7 +533,10 @@ export class EditPanel implements OnInit, OnDestroy {
     this.error = null;
     this.draft = { ...row };
 
-    // geometry state reset for fresh open
+    // Reset transient form/action state for fresh open
+    this.validating = false;
+    this.saving = false;
+    this.deleting = false;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
@@ -310,6 +575,43 @@ export class EditPanel implements OnInit, OnDestroy {
     });
   }
 
+  zoomToStationFromRow(row: any) {
+    const lat = Number(row?.lat ?? row?.ycoord ?? row?.latitude);
+    const lng = Number(row?.lon ?? row?.lng ?? row?.xcoord ?? row?.longitude);
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      this.mapZoom.zoomTo({
+        type: 'latlng',
+        lat,
+        lng,
+        zoom: 17,
+        draggable: false,
+      } as any);
+      return;
+    }
+
+    const id = Number(row?.objectid);
+    if (!Number.isFinite(id)) return;
+
+    this.api.getStationById(id).subscribe({
+      next: (full) => {
+        const n = this.normalizeStation(full);
+        if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) return;
+
+        this.mapZoom.zoomTo({
+          type: 'latlng',
+          lat: n.lat,
+          lng: n.lng,
+          zoom: 17,
+          draggable: false,
+        } as any);
+      },
+      error: (err) => {
+        console.error('zoomToStationFromRow/getStationById failed:', err);
+      },
+    });
+  }
+
   private normalizeStation(s: any) {
     return {
       objectid: s?.objectid ?? s?.OBJECTID,
@@ -331,6 +633,7 @@ export class EditPanel implements OnInit, OnDestroy {
   // ================== GEOMETRY FLOW ==================
 
   startGeometryEdit() {
+    if (this.isReviewer()) return;
     if (!this.draft) return;
 
     const lat = Number(this.draft.lat);
@@ -358,6 +661,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   saveGeometry() {
+    if (this.isReviewer()) return;
     if (!this.geomEditing) return;
 
     alert('Geometry is fixed and Edit Geometry Mode is OFF.');
@@ -386,6 +690,9 @@ export class EditPanel implements OnInit, OnDestroy {
     this.draft = null;
     this.error = null;
 
+    this.validating = false;
+    this.saving = false;
+    this.deleting = false;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
@@ -395,6 +702,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   send() {
+    if (this.isReviewer()) return;
     if (!this.draft?.objectid) {
       this.error = 'Station id missing';
       this.cdr.detectChanges();
@@ -453,6 +761,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   validateStationCode() {
+    if (this.isReviewer()) return;
     if (!this.draft?.sttncode) return;
 
     this.validating = true;
@@ -483,7 +792,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
         // remove locally then repaginate
         this.allRows = this.allRows.filter((r) => r.objectid !== row.objectid);
-        this.filteredRows = this.allRows.filter((r) => this.isVisibleForUser(r));
+        this.filteredRows = this.allRows.filter((r) => this.isVisibleForCurrentView(r));
 
         if (this.page > this.totalPages) this.page = this.totalPages;
         this.applyPagination();
@@ -495,6 +804,67 @@ export class EditPanel implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  deleteDraft() {
+    if (!this.draft?.objectid) return;
+    const row = { objectid: this.draft.objectid, sttncode: this.draft.sttncode };
+    if (!confirm(`Delete station "${row.sttncode}"?`)) return;
+
+    this.deleting = true;
+
+    this.api.deleteStation(row.objectid).subscribe({
+      next: () => {
+        this.deleting = false;
+
+        this.mode = 'table';
+        this.draft = null;
+        this.error = null;
+        this.geomEditing = false;
+        this.dragSub?.unsubscribe();
+        this.dragSub = undefined;
+
+        this.mapZoom.zoomHome();
+        this.mapZoom.clearHighlight();
+
+        setTimeout(() => this.load(false), 0);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.deleting = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  previewRejectedRow(row: any) {
+    this.editRow(row);
+  }
+
+  sendForwardRejected(row: any) {
+    alert(`Send Forward clicked for station ${row?.sttncode || ''}.`);
+  }
+
+  deleteRejectedRow(row: any) {
+    this.deleteRow(row);
+  }
+
+  acceptDeletionRow(row: any) {
+    alert(`Accept Deletion clicked for station ${row?.sttncode || ''}.`);
+  }
+
+  rejectDeletionRow(row: any) {
+    alert(`Reject Deletion clicked for station ${row?.sttncode || ''}.`);
+  }
+
+  acceptDeletionDraft() {
+    if (!this.draft) return;
+    this.acceptDeletionRow(this.draft);
+  }
+
+  rejectDeletionDraft() {
+    if (!this.draft) return;
+    this.rejectDeletionRow(this.draft);
   }
 
   private resetPanelState() {

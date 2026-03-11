@@ -91,7 +91,7 @@
 /* =========================================================
    TABLE MODE: Layer selection
    ========================================================= */
-#panelEdit .panel-body > div > label{
+#panelEdit .layer-picker > label{
   margin-top: 10px;
   display: flex;
   align-items: center;
@@ -102,7 +102,7 @@
   color: #1f2937;
 }
 
-#panelEdit .panel-body select{
+#panelEdit .layer-picker select{
   min-width: 450px;
   height: 40px;
   padding: 6px 12px;
@@ -124,15 +124,53 @@
 }
 
 /* separation line below layer selection */
-#panelEdit .panel-body > div:first-child{
+#panelEdit .layer-picker{
   margin-bottom: 70px;
-  padding-bottom: 80px
+  padding-bottom: 80px;
 }
-#panelEdit .panel-body > div:first-child::after{
+#panelEdit .layer-picker::after{
   content: "";
   display: block;
   margin-top: 30px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+/* Maker top navbar */
+#panelEdit .maker-navbar{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 0;
+  margin: 2px 0 14px;
+  padding: 0;
+  min-height: 56px;
+  border-bottom: 1px solid #d1d5db;
+}
+
+#panelEdit .maker-nav-item{
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 500;
+  padding: 14px 12px 14px;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+#panelEdit .maker-nav-item:hover{
+  color: #111827;
+}
+
+#panelEdit .maker-nav-item.active{
+  color: #111827;
+  border-bottom-color: #f97316;
+}
+
+#panelEdit .rejected-picker label{
+  color: #9f1239;
 }
 
 /* =========================================================
@@ -199,6 +237,34 @@
 #panelEdit .tbl tbody td{
   padding: 10px 10px;
   color: #111827;
+}
+
+#panelEdit .tbl .sttn-link{
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: #1d4ed8;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#panelEdit .tbl .sttn-link:hover{
+  color: #1e3a8a;
+}
+
+#panelEdit .tbl .sttn-link:disabled{
+  color: #94a3b8;
+  text-decoration: none;
+  cursor: default;
+}
+
+#panelEdit .tbl .sttn-link:focus-visible{
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* zebra + hover */
@@ -434,20 +500,20 @@
 }
 
 /* 🟣 EDIT button — violet background */
-#panelEdit .tbl td:last-child button:first-of-type{
+#panelEdit .tbl td:last-child button.maker-edit-btn{
   background: #1d3b8b; /* violet */
 }
 
-#panelEdit .tbl td:last-child button:first-of-type::before{
+#panelEdit .tbl td:last-child button.maker-edit-btn::before{
   background-image: url("../../../assets/images/icon.png");
 }
 
 /* 🗑 DELETE button — icon only (NO background) */
-#panelEdit .tbl td:last-child button:last-of-type{
+#panelEdit .tbl td:last-child button.maker-delete-btn{
   background: transparent;
 }
 
-#panelEdit .tbl td:last-child button:last-of-type::before{
+#panelEdit .tbl td:last-child button.maker-delete-btn::before{
   background-image: url("../../../assets/images/delete.png");
 }
 
@@ -601,4 +667,83 @@
 .pager-separator {
   margin: 0 8px;
   opacity: 0.5;
+}
+
+/* Checker: edit + accept + reject row actions */
+#panelEdit .tbl td.actions-cell{
+  justify-content: center;
+  gap: 12px;
+  min-width: 148px;
+  padding-right: 16px;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn,
+#panelEdit .tbl td.actions-cell button.preview-btn,
+#panelEdit .tbl td.actions-cell button.accept-btn,
+#panelEdit .tbl td.actions-cell button.reject-btn{
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.28);
+  font-size: 14px;
+  color: #ffffff;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn::before,
+#panelEdit .tbl td.actions-cell button.preview-btn::before,
+#panelEdit .tbl td.actions-cell button.accept-btn::before,
+#panelEdit .tbl td.actions-cell button.reject-btn::before{
+  content: none;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn{
+  background: #1d3b8b;
+}
+
+#panelEdit .tbl td.actions-cell button.preview-btn{
+  background: #2563eb;
+}
+
+#panelEdit .tbl td.actions-cell button.accept-btn{
+  background: #22c55e;
+}
+
+#panelEdit .tbl td.actions-cell button.reject-btn{
+  background: #ef4444;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn:hover,
+#panelEdit .tbl td.actions-cell button.preview-btn:hover,
+#panelEdit .tbl td.actions-cell button.accept-btn:hover,
+#panelEdit .tbl td.actions-cell button.reject-btn:hover{
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.28);
+  filter: none;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn:focus-visible,
+#panelEdit .tbl td.actions-cell button.preview-btn:focus-visible,
+#panelEdit .tbl td.actions-cell button.accept-btn:focus-visible,
+#panelEdit .tbl td.actions-cell button.reject-btn:focus-visible{
+  outline: 2px solid #ffffff;
+  outline-offset: 1px;
+}
+
+#panelEdit .tbl td.actions-cell button.checker-edit-btn i,
+#panelEdit .tbl td.actions-cell button.preview-btn i,
+#panelEdit .tbl td.actions-cell button.accept-btn i,
+#panelEdit .tbl td.actions-cell button.reject-btn i{
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+#panelEdit .tbl td.actions-cell button.accept-btn i{
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  display: block;
+  transform: none;
 }

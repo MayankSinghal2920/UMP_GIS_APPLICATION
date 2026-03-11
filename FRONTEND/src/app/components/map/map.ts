@@ -135,7 +135,7 @@ export class Map implements AfterViewInit, OnDestroy {
     this.reloadTimer = setTimeout(() => {
       if (!this.map) return;
       this.layerManager.reloadVisible(this.map);
-    }, 180);
+    }, 260);
   }
 
   private captureHomeAfterFirstSettle(): void {
@@ -307,7 +307,15 @@ export class Map implements AfterViewInit, OnDestroy {
 // ✅ hard reset UI before map is created (refresh safe)
 this.ui.activePanel = null;
 this.edit.disable();
-    this.map = L.map(el, { preferCanvas: true }).setView([22.5, 79], 5);
+    this.map = L.map(el, {
+      preferCanvas: true,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: false,
+      zoomAnimationThreshold: 4,
+      wheelDebounceTime: 40,
+      wheelPxPerZoomLevel: 90,
+    }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
 // ✅ sidebarSub now handles both:
@@ -412,7 +420,6 @@ this.mapZoom.clearHighlight();
 
       this.onMoveOrZoom = () => this.scheduleReload();
       this.map!.on('moveend', this.onMoveOrZoom);
-      this.map!.on('zoomend', this.onMoveOrZoom);
 
       this.editSuppressionSub?.unsubscribe();
       this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
@@ -577,7 +584,6 @@ this.mapZoom.clearHighlight();
     try {
       if (this.onMoveOrZoom) {
         this.map.off('moveend', this.onMoveOrZoom);
-        this.map.off('zoomend', this.onMoveOrZoom);
       } else {
         this.map.off();
       }
