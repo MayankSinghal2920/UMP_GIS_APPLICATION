@@ -6,7 +6,7 @@ import { DashboardHome } from './dashboard/dashboard-home/dashboard-home';
 import { HomeComponent } from './components/home/home';
 import { UserManagementComponent } from './dashboard/user-management/user-management';
 import { adminGuard } from './guards/admin-guard';
-
+import { Feedback } from './dashboard/feedback/feedback';
 
 
 
@@ -38,7 +38,12 @@ export const routes: Routes = [
       component: UserManagementComponent,
       canActivate: [adminGuard], 
       data: { title: 'User Management' }
-    }
+    },
+    {
+  path: 'feedback',
+  component: Feedback,
+  data: { title: 'Feedback' }
+}
     ]
   },
 
