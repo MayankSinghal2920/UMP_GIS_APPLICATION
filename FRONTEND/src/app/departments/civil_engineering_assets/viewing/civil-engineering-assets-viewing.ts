@@ -9,6 +9,7 @@ export class StationViewingLayer implements MapLayer {
   id = 'stations';
   title = 'Stations';
   visible = true;
+  layerGroup = 'department' as const;
 
   protected readonly LABEL_ZOOM = 12;
 
@@ -16,12 +17,20 @@ export class StationViewingLayer implements MapLayer {
     type: 'point' as const,
     color: '#d32f2f',
     label: 'Railway Station',
+    fillColor: '#d32f2f',
+    fillOpacity: 0.9,
+    strokeColor: '#ffffff',
+    strokeWidth: 1,
+    radius: 7,
   };
 
   protected layer: L.GeoJSON;
   private lastBbox = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private onMoveStartHandler?: () => void;
+  private onMoveEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(
     protected api: Api,
@@ -78,7 +87,16 @@ export class StationViewingLayer implements MapLayer {
       if (!this.onZoomEndHandler) {
         this.onZoomEndHandler = () => this.updateLabels(map);
       }
+      if (!this.onMoveStartHandler) {
+        this.onMoveStartHandler = () => this.closeLabels();
+      }
+      if (!this.onMoveEndHandler) {
+        this.onMoveEndHandler = () => this.updateLabels(map);
+      }
       map.on('zoomend', this.onZoomEndHandler);
+      map.on('zoomstart', this.onMoveStartHandler);
+      map.on('movestart', this.onMoveStartHandler);
+      map.on('moveend', this.onMoveEndHandler);
       this.updateLabels(map);
     }
   }
@@ -87,8 +105,21 @@ export class StationViewingLayer implements MapLayer {
     if (this.onZoomEndHandler) {
       map.off('zoomend', this.onZoomEndHandler);
     }
+    if (this.onMoveStartHandler) {
+      map.off('zoomstart', this.onMoveStartHandler);
+      map.off('movestart', this.onMoveStartHandler);
+    }
+    if (this.onMoveEndHandler) {
+      map.off('moveend', this.onMoveEndHandler);
+    }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     this.isOnMap = false;
+  }
+
+  protected closeLabels() {
+    this.layer.eachLayer((l: any) => {
+      if (l.getTooltip?.()) l.closeTooltip();
+    });
   }
 
   protected updateLabels(map: L.Map) {
@@ -112,9 +143,11 @@ export class StationViewingLayer implements MapLayer {
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
 
     this.api.getStations(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         this.zone.run(() => {
           this.beforeRender(geojson);
           this.layer.clearLayers();
@@ -132,6 +165,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   id = 'landplan_ontrack';
   title = 'Landplan Ontrack';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
@@ -139,6 +173,10 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     type: 'polygon' as const,
     color: '#FFA500',
     label: 'Landplan Ontrack',
+    fillColor: '#FFA500',
+    fillOpacity: 0.15,
+    strokeColor: '#FFA500',
+    strokeWidth: 3,
   };
 
   protected layer: L.GeoJSON;
@@ -146,7 +184,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   private paneReady = false;
 
   private onZoomEndHandler?: () => void;
-  private onMoveEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(protected api: Api, protected onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -194,12 +232,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     }
 
     this.onZoomEndHandler = () => this.syncVisibility(map);
-    this.onMoveEndHandler = () => {
-      if (this.canShow(map)) this.loadForMap(map);
-    };
-
     map.on('zoomend', this.onZoomEndHandler);
-    map.on('moveend', this.onMoveEndHandler);
     this.syncVisibility(map);
   }
 
@@ -217,10 +250,8 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
   removeFrom(map: L.Map) {
     if (this.onZoomEndHandler) map.off('zoomend', this.onZoomEndHandler);
-    if (this.onMoveEndHandler) map.off('moveend', this.onMoveEndHandler);
 
     this.onZoomEndHandler = undefined;
-    this.onMoveEndHandler = undefined;
 
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
   }
@@ -237,9 +268,11 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
     if (key === this.lastKey) return;
     this.lastKey = key;
+    const requestId = ++this.requestSeq;
 
     this.api.getLandPlanOntrack(zForQuery).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         if (!geojson || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
           console.error('[LandPlanOntrack] Invalid GeoJSON returned:', geojson);
           return;
@@ -276,6 +309,7 @@ export class LandOffsetLayer implements MapLayer {
   id = 'land_offset';
   title = 'Land Offset';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 11;
 
@@ -283,6 +317,8 @@ export class LandOffsetLayer implements MapLayer {
     type: 'line' as const,
     color: '#000000',
     label: 'Land Offset',
+    strokeColor: '#000000',
+    strokeWidth: 2,
   };
 
   private layer: L.GeoJSON;
@@ -290,6 +326,7 @@ export class LandOffsetLayer implements MapLayer {
   private lastKey = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private onInteractionStartHandler?: () => void;
   private requestSeq = 0;
   private readonly DECORATOR_ZOOM = 13;
 
@@ -317,6 +354,13 @@ export class LandOffsetLayer implements MapLayer {
 
     if (!this.isOnMap) {
       map.on('zoomend', this.onZoomEndHandler);
+      if (!this.onInteractionStartHandler) {
+        this.onInteractionStartHandler = () => {
+          if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
+        };
+      }
+      map.on('zoomstart', this.onInteractionStartHandler);
+      map.on('movestart', this.onInteractionStartHandler);
       this.isOnMap = true;
     }
 
@@ -326,6 +370,10 @@ export class LandOffsetLayer implements MapLayer {
   removeFrom(map: L.Map) {
     if (this.onZoomEndHandler) {
       map.off('zoomend', this.onZoomEndHandler);
+    }
+    if (this.onInteractionStartHandler) {
+      map.off('zoomstart', this.onInteractionStartHandler);
+      map.off('movestart', this.onInteractionStartHandler);
     }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
@@ -441,6 +489,7 @@ export class LandBoundaryLayer implements MapLayer {
   id = 'landboundary';
   title = 'Land Boundary';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
@@ -448,12 +497,15 @@ export class LandBoundaryLayer implements MapLayer {
     type: 'line' as const,
     color: 'orange',
     label: 'Land Boundary',
+    strokeColor: 'orange',
+    strokeWidth: 3,
   };
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -513,9 +565,11 @@ export class LandBoundaryLayer implements MapLayer {
       return;
     }
     this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
 
     this.api.getlandboundary(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         this.onData?.(geojson);
 
         if (z < this.minZoom) {

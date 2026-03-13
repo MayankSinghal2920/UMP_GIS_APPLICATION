@@ -11,10 +11,11 @@
   </div>
 
   <!-- Expanded content -->
-  <div class="attr-body" *ngIf="open$ | async">
+  <div class="attr-body" [class.open]="(open$ | async) === true">
     <!-- Tabs -->
     <div class="attr-tabs">
       <ng-container *ngIf="active$ | async as active">
+        <ng-container *ngIf="tabs$ | async as tabs">
         <div
           class="attr-tab"
           *ngFor="let t of tabs"
@@ -23,6 +24,7 @@
         >
           {{ t }}
         </div>
+        </ng-container>
       </ng-container>
     </div>
 
@@ -31,6 +33,22 @@
       <ng-container *ngIf="(datasets$ | async) as d">
         <ng-container *ngIf="(active$ | async) as a">
           <ng-container *ngIf="getDataset(d, a) as ds">
+            <div class="attr-toolbar">
+              <div class="attr-toolbar-actions">
+                <button class="attr-action-btn" (click)="zoomToSelected(a, ds, $event)" [disabled]="!hasSelectionFor(a)">
+                  Zoom To
+                </button>
+                <button class="attr-action-btn" (click)="clearSelection($event)" [disabled]="!hasSelectionFor(a)">
+                  Clear Selection
+                </button>
+                <button class="attr-action-btn attr-action-btn-primary" (click)="exportCsv(a, ds, $event)" [disabled]="!ds.rows.length">
+                  Export CSV
+                </button>
+              </div>
+              <div class="attr-toolbar-right">
+                <span class="attr-count">{{ ds.count }} records</span>
+              </div>
+            </div>
             <div class="attr-table-scroll" *ngIf="ds.rows.length; else empty">
               <table class="table table-sm table-bordered table-hover mb-0 attr-table">
                 <thead>
@@ -41,7 +59,9 @@
                 <tbody>
                   <tr
                     *ngFor="let r of ds.rows"
-                    (click)="onRowClick(a, r, $event)"
+                    (click)="onRowClick($event)"
+                    (dblclick)="onRowDoubleClick(a, r, $event)"
+                    [class.attr-row-selected]="isSelected(r)"
                     style="cursor:pointer;"
                   >
                     <td *ngFor="let c of ds.columns">{{ r[c] ?? '' }}</td>

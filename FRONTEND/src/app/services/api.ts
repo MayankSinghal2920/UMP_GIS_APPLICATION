@@ -119,6 +119,13 @@ export class Api {
     return this.http.get<any>(`${this.BASE_URL}/api/station_codes/${encodeURIComponent(c)}`);
   }
 
+  validateStationCode(code: string): Observable<any> {
+    const station_code = String(code || '').trim().toUpperCase();
+    return this.http.post<any>(`${this.BASE_URL}/api/civil_engineering_assets/edit/station/validate`, {
+      station_code,
+    });
+  }
+
   /* ===================== AUTH (unchanged) ===================== */
 
   requestOtp(username: string, password: string): Observable<any> {
@@ -197,6 +204,12 @@ export class Api {
   }
   getLandPlanCount(type: string) {
     return this.getDashboardCount('landPlan', type);
+  }
+
+  /* ===================== FEEDBACK ===================== */
+
+  addFeedBack(obj: any): Observable<any> {
+    return this.http.post<any>(`${this.BASE_URL}/api/feedback/create`, obj);
   }
 
 

@@ -6,6 +6,7 @@ export class KmPostLayer implements MapLayer {
   id = 'km_posts';
   title = 'KM Posts';
   visible = true;
+  layerGroup = 'common' as const;
 
   private readonly MIN_ZOOM = 10;
 
@@ -13,12 +14,18 @@ export class KmPostLayer implements MapLayer {
     type: 'point' as const,
     color: '#2563eb',
     label: 'KM Post',
+    fillColor: '#2563eb',
+    fillOpacity: 1,
+    strokeColor: '#ffffff',
+    strokeWidth: 1,
+    radius: 7,
   };
 
   private layer: L.GeoJSON;
   private lastBbox = '';
   private isLoading = false;
   private isOnMap = false;
+  private requestSeq = 0;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -79,9 +86,14 @@ export class KmPostLayer implements MapLayer {
 
     this.lastBbox = bbox;
     this.isLoading = true;
+    const requestId = ++this.requestSeq;
 
     this.api.getkmposts(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) {
+          this.isLoading = false;
+          return;
+        }
         this.onData?.(geojson);
 
         if (z < this.MIN_ZOOM) {

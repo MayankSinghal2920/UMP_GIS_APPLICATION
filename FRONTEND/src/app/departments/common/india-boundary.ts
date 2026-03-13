@@ -6,11 +6,16 @@ export class IndiaBoundaryLayer implements MapLayer {
   id = 'india_boundary';
   title = 'India Boundary';
   visible = true;
+  layerGroup = 'common' as const;
 
   legend = {
     type: 'polygon' as const,
     color: '#111827',
     label: 'India Boundary',
+    fillColor: 'transparent',
+    fillOpacity: 0,
+    strokeColor: '#111827',
+    strokeWidth: 2,
   };
 
   private layer: L.GeoJSON;

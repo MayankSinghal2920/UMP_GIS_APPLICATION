@@ -20,6 +20,7 @@ const userManagementRoutes = require(
 );
 
 const ratingRoutes = require('./modules/rating/rating.routes');
+const feedbackRoutes = require('./modules/feedback/feedback.routes');
 
 
 
@@ -59,6 +60,7 @@ app.use('/api/civil_engineering_assets/view/layers', ceaViewRoutes);
 app.use('/api/civil_engineering_assets/view/dashboard', ceaDashboardRoutes);
 app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
 app.use('/api/rating', ratingRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.use('/api/user-management/view/users', userManagementRoutes);
 

@@ -267,7 +267,7 @@
           class="field-input"
           type="text"
           [(ngModel)]="draft.sttncode"
-          [readonly]="isReviewer() || isMakerSentForDeletionView()"
+          [readonly]="isStationFieldsLocked()"
         />
         <button
           class="btn secondary"
@@ -283,12 +283,12 @@
 
     <div class="field">
       <label class="field-label">Station Name</label>
-      <input
-        class="field-input"
-        type="text"
-        [(ngModel)]="draft.sttnname"
-        [readonly]="isReviewer() || isMakerSentForDeletionView()"
-      />
+        <input
+          class="field-input"
+          type="text"
+          [(ngModel)]="draft.sttnname"
+          [readonly]="isStationFieldsLocked()"
+        />
     </div>
 
     <div class="field" *ngIf="isMakerSentForDeletionView()">
@@ -328,7 +328,7 @@
         class="field-input"
         type="text"
         [(ngModel)]="draft.category"
-        [readonly]="isReviewer() || isMakerSentForDeletionView()"
+        [readonly]="isStationFieldsLocked()"
       />
     </div>
 

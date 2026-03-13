@@ -158,10 +158,42 @@ async function getTable(req, res, next) {
   }
 }
 
+/* ========== VALIDATE STATION ========== */
+
+async function validateStation(req, res, next) {
+  try {
+    const config = resolveConfig('station');
+    const stationCode = String(req.body?.station_code || '').trim();
+
+    if (!stationCode) {
+      const err = new Error('station_code is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const row = await model.validateStation(config, stationCode);
+
+    if (!row) {
+      const err = new Error('Station code not found in validation table');
+      err.status = 404;
+      throw err;
+    }
+
+    res.json({
+      success: true,
+      message: 'Station code validated successfully',
+      row,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getById,
   create,
   update,
   remove,
   getTable,
+  validateStation,
 };

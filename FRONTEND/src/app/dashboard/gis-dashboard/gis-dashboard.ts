@@ -7,9 +7,13 @@ import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
 import { Api } from '../../api/api';
 import { StationLayer } from '../../departments/civil_engineering_assets/editing/station';
-import { LandBoundaryLayer } from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
+import {
+  LandBoundaryLayer,
+  LandPlanOntrackViewingLayer,
+  LandOffsetLayer,
+  StationViewingLayer,
+} from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
 import { LandPlanOntrackLayer } from 'src/app/departments/civil_engineering_assets/editing/landplan-ontrack';
-import { LandOffsetLayer } from 'src/app/departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
 import {
   DivisionBufferLayer,
   IndiaBoundaryLayer,
@@ -21,17 +25,17 @@ import { LayerManager } from '../../services/layer-manager';
 import { MapRegistry } from '../../services/map-registry';
 import { FilterState } from '../../services/filter-state';
 import { EditState } from '../../services/edit-state';
-import { AttributeTableService } from '../../services/attribute-table';
+import { AttributeTableService, LayerKey } from '../../services/attribute-table';
 import { UiState } from '../../services/ui-state';
 
 import { MapZoomService, ZoomTarget } from 'src/app/services/map-zoom';
 
 /* Widget panels */
-import { LayerPanel } from '../layer-panel/layer-panel';
-import { LegendPanel } from '../legend-panel/legend-panel';
-import { BasemapPanel } from '../basemap-panel/basemap-panel';
-import { EditPanel } from '../edit-panel/edit-panel';
-import { AttributeTableComponent } from '../attribute-table/attribute-table';
+import { LayerPanel } from '../../components/layer-panel/layer-panel';
+import { LegendPanel } from '../../components/legend-panel/legend-panel';
+import { BasemapPanel } from '../../components/basemap-panel/basemap-panel';
+import { EditPanel } from '../../components/edit-panel/edit-panel';
+import { AttributeTableComponent } from '../../components/attribute-table/attribute-table';
 
 type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
 
@@ -40,9 +44,13 @@ type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
  * edit-panel.html has: value="stations" and value="landplan"
  */
 type EditableLayer = 'stations' | 'landplan';
+type DepartmentModuleKey =
+  | 'civil_engineering_assets'
+  | 'civil_engineering_assets_offtrack'
+  | 'unknown';
 
 @Component({
-  selector: 'app-map',
+  selector: 'app-gis-dashboard',
   standalone: true,
   imports: [
     CommonModule,
@@ -52,13 +60,14 @@ type EditableLayer = 'stations' | 'landplan';
     EditPanel,
     AttributeTableComponent,
   ],
-  templateUrl: './map.html',
-  styleUrl: './map.css',
+  templateUrl: './gis-dashboard.html',
+  styleUrl: './gis-dashboard.css',
 })
-export class Map implements AfterViewInit, OnDestroy {
+export class GisDashboardComponent implements AfterViewInit, OnDestroy {
   private map?: L.Map;
 
   private zoomSub?: Subscription;
+  private clearSelectionSub?: Subscription;
   private highlightLayer?: L.GeoJSON;
   private onMoveOrZoom?: () => void;
   private sidebarSub?: Subscription;
@@ -89,6 +98,13 @@ export class Map implements AfterViewInit, OnDestroy {
   // ✅ deep-linking from dashboard -> map
   private routeSub?: Subscription;
 
+  private readonly departmentAliases: Record<string, DepartmentModuleKey> = {
+    'civil engineering assets': 'civil_engineering_assets',
+    'civil engineering assets offtrack': 'civil_engineering_assets_offtrack',
+    'civil_engineering_assets': 'civil_engineering_assets',
+    'civil_engineering_assets_offtrack': 'civil_engineering_assets_offtrack',
+  };
+
   constructor(
     private api: Api,
     private filters: FilterState,
@@ -101,7 +117,7 @@ export class Map implements AfterViewInit, OnDestroy {
     private mapZoom: MapZoomService,
     private route: ActivatedRoute,
     private router: Router
-  ) {}
+  ) { }
 
   toggle(panel: WidgetPanel): void {
     const next = this.ui.activePanel === panel ? null : panel;
@@ -246,6 +262,132 @@ export class Map implements AfterViewInit, OnDestroy {
     return x === 'stations' || x === 'landplan';
   }
 
+  private normalizeDepartmentName(value: string | null | undefined): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private resolveDepartmentModule(): { key: DepartmentModuleKey; label: string } {
+    const rawDepartment = localStorage.getItem('department') || '';
+    const normalized = this.normalizeDepartmentName(rawDepartment);
+    const key = this.departmentAliases[normalized] || 'unknown';
+
+    if (key === 'civil_engineering_assets') {
+      return {
+        key,
+        label: 'Civil Engineering Assets Layers',
+      };
+    }
+
+    if (key === 'civil_engineering_assets_offtrack') {
+      return {
+        key,
+        label: 'Civil Engineering Assets Offtrack Layers',
+      };
+    }
+
+    return {
+      key,
+      label: rawDepartment?.trim() || 'Department Layers',
+    };
+  }
+
+  private registerDepartmentLayers(): void {
+    const department = this.resolveDepartmentModule();
+    const attributeTabs: LayerKey[] = ['Km Post', 'Railway Track'];
+
+    this.layerManager.clear();
+    this.layerManager.setActiveDepartmentLabel(department.label);
+
+    this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
+    this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
+    this.layerManager.registerOnce(
+      new TrackLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Railway Track', g)
+      )
+    );
+    this.layerManager.registerOnce(
+      new KmPostLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Km Post', g)
+      )
+    );
+
+    if (
+      department.key !== 'civil_engineering_assets' &&
+      department.key !== 'civil_engineering_assets_offtrack'
+    ) {
+      this.attrTable.setTabs(attributeTabs);
+      return;
+    }
+
+    attributeTabs.unshift(
+      'Station',
+      'Land Plan Ontrack',
+      'Land Offset',
+      'Land Boundary'
+    );
+
+    this.layerManager.registerOnce(
+      new StationViewingLayer(this.api, this.zone, (g) =>
+        this.attrTable.pushFeatureCollection('Station', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandOffsetLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Land Offset', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandBoundaryLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Land Boundary', g)
+      )
+    );
+
+    this.layerManager.registerOnce(
+      new LandPlanOntrackViewingLayer(this.api, (g) =>
+        this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+      )
+    );
+
+    this.attrTable.setTabs(attributeTabs);
+  }
+
+  private syncEditAwareLayers(): void {
+    if (!this.map) return;
+
+    const wantsStationEditLayer =
+      this.edit.enabled && this.edit.editLayer === 'stations';
+    const wantsLandPlanEditLayer =
+      this.edit.enabled && this.edit.editLayer === 'landplan';
+
+    this.layerManager.replaceLayer(
+      wantsStationEditLayer
+        ? new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
+            this.attrTable.pushFeatureCollection('Station', g)
+          )
+        : new StationViewingLayer(this.api, this.zone, (g) =>
+            this.attrTable.pushFeatureCollection('Station', g)
+          ),
+      this.map
+    );
+
+    this.layerManager.replaceLayer(
+      wantsLandPlanEditLayer
+        ? new LandPlanOntrackLayer(this.api, this.edit, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+          )
+        : new LandPlanOntrackViewingLayer(this.api, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+          ),
+      this.map
+    );
+  }
+
   /**
    * ✅ Deep link:
    * /map?panel=edit&layer=stations
@@ -302,11 +444,11 @@ export class Map implements AfterViewInit, OnDestroy {
     if (anyEl._leaflet_id) {
       try {
         anyEl._leaflet_id = undefined;
-      } catch {}
+      } catch { }
     }
-// ✅ hard reset UI before map is created (refresh safe)
-this.ui.activePanel = null;
-this.edit.disable();
+    // ✅ hard reset UI before map is created (refresh safe)
+    this.ui.activePanel = null;
+    this.edit.disable();
     this.map = L.map(el, {
       preferCanvas: true,
       zoomAnimation: true,
@@ -318,97 +460,64 @@ this.edit.disable();
     }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
-// ✅ sidebarSub now handles both:
-// 1) sidebar collapse/expand -> resize map
-// 2) sidebar navigation (route change) -> reset map UI if leaving map page
-this.sidebarSub?.unsubscribe();
-this.sidebarSub = new Subscription();
+    // ✅ sidebarSub now handles both:
+    // 1) sidebar collapse/expand -> resize map
+    // 2) sidebar navigation (route change) -> reset map UI if leaving map page
+    this.sidebarSub?.unsubscribe();
+    this.sidebarSub = new Subscription();
 
-// 1) existing resize behavior
-this.sidebarSub.add(
-  this.ui.layoutChanged$.subscribe(() => {
-    setTimeout(() => this.forceMapResize(), 320);
-  })
-);
+    // 1) existing resize behavior
+    this.sidebarSub.add(
+      this.ui.layoutChanged$.subscribe(() => {
+        setTimeout(() => this.forceMapResize(), 320);
+      })
+    );
 
-// 2) NEW: reset widgets when sidebar navigates away from map page
-this.sidebarSub.add(
-  this.router.events
-    .pipe(filter((e) => e instanceof NavigationStart))
-    .subscribe((e: any) => {
-      const fromUrl = this.router.url || '';
-      const toUrl = e?.url || '';
+    // 2) NEW: reset widgets when sidebar navigates away from map page
+    this.sidebarSub.add(
+      this.router.events
+        .pipe(filter((e) => e instanceof NavigationStart))
+        .subscribe((e: any) => {
+          const fromUrl = this.router.url || '';
+          const toUrl = e?.url || '';
 
-      const isMapPage = (u: string) =>
-        u.includes('/dashboard/railway-assets') || u.includes('/map');
+          const isMapPage = (u: string) =>
+            u.includes('/dashboard/railway-assets') || u.includes('/map');
 
-      // only when leaving map page
-      if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
-        // ✅ reset only (do NOT destroy map)
-        this.ui.activePanel = null;
-        this.edit.disable();
-        this.mapZoom.clearHighlight();
-        this.clearZoomArtifacts();
-        this.applyEditSuppression();
-      }
-    })
-);
+          // only when leaving map page
+          if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
+            // ✅ reset only (do NOT destroy map)
+            this.ui.activePanel = null;
+            this.edit.disable();
+            this.mapZoom.clearHighlight();
+            this.clearZoomArtifacts();
+            this.applyEditSuppression();
+          }
+        })
+    );
     const base = L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles © Esri' }
+      {
+        maxNativeZoom: 17,
+        maxZoom: 22,
+        attribution: 'Tiles © Esri',
+      }
     ).addTo(this.map);
 
     base.once('load', () => this.forceMapResize());
 
-    this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
-    this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
-
-    this.layerManager.registerOnce(
-      new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
-        this.attrTable.pushFeatureCollection('Station', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandOffsetLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Land Offset', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandBoundaryLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Land Boundary', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new LandPlanOntrackLayer(this.api, this.edit, (g) =>
-        this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new TrackLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Railway Track', g)
-      )
-    );
-
-    this.layerManager.registerOnce(
-      new KmPostLayer(this.api, (g) =>
-        this.attrTable.pushFeatureCollection('Km Post', g)
-      )
-    );
+    this.registerDepartmentLayers();
 
     this.map.whenReady(() => {
       this.forceMapResize();
 
 
       // ✅ On refresh/first load: always start with all panels closed
-// (deep-linking will re-open if panel=edit is present)
-this.ui.activePanel = null;
-this.edit.disable();
-this.clearZoomArtifacts();
-this.mapZoom.clearHighlight();
+      // (deep-linking will re-open if panel=edit is present)
+      this.ui.activePanel = null;
+      this.edit.disable();
+      this.clearZoomArtifacts();
+      this.mapZoom.clearHighlight();
 
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
@@ -423,8 +532,10 @@ this.mapZoom.clearHighlight();
 
       this.editSuppressionSub?.unsubscribe();
       this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
+        this.syncEditAwareLayers();
         this.applyEditSuppression();
       });
+      this.syncEditAwareLayers();
       this.applyEditSuppression();
 
       this.lockDragSub?.unsubscribe();
@@ -526,7 +637,14 @@ this.mapZoom.clearHighlight();
           if (bounds?.isValid()) {
             this.map.fitBounds(bounds.pad(0.2), { animate: false });
           }
-        } catch (e) {}
+        } catch (e) { }
+      });
+
+      this.clearSelectionSub?.unsubscribe();
+      this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => {
+        if (!this.map) return;
+        this.clearZoomArtifacts();
+        this.zoomToHome();
       });
     });
   }
@@ -561,6 +679,7 @@ this.mapZoom.clearHighlight();
 
   ngOnDestroy(): void {
     this.zoomSub?.unsubscribe();
+    this.clearSelectionSub?.unsubscribe();
     this.sidebarSub?.unsubscribe();
     this.mapZoomSub?.unsubscribe();
     this.lockDragSub?.unsubscribe();
@@ -568,6 +687,7 @@ this.mapZoom.clearHighlight();
     this.routeSub?.unsubscribe();
 
     this.zoomSub = undefined;
+    this.clearSelectionSub = undefined;
     this.sidebarSub = undefined;
     this.mapZoomSub = undefined;
     this.lockDragSub = undefined;
@@ -603,3 +723,7 @@ this.mapZoom.clearHighlight();
     }
   }
 }
+
+
+
+

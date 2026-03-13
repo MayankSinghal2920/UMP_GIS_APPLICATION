@@ -9,8 +9,16 @@
       <div
         class="symbol"
         [ngClass]="layer.legend.type"
-        [style.background]="layer.legend.color"
-        [style.border-color]="layer.legend.color"
+        [class.symbol-arrow-line]="layer.id === 'land_offset'"
+        [style.background]="layer.legend.type === 'line' ? 'transparent' : (layer.legend.fillColor || layer.legend.color)"
+        [style.opacity]="layer.legend.type === 'line' ? 1 : (layer.legend.fillOpacity ?? 1)"
+        [style.border-color]="layer.legend.strokeColor || layer.legend.color"
+        [style.border-width.px]="layer.legend.strokeWidth || 2"
+        [style.width.px]="layer.legend.type === 'point' ? ((layer.legend.radius || 7) * 2 + 2) : null"
+        [style.height.px]="layer.legend.type === 'point' ? ((layer.legend.radius || 7) * 2 + 2) : null"
+        [style.border-top-color]="layer.legend.type === 'line' ? (layer.legend.strokeColor || layer.legend.color) : null"
+        [style.border-top-width.px]="layer.legend.type === 'line' ? (layer.legend.strokeWidth || 2) : null"
+        [style.color]="layer.legend.strokeColor || layer.legend.color"
       ></div>
 
       <span>{{ layer.legend.label }}</span>

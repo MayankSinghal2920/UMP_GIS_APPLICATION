@@ -24,7 +24,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
-               "src/favicon.ico",
+              "src/favicon.ico",
               {
                 "glob": "**/*",
                 "input": "src/assets",
@@ -58,6 +58,12 @@
                   "maximumError": "20kB"
                 }
               ],
+              "outputHashing": "all"
+            },
+            "staging": {
+              "optimization": true,
+              "sourceMap": true,
+              "extractLicenses": false,
               "outputHashing": "all"
             },
             "development": {

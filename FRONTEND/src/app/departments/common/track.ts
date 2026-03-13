@@ -7,15 +7,19 @@ export class TrackLayer implements MapLayer {
   id = 'tracks';
   title = 'Railway Tracks';
   visible = true;
+  layerGroup = 'common' as const;
 
   legend = {
     type: 'line' as const,
     color: 'black',
     label: 'Railway Track',
+    strokeColor: 'black',
+    strokeWidth: 2,
   };
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
+  private requestSeq = 0;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -44,9 +48,11 @@ export class TrackLayer implements MapLayer {
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
 
     this.api.getTracks(bbox).subscribe({
       next: (geojson: GeoJsonObject) => {
+        if (requestId !== this.requestSeq) return;
         this.layer.clearLayers();
         this.layer.addData(geojson);
         this.onData?.(geojson);

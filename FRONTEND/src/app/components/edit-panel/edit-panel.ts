@@ -54,10 +54,12 @@ export class EditPanel implements OnInit, OnDestroy {
 
   mode: 'table' | 'edit' = 'table';
   draft: any = null;
+  private originalDraft: any = null;
 
   saving = false;
   deleting = false;
   validating = false;
+  stationValidated = false;
   error: string | null = null;
   makerTab: MakerTabKey = 'edit';
   checkerTab: CheckerTabKey = 'pending';
@@ -216,6 +218,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.search = '';
     this.error = null;
     this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
 
     // geometry state reset
     this.geomEditing = false;
@@ -251,6 +255,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.makerTab = tab;
     this.mode = 'table';
     this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
     this.search = '';
     this.page = 1;
     this.error = null;
@@ -272,6 +278,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.checkerTab = tab;
     this.mode = 'table';
     this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
     this.search = '';
     this.page = 1;
     this.error = null;
@@ -298,6 +306,10 @@ export class EditPanel implements OnInit, OnDestroy {
 
   isMakerSentForDeletionView(): boolean {
     return this.isMaker() && this.makerTab === 'sent_for_deletion';
+  }
+
+  isStationFieldsLocked(): boolean {
+    return this.stationValidated || this.isReviewer() || this.isMakerSentForDeletionView();
   }
 
   get currentTableLayer(): EditLayerKey | null {
@@ -532,6 +544,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.mode = 'edit';
     this.error = null;
     this.draft = { ...row };
+    this.originalDraft = { ...row };
+    this.stationValidated = false;
 
     // Reset transient form/action state for fresh open
     this.validating = false;
@@ -554,6 +568,7 @@ export class EditPanel implements OnInit, OnDestroy {
         // ensure draft always has latest lat/lng
         this.draft.lat = n.lat;
         this.draft.lng = n.lng;
+        this.originalDraft = { ...this.draft };
 
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
           this.mapZoom.zoomTo({
@@ -686,11 +701,16 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   cancelEdit() {
+    if (this.originalDraft) {
+      this.draft = { ...this.originalDraft };
+    }
     this.mode = 'table';
     this.draft = null;
+    this.originalDraft = null;
     this.error = null;
 
     this.validating = false;
+    this.stationValidated = false;
     this.saving = false;
     this.deleting = false;
     this.geomEditing = false;
@@ -766,16 +786,55 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.validating = true;
 
-    this.api.getStationByCode(this.draft.sttncode).subscribe({
-      next: (row) => {
+    this.api.validateStationCode(this.draft.sttncode).subscribe({
+      next: (res: any) => {
         if (!this.draft) return;
-        this.draft.sttnname = row?.station_name;
-        this.draft.category = row?.category;
+        const row = res?.row || {};
+        const validatedName = row?.station_name || this.draft.sttnname;
+        const validatedCategory = row?.category || this.draft.category;
+        const nameChanged = String(this.draft.sttnname || '') !== String(validatedName || '');
+        const categoryChanged = String(this.draft.category || '') !== String(validatedCategory || '');
+
+        this.draft.sttnname = validatedName;
+        this.draft.category = validatedCategory;
+
+        if (this.draft?.objectid && (nameChanged || categoryChanged)) {
+          const payload = {
+            distkm: this.draft.distkm,
+            distm: this.draft.distm,
+            state: this.draft.state,
+            district: this.draft.district,
+            constituncy: this.draft.constituency,
+            sttnname: this.draft.sttnname,
+            category: this.draft.category,
+            sttntype: this.draft.stationtype,
+          };
+
+          this.api.updateStation(this.draft.objectid, payload).subscribe({
+            next: () => {
+              this.validating = false;
+              this.stationValidated = true;
+              alert(res?.message || 'Station code validated successfully');
+              this.cdr.detectChanges();
+            },
+            error: (err: any) => {
+              this.validating = false;
+              alert(err?.error?.message || 'Station code validated but failed to update station details');
+              this.cdr.detectChanges();
+            },
+          });
+          return;
+        }
+
         this.validating = false;
+        this.stationValidated = true;
+        alert(res?.message || 'Station code validated successfully');
         this.cdr.detectChanges();
       },
-      error: () => {
+      error: (err: any) => {
         this.validating = false;
+        this.stationValidated = false;
+        alert(err?.error?.message || 'Station code validation failed');
         this.cdr.detectChanges();
       },
     });
@@ -819,6 +878,8 @@ export class EditPanel implements OnInit, OnDestroy {
 
         this.mode = 'table';
         this.draft = null;
+        this.originalDraft = null;
+        this.stationValidated = false;
         this.error = null;
         this.geomEditing = false;
         this.dragSub?.unsubscribe();
@@ -883,6 +944,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.loading = false;
 
     this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
 
     this.saving = false;
     this.deleting = false;
