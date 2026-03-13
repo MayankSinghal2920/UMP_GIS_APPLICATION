@@ -7,9 +7,13 @@ import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
 import { Api } from '../../api/api';
 import { StationLayer } from '../../departments/civil_engineering_assets/editing/station';
-import { LandBoundaryLayer } from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
+import {
+  LandBoundaryLayer,
+  LandPlanOntrackViewingLayer,
+  LandOffsetLayer,
+  StationViewingLayer,
+} from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
 import { LandPlanOntrackLayer } from 'src/app/departments/civil_engineering_assets/editing/landplan-ontrack';
-import { LandOffsetLayer } from 'src/app/departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
 import {
   DivisionBufferLayer,
   IndiaBoundaryLayer,
@@ -27,11 +31,11 @@ import { UiState } from '../../services/ui-state';
 import { MapZoomService, ZoomTarget } from 'src/app/services/map-zoom';
 
 /* Widget panels */
-import { LayerPanel } from '../layer-panel/layer-panel';
-import { LegendPanel } from '../legend-panel/legend-panel';
-import { BasemapPanel } from '../basemap-panel/basemap-panel';
-import { EditPanel } from '../edit-panel/edit-panel';
-import { AttributeTableComponent } from '../attribute-table/attribute-table';
+import { LayerPanel } from '../../components/layer-panel/layer-panel';
+import { LegendPanel } from '../../components/legend-panel/legend-panel';
+import { BasemapPanel } from '../../components/basemap-panel/basemap-panel';
+import { EditPanel } from '../../components/edit-panel/edit-panel';
+import { AttributeTableComponent } from '../../components/attribute-table/attribute-table';
 
 type WidgetPanel = 'layers' | 'legend' | 'basemap' | 'edit';
 
@@ -46,7 +50,7 @@ type DepartmentModuleKey =
   | 'unknown';
 
 @Component({
-  selector: 'app-map',
+  selector: 'app-gis-dashboard',
   standalone: true,
   imports: [
     CommonModule,
@@ -56,10 +60,10 @@ type DepartmentModuleKey =
     EditPanel,
     AttributeTableComponent,
   ],
-  templateUrl: './map.html',
-  styleUrl: './map.css',
+  templateUrl: './gis-dashboard.html',
+  styleUrl: './gis-dashboard.css',
 })
-export class Map implements AfterViewInit, OnDestroy {
+export class GisDashboardComponent implements AfterViewInit, OnDestroy {
   private map?: L.Map;
 
   private zoomSub?: Subscription;
@@ -113,7 +117,7 @@ export class Map implements AfterViewInit, OnDestroy {
     private mapZoom: MapZoomService,
     private route: ActivatedRoute,
     private router: Router
-  ) {}
+  ) { }
 
   toggle(panel: WidgetPanel): void {
     const next = this.ui.activePanel === panel ? null : panel;
@@ -327,7 +331,7 @@ export class Map implements AfterViewInit, OnDestroy {
     );
 
     this.layerManager.registerOnce(
-      new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
+      new StationViewingLayer(this.api, this.zone, (g) =>
         this.attrTable.pushFeatureCollection('Station', g)
       )
     );
@@ -345,12 +349,43 @@ export class Map implements AfterViewInit, OnDestroy {
     );
 
     this.layerManager.registerOnce(
-      new LandPlanOntrackLayer(this.api, this.edit, (g) =>
+      new LandPlanOntrackViewingLayer(this.api, (g) =>
         this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
       )
     );
 
     this.attrTable.setTabs(attributeTabs);
+  }
+
+  private syncEditAwareLayers(): void {
+    if (!this.map) return;
+
+    const wantsStationEditLayer =
+      this.edit.enabled && this.edit.editLayer === 'stations';
+    const wantsLandPlanEditLayer =
+      this.edit.enabled && this.edit.editLayer === 'landplan';
+
+    this.layerManager.replaceLayer(
+      wantsStationEditLayer
+        ? new StationLayer(this.api, this.filters, this.edit, this.zone, (g) =>
+            this.attrTable.pushFeatureCollection('Station', g)
+          )
+        : new StationViewingLayer(this.api, this.zone, (g) =>
+            this.attrTable.pushFeatureCollection('Station', g)
+          ),
+      this.map
+    );
+
+    this.layerManager.replaceLayer(
+      wantsLandPlanEditLayer
+        ? new LandPlanOntrackLayer(this.api, this.edit, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+          )
+        : new LandPlanOntrackViewingLayer(this.api, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)
+          ),
+      this.map
+    );
   }
 
   /**
@@ -409,11 +444,11 @@ export class Map implements AfterViewInit, OnDestroy {
     if (anyEl._leaflet_id) {
       try {
         anyEl._leaflet_id = undefined;
-      } catch {}
+      } catch { }
     }
-// ✅ hard reset UI before map is created (refresh safe)
-this.ui.activePanel = null;
-this.edit.disable();
+    // ✅ hard reset UI before map is created (refresh safe)
+    this.ui.activePanel = null;
+    this.edit.disable();
     this.map = L.map(el, {
       preferCanvas: true,
       zoomAnimation: true,
@@ -425,44 +460,48 @@ this.edit.disable();
     }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
 
-// ✅ sidebarSub now handles both:
-// 1) sidebar collapse/expand -> resize map
-// 2) sidebar navigation (route change) -> reset map UI if leaving map page
-this.sidebarSub?.unsubscribe();
-this.sidebarSub = new Subscription();
+    // ✅ sidebarSub now handles both:
+    // 1) sidebar collapse/expand -> resize map
+    // 2) sidebar navigation (route change) -> reset map UI if leaving map page
+    this.sidebarSub?.unsubscribe();
+    this.sidebarSub = new Subscription();
 
-// 1) existing resize behavior
-this.sidebarSub.add(
-  this.ui.layoutChanged$.subscribe(() => {
-    setTimeout(() => this.forceMapResize(), 320);
-  })
-);
+    // 1) existing resize behavior
+    this.sidebarSub.add(
+      this.ui.layoutChanged$.subscribe(() => {
+        setTimeout(() => this.forceMapResize(), 320);
+      })
+    );
 
-// 2) NEW: reset widgets when sidebar navigates away from map page
-this.sidebarSub.add(
-  this.router.events
-    .pipe(filter((e) => e instanceof NavigationStart))
-    .subscribe((e: any) => {
-      const fromUrl = this.router.url || '';
-      const toUrl = e?.url || '';
+    // 2) NEW: reset widgets when sidebar navigates away from map page
+    this.sidebarSub.add(
+      this.router.events
+        .pipe(filter((e) => e instanceof NavigationStart))
+        .subscribe((e: any) => {
+          const fromUrl = this.router.url || '';
+          const toUrl = e?.url || '';
 
-      const isMapPage = (u: string) =>
-        u.includes('/dashboard/railway-assets') || u.includes('/map');
+          const isMapPage = (u: string) =>
+            u.includes('/dashboard/railway-assets') || u.includes('/map');
 
-      // only when leaving map page
-      if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
-        // ✅ reset only (do NOT destroy map)
-        this.ui.activePanel = null;
-        this.edit.disable();
-        this.mapZoom.clearHighlight();
-        this.clearZoomArtifacts();
-        this.applyEditSuppression();
-      }
-    })
-);
+          // only when leaving map page
+          if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
+            // ✅ reset only (do NOT destroy map)
+            this.ui.activePanel = null;
+            this.edit.disable();
+            this.mapZoom.clearHighlight();
+            this.clearZoomArtifacts();
+            this.applyEditSuppression();
+          }
+        })
+    );
     const base = L.tileLayer(
       'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles © Esri' }
+      {
+        maxNativeZoom: 17,
+        maxZoom: 22,
+        attribution: 'Tiles © Esri',
+      }
     ).addTo(this.map);
 
     base.once('load', () => this.forceMapResize());
@@ -474,11 +513,11 @@ this.sidebarSub.add(
 
 
       // ✅ On refresh/first load: always start with all panels closed
-// (deep-linking will re-open if panel=edit is present)
-this.ui.activePanel = null;
-this.edit.disable();
-this.clearZoomArtifacts();
-this.mapZoom.clearHighlight();
+      // (deep-linking will re-open if panel=edit is present)
+      this.ui.activePanel = null;
+      this.edit.disable();
+      this.clearZoomArtifacts();
+      this.mapZoom.clearHighlight();
 
       this.layerManager.addAll(this.map!);
       this.layerManager.reloadAll(this.map!);
@@ -493,8 +532,10 @@ this.mapZoom.clearHighlight();
 
       this.editSuppressionSub?.unsubscribe();
       this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
+        this.syncEditAwareLayers();
         this.applyEditSuppression();
       });
+      this.syncEditAwareLayers();
       this.applyEditSuppression();
 
       this.lockDragSub?.unsubscribe();
@@ -596,7 +637,7 @@ this.mapZoom.clearHighlight();
           if (bounds?.isValid()) {
             this.map.fitBounds(bounds.pad(0.2), { animate: false });
           }
-        } catch (e) {}
+        } catch (e) { }
       });
 
       this.clearSelectionSub?.unsubscribe();
@@ -682,3 +723,7 @@ this.mapZoom.clearHighlight();
     }
   }
 }
+
+
+
+

@@ -8,7 +8,7 @@ export type Dataset = {
   rows: AttrRow[];
   columns: string[];
   count: number;
-  features: any[]; // GeoJSON Feature[]
+  features: any[];
 };
 
 @Injectable({ providedIn: 'root' })
@@ -35,10 +35,14 @@ export class AttributeTableService {
   });
   datasets$ = this._datasets.asObservable();
 
+  private rawFeatures: Record<LayerKey, any[]> = {
+    'Km Post': [],
+    'Railway Track': [],
+  };
+
   private _selected = new BehaviorSubject<{ layer: LayerKey; rowId: number } | null>(null);
   selected$ = this._selected.asObservable();
 
-  // ✅ map will subscribe to this to zoom
   private _zoomTo = new Subject<{ layer: LayerKey; feature: any }>();
   zoomTo$ = this._zoomTo.asObservable();
 
@@ -53,6 +57,7 @@ export class AttributeTableService {
 
     nextTabs.forEach((tab) => {
       nextDatasets[tab] = currentDatasets[tab] ?? { ...this.emptyDataset };
+      this.rawFeatures[tab] = this.rawFeatures[tab] ?? [];
     });
 
     this._tabs.next(nextTabs);
@@ -65,15 +70,24 @@ export class AttributeTableService {
 
   setActive(tab: LayerKey) {
     this._active.next(tab);
+    if (this._open.getValue()) this.materializeTab(tab);
   }
 
-  toggle() { this._open.next(!this._open.getValue()); }
-  show() { this._open.next(true); }
-  hide() { this._open.next(false); }
+  toggle() {
+    const next = !this._open.getValue();
+    this._open.next(next);
+    if (next) this.materializeTab(this._active.getValue());
+  }
 
-  /**
-   * Push full GeoJSON FeatureCollection or Feature array
-   */
+  show() {
+    this._open.next(true);
+    this.materializeTab(this._active.getValue());
+  }
+
+  hide() {
+    this._open.next(false);
+  }
+
   pushFeatureCollection(tab: LayerKey, geojson: any) {
     const fc =
       geojson?.type === 'Feature'
@@ -85,36 +99,19 @@ export class AttributeTableService {
       properties: f?.properties ?? f?.attributes ?? {},
     }));
 
-    const rows: AttrRow[] = features.map((f: any, i: number) => ({
-      __rowid: i, // ✅ used to pick matching feature
-      ...(f.properties ?? {}),
-    }));
-
-   // ✅ union of all keys so all columns appear
-const colSet = new Set<string>();
-for (const r of rows) {
-  for (const k of Object.keys(r)) {
-    if (k !== '__rowid') colSet.add(k);
-  }
-}
-
-// optional: keep stable order (ObjectId first if present, etc.)
-const preferred = ['OBJECTID', 'objectid', 'id', 'km', 'division', 'railway'];
-const cols = [
-  ...preferred.filter(p => colSet.has(p)),
-  ...Array.from(colSet).filter(k => !preferred.includes(k)).sort(),
-];
-
+    this.rawFeatures[tab] = features;
 
     const next = { ...this._datasets.getValue() };
+    const previous = next[tab] ?? { ...this.emptyDataset };
     next[tab] = {
-      rows,
-      columns: cols,
-      count: rows.length,
-      features,
+      ...previous,
+      count: features.length,
     };
-
     this._datasets.next(next);
+
+    if (this._open.getValue() && this._active.getValue() === tab) {
+      this.materializeTab(tab);
+    }
   }
 
   zoomToRow(tab: LayerKey, row: AttrRow) {
@@ -137,5 +134,36 @@ const cols = [
   clearSelection() {
     this._selected.next(null);
     this._clearSelection.next();
+  }
+
+  private materializeTab(tab: LayerKey) {
+    const features = this.rawFeatures[tab] ?? [];
+    const rows: AttrRow[] = features.map((f: any, i: number) => ({
+      __rowid: i,
+      ...(f.properties ?? {}),
+    }));
+
+    const colSet = new Set<string>();
+    for (const row of rows) {
+      for (const key of Object.keys(row)) {
+        if (key !== '__rowid') colSet.add(key);
+      }
+    }
+
+    const preferred = ['OBJECTID', 'objectid', 'id', 'km', 'division', 'railway'];
+    const cols = [
+      ...preferred.filter((p) => colSet.has(p)),
+      ...Array.from(colSet).filter((k) => !preferred.includes(k)).sort(),
+    ];
+
+    const next = { ...this._datasets.getValue() };
+    next[tab] = {
+      rows,
+      columns: cols,
+      count: rows.length,
+      features,
+    };
+
+    this._datasets.next(next);
   }
 }

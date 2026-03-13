@@ -33,6 +33,34 @@ export class LayerManager {
     this.rebuildGroups();
   }
 
+  replaceLayer(layer: MapLayer, map?: L.Map) {
+    const idx = this.layers.findIndex((l) => l.id === layer.id);
+    if (idx !== -1) {
+      const prev = this.layers[idx];
+      if (map) {
+        try {
+          prev.removeFrom(map);
+        } catch (e) {
+          console.error(`Layer replace remove failed: ${prev.id}`, e);
+        }
+      }
+      this.layers[idx] = layer;
+    } else {
+      this.layers.push(layer);
+    }
+
+    this.rebuildGroups();
+
+    if (map && layer.visible) {
+      try {
+        layer.addTo(map);
+        layer.loadForMap(map);
+      } catch (e) {
+        console.error(`Layer replace add/load failed: ${layer.id}`, e);
+      }
+    }
+  }
+
   // ✅ call this when you want a fresh start (optional)
   clear() {
     this.layers = [];

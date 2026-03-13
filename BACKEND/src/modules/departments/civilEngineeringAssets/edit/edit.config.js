@@ -3,6 +3,20 @@ module.exports = {
     table: 'sde.station',
     idColumn: 'objectid',
     idStrategy: 'manual', // manual MAX()+1 for now
+    validation: {
+      table: 'sde.station_1_code',
+      idColumn: 'objectid',
+      idStrategy: 'manual',
+      insertFields: [
+        'station_code',
+        'station_valid_from',
+        'station_valid_upto',
+        'station_name',
+        'zone_code',
+        'division_code',
+        'category'
+      ]
+    },
 
     geometry: {
       enabled: true,

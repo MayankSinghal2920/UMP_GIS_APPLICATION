@@ -1,4 +1,5 @@
 const pool = require('../../../../config/db');
+const { irAssetDbPool } = require('../../../../config/db');
 const generateGUID = require('../../../../utils/guid');
 
 /* ================= GET BY ID ================= */
@@ -65,7 +66,8 @@ async function create(config, data, division) {
     VALUES (
       ${idSql},
       ${placeholders}
-    )
+    )  
+      
     RETURNING *
   `;
 
@@ -84,8 +86,10 @@ async function update(config, id, division, data) {
     params.push(data[field] ?? null);
   });
 
-  // modified_date auto update
-  setClauses.push(`modified_date = NOW()`);
+  // optional auto update timestamp
+  if (config.modifiedDateColumn) {
+    setClauses.push(`${config.modifiedDateColumn} = NOW()`);
+  }
 
   params.push(id);
   params.push(division);
@@ -157,10 +161,33 @@ async function getTable(config, page, pageSize, q, division) {
   };
 }
 
+/* ================= VALIDATE STATION ================= */
+
+async function validateStation(config, stationCode) {
+  if (!config.validation) {
+    const err = new Error('Validation config not found for layer');
+    err.status = 400;
+    throw err;
+  }
+
+  const validationConfig = config.validation;
+  const sql = `
+    SELECT *
+    FROM ${validationConfig.table}
+    WHERE UPPER(station_code) = UPPER($1)
+    ORDER BY station_valid_upto DESC, transaction_date_time DESC NULLS LAST
+    LIMIT 1
+  `;
+
+  const { rows } = await irAssetDbPool.query(sql, [stationCode]);
+  return rows[0];
+}
+
 module.exports = {
   getById,
   create,
   update,
   remove,
   getTable,
+  validateStation,
 };

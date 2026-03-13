@@ -25,17 +25,18 @@ export class KmPostLayer implements MapLayer {
   private lastBbox = '';
   private isLoading = false;
   private isOnMap = false;
+  private requestSeq = 0;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         L.circleMarker(latlng, {
-          radius: 7,
+          radius: 6,
           fillColor: '#2563eb',
           color: '#ffffff',
           weight: 1,
           opacity: 1,
-          fillOpacity: 1.5,
+          fillOpacity: 0.95,
         }),
       onEachFeature: (feature: any, layer: any) => {
         const p = feature?.properties || {};
@@ -85,9 +86,14 @@ export class KmPostLayer implements MapLayer {
 
     this.lastBbox = bbox;
     this.isLoading = true;
+    const requestId = ++this.requestSeq;
 
     this.api.getkmposts(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) {
+          this.isLoading = false;
+          return;
+        }
         this.onData?.(geojson);
 
         if (z < this.MIN_ZOOM) {

@@ -1,115 +1,76 @@
-<div class="container mt-4">
-
-  <div class="row justify-content-center">
-
-    <div class="col-lg-6 col-md-8 col-sm-12">
-
-      <div class="card shadow-lg feedback-card">
-
-        <div class="card-header text-center bg-primary text-white">
-          <h4>Add Feedback</h4>
-        </div>
-
-        <div class="card-body">
-
-          <form (ngSubmit)="submitFeedback()">
-
-            <!-- Name -->
-            <div class="mb-3">
-              <label class="form-label">Name</label>
-              <input
-                type="text"
-                class="form-control"
-                [(ngModel)]="feedbackForm.name"
-                name="name"
-                required
-              />
-            </div>
-
-            <!-- Email -->
-            <div class="mb-3">
-              <label class="form-label">Email</label>
-              <input
-                type="email"
-                class="form-control"
-                [(ngModel)]="feedbackForm.email"
-                name="email"
-                required
-              />
-            </div>
-
-            <!-- Mobile -->
-            <div class="mb-3">
-              <label class="form-label">Mobile</label>
-              <input
-                type="text"
-                class="form-control"
-                [(ngModel)]="feedbackForm.mobile"
-                name="mobile"
-              />
-            </div>
-
-            <!-- User Type -->
-            <div class="mb-3">
-              <label class="form-label">User Type</label>
-
-              <select
-                class="form-control"
-                [(ngModel)]="feedbackForm.user_type"
-                name="user_type"
-              >
-                <option value="">Select</option>
-                <option value="Admin">Admin</option>
-                <option value="Maker">Maker</option>
-                <option value="Viewer">Viewer</option>
-              </select>
-            </div>
-
-            <!-- Message -->
-            <div class="mb-3">
-              <label class="form-label">Feedback Message</label>
-
-              <textarea
-                rows="4"
-                class="form-control"
-                [(ngModel)]="feedbackForm.message"
-                name="message"
-                required
-              ></textarea>
-            </div>
-
-            <button class="btn btn-primary w-100">
-              Submit Feedback
-            </button>
-
-          </form>
-
-        </div>
-
+<div class="feedback-page">
+  <div class="feedback-shell">
+    <section class="feedback-hero">
+      <div class="feedback-hero-copy">
+        <p class="feedback-kicker">UMP GIS Application</p>
+        <h1 class="feedback-title">Feedback</h1>
+        <p class="feedback-subtitle">
+          Share issues, suggestions, or workflow pain points so the platform can
+          be improved where it matters.
+        </p>
       </div>
 
+      <div class="feedback-hero-badge">
+        <div class="feedback-badge-label">Logged In As</div>
+        <div class="feedback-badge-value">{{ user_name || '--' }}</div>
+      </div>
+    </section>
 
-      <!-- Last Feedback -->
-      <div *ngIf="lastFeedback" class="card mt-4 shadow">
-
-        <div class="card-header bg-success text-white">
-          Last Feedback Submitted
+    <section class="feedback-card">
+      <div class="feedback-profile-grid">
+        <div class="feedback-field feedback-field-readonly">
+          <label>Name</label>
+          <div class="feedback-static-value">{{ user_name || '--' }}</div>
         </div>
 
-        <div class="card-body">
-
-          <p><b>Name:</b> {{ lastFeedback.user_name }}</p>
-          <p><b>Email:</b> {{ lastFeedback.email }}</p>
-          <p><b>User Type:</b> {{ lastFeedback.user_type }}</p>
-          <p><b>Message:</b> {{ lastFeedback.message }}</p>
-          <p><b>Date:</b> {{ lastFeedback.created_at | date:'medium' }}</p>
-
+        <div class="feedback-field feedback-field-readonly">
+          <label>Email</label>
+          <div class="feedback-static-value">{{ email || '--' }}</div>
         </div>
 
+        <div class="feedback-field feedback-field-readonly">
+          <label>Mobile</label>
+          <div class="feedback-static-value">{{ mobile || '--' }}</div>
+        </div>
+
+        <div class="feedback-field feedback-field-readonly">
+          <label>User Type</label>
+          <div class="feedback-static-value">{{ user_type || '--' }}</div>
+        </div>
       </div>
 
-    </div>
+      <div class="feedback-message-panel">
+        <div class="feedback-field">
+          <label for="feedback-message">Feedback Message</label>
+          <textarea
+            id="feedback-message"
+            rows="7"
+            class="feedback-textarea"
+            [(ngModel)]="message"
+            name="message"
+            placeholder="Describe what worked well, what felt slow, or what should be improved."
+            required
+          ></textarea>
+        </div>
 
+        <div class="feedback-footer">
+          <div class="feedback-helper-text">
+            Clear, specific feedback is more actionable than generic comments.
+          </div>
+
+          <button
+            class="feedback-submit-btn"
+            (click)="submitFeedback()"
+            [disabled]="!message"
+          >
+            Submit Feedback
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="lastFeedback" class="feedback-success">
+        Feedback submitted successfully.
+      </div>
+    </section>
   </div>
-
 </div>

@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { Map } from './map';
+import { Feedback } from './feedback';
 
-describe('Map', () => {
-  let component: Map;
-  let fixture: ComponentFixture<Map>;
+describe('Feedback', () => {
+  let component: Feedback;
+  let fixture: ComponentFixture<Feedback>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Map]
+      imports: [Feedback]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(Map);
+    fixture = TestBed.createComponent(Feedback);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

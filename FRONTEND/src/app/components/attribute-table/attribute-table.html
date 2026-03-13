@@ -11,7 +11,7 @@
   </div>
 
   <!-- Expanded content -->
-  <div class="attr-body" *ngIf="open$ | async">
+  <div class="attr-body" [class.open]="(open$ | async) === true">
     <!-- Tabs -->
     <div class="attr-tabs">
       <ng-container *ngIf="active$ | async as active">
