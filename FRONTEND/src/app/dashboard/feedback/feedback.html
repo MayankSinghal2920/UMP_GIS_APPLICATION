@@ -4,47 +4,43 @@
       <div class="feedback-hero-copy">
         <p class="feedback-kicker">UMP GIS Application</p>
         <h1 class="feedback-title">Feedback</h1>
-        <p class="feedback-subtitle">
-          Share issues, suggestions, or workflow pain points so the platform can
-          be improved where it matters.
-        </p>
-      </div>
-
-      <div class="feedback-hero-badge">
-        <div class="feedback-badge-label">Logged In As</div>
-        <div class="feedback-badge-value">{{ user_name || '--' }}</div>
       </div>
     </section>
 
     <section class="feedback-card">
       <div class="feedback-profile-grid">
         <div class="feedback-field feedback-field-readonly">
-          <label>Name</label>
+          <label><i class="bi bi-person"></i><span>Name</span></label>
           <div class="feedback-static-value">{{ user_name || '--' }}</div>
         </div>
 
         <div class="feedback-field feedback-field-readonly">
-          <label>Email</label>
-          <div class="feedback-static-value">{{ email || '--' }}</div>
+          <label><i class="bi bi-envelope"></i><span>Email</span></label>
+          <div class="feedback-static-value">{{ email || '---' }}</div>
         </div>
 
         <div class="feedback-field feedback-field-readonly">
-          <label>Mobile</label>
-          <div class="feedback-static-value">{{ mobile || '--' }}</div>
+          <label><i class="bi bi-telephone-fill"></i><span>Mobile</span></label>
+          <div class="feedback-static-value">{{ mobile || '---' }}</div>
         </div>
 
         <div class="feedback-field feedback-field-readonly">
-          <label>User Type</label>
-          <div class="feedback-static-value">{{ user_type || '--' }}</div>
+          <label><i class="bi bi-people"></i><span>User Type</span></label>
+          <div class="feedback-static-value feedback-static-value-select">
+            <span>{{ user_type || '--' }}</span>
+            <i class="bi bi-chevron-down"></i>
+          </div>
         </div>
       </div>
 
       <div class="feedback-message-panel">
         <div class="feedback-field">
-          <label for="feedback-message">Feedback Message</label>
+          <label for="feedback-message">
+            <i class="bi bi-chat-left-text"></i>
+            <span>Feedback Message</span>
+          </label>
           <textarea
             id="feedback-message"
-            rows="7"
             class="feedback-textarea"
             [(ngModel)]="message"
             name="message"
@@ -55,16 +51,20 @@
 
         <div class="feedback-footer">
           <div class="feedback-helper-text">
-            Clear, specific feedback is more actionable than generic comments.
+            <i class="bi bi-info-circle"></i>
+            <span>Clear, specific feedback is more actionable than generic comments.</span>
           </div>
 
-          <button
-            class="feedback-submit-btn"
-            (click)="submitFeedback()"
-            [disabled]="!message"
-          >
-            Submit Feedback
-          </button>
+          <div class="feedback-submit-wrap">
+            <button
+              class="feedback-submit-btn"
+              (click)="submitFeedback()"
+              [disabled]="!message"
+            >
+              <i class="bi bi-send"></i>
+              <span>Submit Feedback</span>
+            </button>
+          </div>
         </div>
       </div>
 
