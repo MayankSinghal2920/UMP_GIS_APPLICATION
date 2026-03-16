@@ -12,24 +12,16 @@ import { AttributeTableService, LayerKey, Dataset, AttrRow } from '../../service
 })
 export class AttributeTableComponent {
   collapsedHeight = 40;
-  expandedHeight = 300;
-
-  tabs: LayerKey[] = [
-    'Station',
-    'Land Plan Ontrack',
-    'Land Offset',
-    'Km Post',
-    'Land Boundary',
-    'Railway Track',
-  ];
-  
+  expandedHeight = 380;
 
   open$!: Observable<boolean>;
+  tabs$!: Observable<LayerKey[]>;
   active$!: Observable<LayerKey>;
   datasets$!: Observable<Record<LayerKey, Dataset>>;
 
   constructor(private attr: AttributeTableService) {
     this.open$ = this.attr.open$;
+    this.tabs$ = this.attr.tabs$;
     this.active$ = this.attr.active$;
     this.datasets$ = this.attr.datasets$;
   }
@@ -41,12 +33,65 @@ export class AttributeTableComponent {
     this.attr.setActive(tab);
   }
 
-  onRowClick(active: LayerKey, row: AttrRow, ev?: MouseEvent) {
+  onRowClick(ev?: MouseEvent) {
     ev?.stopPropagation();
-    this.attr.zoomToRow(active, row);
+    ev?.preventDefault();
+  }
+
+  onRowDoubleClick(active: LayerKey, row: AttrRow, ev?: MouseEvent) {
+    ev?.stopPropagation();
+    ev?.preventDefault();
+    this.attr.selectRow(active, row);
+  }
+
+  zoomToSelected(active: LayerKey, ds: Dataset, ev?: MouseEvent) {
+    ev?.stopPropagation();
+    const selected = this.attr.getSelected();
+    if (!selected || selected.layer !== active) return;
+    const row = ds.rows.find((r) => Number((r as any).__rowid) === selected.rowId);
+    if (row) this.attr.zoomToRow(active, row);
+  }
+
+  clearSelection(ev?: MouseEvent) {
+    ev?.stopPropagation();
+    this.attr.clearSelection();
+  }
+
+  exportCsv(active: LayerKey, ds: Dataset, ev?: MouseEvent) {
+    ev?.stopPropagation();
+    if (!ds.rows.length || !ds.columns.length) return;
+
+    const escapeCell = (value: any) => {
+      const text = value == null ? '' : String(value);
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const csv = [
+      ds.columns.join(','),
+      ...ds.rows.map((row) => ds.columns.map((col) => escapeCell(row[col])).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${active.replace(/\s+/g, '_').toLowerCase()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   getDataset(d: Record<LayerKey, Dataset>, a: LayerKey): Dataset {
     return d[a] ?? { rows: [], columns: [], count: 0, features: [] };
+  }
+
+  isSelected(row: AttrRow): boolean {
+    const selected = this.attr.getSelected();
+    if (!selected) return false;
+    return Number((row as any).__rowid) === selected.rowId;
+  }
+
+  hasSelectionFor(active: LayerKey): boolean {
+    const selected = this.attr.getSelected();
+    return !!selected && selected.layer === active;
   }
 }

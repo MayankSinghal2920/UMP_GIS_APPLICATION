@@ -8,9 +8,10 @@ import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-layer-panel',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './layer-panel.html',
-  styleUrl: './layer-panel.css',
+  styleUrls: ['./layer-panel.css'],
 })
 export class LayerPanel {
 constructor(public ui: UiState,                 
@@ -21,6 +22,14 @@ constructor(public ui: UiState,
       this.ui.activePanel = null;
     }
 
+  getLabel(layer: { title?: string; legend?: { label?: string } }): string {
+    return layer.title?.trim() || layer.legend?.label?.trim() || 'Layer';
+  }
+
+  trackByLayerId(_index: number, layer: { id: string }): string {
+    return layer.id;
+  }
+
     toggleLayer() {
     if (!this.mapRegistry.hasMap()) return;
 
@@ -29,3 +38,4 @@ constructor(public ui: UiState,
     this.layerManager.reloadVisible(map);
   }
 }
+

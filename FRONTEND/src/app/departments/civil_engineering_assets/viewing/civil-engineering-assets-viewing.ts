@@ -3,25 +3,62 @@ import * as L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import { NgZone } from '@angular/core';
 import { Api } from '../../../api/api';
-import { MapLayer } from '../../../services/interface';
+import { circleMarkerOptionsFromLegend, defineLegend, MapLayer, pathStyleFromLegend } from '../../../services/interface';
+
+const STATION_LEGEND = defineLegend({
+  type: 'point' as const,
+  color: '#d32f2f',
+  label: 'Railway Station',
+  fillColor: '#d32f2f',
+  fillOpacity: 0.9,
+  strokeColor: '#ffffff',
+  strokeWidth: 1,
+  radius: 6,
+});
+
+const LANDPLAN_ONTRACK_LEGEND = defineLegend({
+  type: 'polygon' as const,
+  color: '#FFA500',
+  label: 'Landplan Ontrack',
+  fillColor: '#FFA500',
+  fillOpacity: 0.15,
+  strokeColor: '#FFA500',
+  strokeWidth: 3,
+});
+
+const LAND_OFFSET_LEGEND = defineLegend({
+  type: 'line' as const,
+  color: '#000000',
+  label: 'Land Offset',
+  strokeColor: '#000000',
+  strokeWidth: 2,
+});
+
+const LAND_BOUNDARY_LEGEND = defineLegend({
+  type: 'line' as const,
+  color: 'orange',
+  label: 'Land Boundary',
+  strokeColor: 'orange',
+  strokeWidth: 3,
+});
 
 export class StationViewingLayer implements MapLayer {
   id = 'stations';
   title = 'Stations';
   visible = true;
+  layerGroup = 'department' as const;
 
   protected readonly LABEL_ZOOM = 12;
 
-  legend = {
-    type: 'point' as const,
-    color: '#d32f2f',
-    label: 'Railway Station',
-  };
+  legend = STATION_LEGEND;
 
   protected layer: L.GeoJSON;
   private lastBbox = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private onMoveStartHandler?: () => void;
+  private onMoveEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(
     protected api: Api,
@@ -30,14 +67,7 @@ export class StationViewingLayer implements MapLayer {
   ) {
     this.layer = L.geoJSON(null, {
       pointToLayer: (feature: any, latlng: L.LatLng) => {
-        const marker = L.circleMarker(latlng, {
-          radius: 6,
-          fillColor: '#d32f2f',
-          color: '#ffffff',
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.9,
-        });
+        const marker = L.circleMarker(latlng, circleMarkerOptionsFromLegend(this.legend));
 
         const p = feature?.properties || {};
         const name = (p.sttnname || '').toString().trim();
@@ -78,7 +108,16 @@ export class StationViewingLayer implements MapLayer {
       if (!this.onZoomEndHandler) {
         this.onZoomEndHandler = () => this.updateLabels(map);
       }
+      if (!this.onMoveStartHandler) {
+        this.onMoveStartHandler = () => this.closeLabels();
+      }
+      if (!this.onMoveEndHandler) {
+        this.onMoveEndHandler = () => this.updateLabels(map);
+      }
       map.on('zoomend', this.onZoomEndHandler);
+      map.on('zoomstart', this.onMoveStartHandler);
+      map.on('movestart', this.onMoveStartHandler);
+      map.on('moveend', this.onMoveEndHandler);
       this.updateLabels(map);
     }
   }
@@ -87,8 +126,21 @@ export class StationViewingLayer implements MapLayer {
     if (this.onZoomEndHandler) {
       map.off('zoomend', this.onZoomEndHandler);
     }
+    if (this.onMoveStartHandler) {
+      map.off('zoomstart', this.onMoveStartHandler);
+      map.off('movestart', this.onMoveStartHandler);
+    }
+    if (this.onMoveEndHandler) {
+      map.off('moveend', this.onMoveEndHandler);
+    }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     this.isOnMap = false;
+  }
+
+  protected closeLabels() {
+    this.layer.eachLayer((l: any) => {
+      if (l.getTooltip?.()) l.closeTooltip();
+    });
   }
 
   protected updateLabels(map: L.Map) {
@@ -112,9 +164,11 @@ export class StationViewingLayer implements MapLayer {
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
 
     this.api.getStations(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         this.zone.run(() => {
           this.beforeRender(geojson);
           this.layer.clearLayers();
@@ -132,31 +186,22 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   id = 'landplan_ontrack';
   title = 'Landplan Ontrack';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
-  legend = {
-    type: 'polygon' as const,
-    color: '#FFA500',
-    label: 'Landplan Ontrack',
-  };
+  legend = LANDPLAN_ONTRACK_LEGEND;
 
   protected layer: L.GeoJSON;
   private lastKey = '';
   private paneReady = false;
 
   private onZoomEndHandler?: () => void;
-  private onMoveEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(protected api: Api, protected onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
-      style: () => ({
-        color: '#FFA500',
-        weight: 3,
-        opacity: 1,
-        fillColor: '#FFA500',
-        fillOpacity: 0.15,
-      }),
+      style: () => pathStyleFromLegend(this.legend),
       interactive: this.isInteractive(),
       onEachFeature: (feature: any, layer: any) => {
         this.onFeatureReady(feature, layer);
@@ -189,17 +234,11 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
       pane.style.zIndex = '450';
       pane.style.pointerEvents = this.panePointerEvents();
 
-      (this.layer as any).options.pane = paneName;
       this.paneReady = true;
     }
 
     this.onZoomEndHandler = () => this.syncVisibility(map);
-    this.onMoveEndHandler = () => {
-      if (this.canShow(map)) this.loadForMap(map);
-    };
-
     map.on('zoomend', this.onZoomEndHandler);
-    map.on('moveend', this.onMoveEndHandler);
     this.syncVisibility(map);
   }
 
@@ -208,6 +247,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
     if (shouldShow) {
       if (!map.hasLayer(this.layer)) this.layer.addTo(map);
+      this.layer.bringToFront();
       this.loadForMap(map);
     } else {
       if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
@@ -217,10 +257,8 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
   removeFrom(map: L.Map) {
     if (this.onZoomEndHandler) map.off('zoomend', this.onZoomEndHandler);
-    if (this.onMoveEndHandler) map.off('moveend', this.onMoveEndHandler);
 
     this.onZoomEndHandler = undefined;
-    this.onMoveEndHandler = undefined;
 
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
   }
@@ -237,11 +275,13 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
     if (key === this.lastKey) return;
     this.lastKey = key;
+    const requestId = ++this.requestSeq;
 
     this.api.getLandPlanOntrack(zForQuery).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         if (!geojson || (geojson.type !== 'FeatureCollection' && geojson.type !== 'Feature')) {
-          console.error('[LandPlanOntrack] Invalid GeoJSON returned:', geojson);
+          console.error('LandPlanOntrack invalid GeoJSON returned:', geojson);
           return;
         }
 
@@ -264,9 +304,10 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
         this.layer.clearLayers();
         this.layer.addData(fc);
+        this.layer.bringToFront();
       },
       error: (err: any) => {
-        console.error('[LandPlanOntrack] API error', err);
+        console.error('LandPlanOntrack API error', err);
       },
     });
   }
@@ -276,20 +317,18 @@ export class LandOffsetLayer implements MapLayer {
   id = 'land_offset';
   title = 'Land Offset';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 11;
 
-  legend = {
-    type: 'line' as const,
-    color: '#000000',
-    label: 'Land Offset',
-  };
+  legend = LAND_OFFSET_LEGEND;
 
   private layer: L.GeoJSON;
   private decorators: L.LayerGroup;
   private lastKey = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private onInteractionStartHandler?: () => void;
   private requestSeq = 0;
   private readonly DECORATOR_ZOOM = 13;
 
@@ -297,11 +336,7 @@ export class LandOffsetLayer implements MapLayer {
     this.decorators = L.layerGroup();
 
     this.layer = L.geoJSON(null, {
-      style: () => ({
-        color: '#000000',
-        weight: 2,
-        opacity: 1,
-      }),
+      style: () => pathStyleFromLegend(this.legend),
       interactive: false,
     });
   }
@@ -317,6 +352,13 @@ export class LandOffsetLayer implements MapLayer {
 
     if (!this.isOnMap) {
       map.on('zoomend', this.onZoomEndHandler);
+      if (!this.onInteractionStartHandler) {
+        this.onInteractionStartHandler = () => {
+          if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
+        };
+      }
+      map.on('zoomstart', this.onInteractionStartHandler);
+      map.on('movestart', this.onInteractionStartHandler);
       this.isOnMap = true;
     }
 
@@ -326,6 +368,10 @@ export class LandOffsetLayer implements MapLayer {
   removeFrom(map: L.Map) {
     if (this.onZoomEndHandler) {
       map.off('zoomend', this.onZoomEndHandler);
+    }
+    if (this.onInteractionStartHandler) {
+      map.off('zoomstart', this.onInteractionStartHandler);
+      map.off('movestart', this.onInteractionStartHandler);
     }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     if (map.hasLayer(this.decorators)) map.removeLayer(this.decorators);
@@ -414,7 +460,7 @@ export class LandOffsetLayer implements MapLayer {
                 symbol: (L as any).Symbol.arrowHead({
                   pixelSize: 10,
                   polygon: true,
-                  pathOptions: { color: '#000000', fillColor: '#000000', opacity: 1 },
+                  pathOptions: { color: this.legend.strokeColor || this.legend.color, fillColor: this.legend.strokeColor || this.legend.color, opacity: 1 },
                 }),
               },
               {
@@ -423,7 +469,7 @@ export class LandOffsetLayer implements MapLayer {
                 symbol: (L as any).Symbol.arrowHead({
                   pixelSize: 10,
                   polygon: true,
-                  pathOptions: { color: '#000000', fillColor: '#000000', opacity: 1 },
+                  pathOptions: { color: this.legend.strokeColor || this.legend.color, fillColor: this.legend.strokeColor || this.legend.color, opacity: 1 },
                 }),
               },
             ],
@@ -441,26 +487,21 @@ export class LandBoundaryLayer implements MapLayer {
   id = 'landboundary';
   title = 'Land Boundary';
   visible = true;
+  layerGroup = 'department' as const;
 
   minZoom = 10;
 
-  legend = {
-    type: 'line' as const,
-    color: 'orange',
-    label: 'Land Boundary',
-  };
+  legend = LAND_BOUNDARY_LEGEND;
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
   private isOnMap = false;
   private onZoomEndHandler?: () => void;
+  private requestSeq = 0;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
-      style: {
-        color: 'orange',
-        weight: 3,
-      },
+      style: pathStyleFromLegend(this.legend),
     });
   }
 
@@ -513,9 +554,11 @@ export class LandBoundaryLayer implements MapLayer {
       return;
     }
     this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
 
     this.api.getlandboundary(bbox).subscribe({
       next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
         this.onData?.(geojson);
 
         if (z < this.minZoom) {
@@ -531,3 +574,11 @@ export class LandBoundaryLayer implements MapLayer {
     });
   }
 }
+
+
+
+
+
+
+
+

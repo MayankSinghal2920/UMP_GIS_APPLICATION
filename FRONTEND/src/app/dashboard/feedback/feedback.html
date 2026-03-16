@@ -1,84 +1,97 @@
-<div class="feedback-page">
 
-  <div class="container-fluid">
+<div class="container-fluid feedback-page dashboard-page-shell dashboard-page-shell-compact">
+  <div class="row g-0 justify-content-center">
+    <div class="col-12">
+      <div class="feedback-shell dashboard-page-width">
+        <section class="feedback-hero">
+          <div class="feedback-hero-copy">
+            <p class="feedback-kicker">UMP GIS Application</p>
+            <h1 class="feedback-title">Feedback</h1>
+          </div>
+        </section>
 
-    <div class="page-header text-center">
-      <h2>User Feedback</h2>
-      <p>Share your feedback to help us improve the application.</p>
-    </div>
-
-    <div class="feedback-card">
-
-      <!-- <form > -->
-
-        <fieldset [disabled]="true">
-
-          <div class="row">
-
-            <div class="col-md-3 mb-3">
-              <label>Name</label>
-              <input type="text" class="form-control" [(ngModel)]="user_name" name="name" />
+        <section class="feedback-card dashboard-surface-card">
+          <div class="row g-4 feedback-profile-grid">
+            <div class="col-12 col-md-6">
+              <div class="feedback-field feedback-field-readonly">
+                <label><i class="bi bi-person"></i><span>Name</span></label>
+                <div class="feedback-static-value">{{ user_name || '--' }}</div>
+              </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-              <label>Email</label>
-              <input type="email" class="form-control" [(ngModel)]="email" name="email" />
+            <div class="col-12 col-md-6">
+              <div class="feedback-field feedback-field-readonly">
+                <label><i class="bi bi-envelope"></i><span>Email</span></label>
+                <div class="feedback-static-value">{{ email || '---' }}</div>
+              </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-              <label>Mobile</label>
-              <input type="text" class="form-control" [(ngModel)]="mobile" name="mobile" />
+            <div class="col-12 col-md-6">
+              <div class="feedback-field feedback-field-readonly">
+                <label><i class="bi bi-telephone-fill"></i><span>Mobile</span></label>
+                <div class="feedback-static-value">{{ mobile || '---' }}</div>
+              </div>
             </div>
 
-            <div class="col-md-3 mb-3">
-              <label>User Type</label>
-              <select class="form-control" [(ngModel)]="user_type" name="user_type">
-                <option value="">Select</option>
-                <option value="Admin">Admin</option>
-                <option value="Maker">Maker</option>
-                <option value="Viewer">Viewer</option>
-              </select>
-            </div>
+            <div class="col-12 col-md-6">
+              <div class="feedback-field feedback-field-readonly">
+                <label><i class="bi bi-people"></i><span>User Type</span></label>
+                <div class="feedback-static-value feedback-static-value-select">
+                  <span>{{ user_type || '--' }}</span>
+                  <i class="bi bi-chevron-down"></i>
+                </div>
+              </div>
 
+            </div>
           </div>
 
-        </fieldset>
 
-        <div class="row">
-          <div class="col-12 mb-3">
-            <label>Feedback Message</label>
-            <textarea rows="6" class="form-control"
-              [(ngModel)]="message"
-              name="message"
-              required>
-            </textarea>
+          <div class="row g-0">
+            <div class="col-12">
+              <div class="feedback-message-panel">
+                <div class="feedback-field">
+                  <label for="feedback-message">
+                    <i class="bi bi-chat-left-text"></i>
+                    <span>Feedback Message</span>
+                  </label>
+                  <textarea
+                    id="feedback-message"
+                    class="feedback-textarea"
+                    [(ngModel)]="message"
+                    name="message"
+                    placeholder="Describe what worked well, what felt slow, or what should be improved."
+                    required
+                  ></textarea>
+                </div>
+
+                <div class="feedback-footer">
+                  <div class="feedback-helper-text">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Clear, specific feedback is more actionable than generic comments.</span>
+                  </div>
+
+                  <div class="feedback-submit-wrap">
+                    <button
+                      class="feedback-submit-btn"
+                      (click)="submitFeedback()"
+                      [disabled]="!message"
+                    >
+                      <i class="bi bi-send"></i>
+                      <span>Submit Feedback</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div *ngIf="lastFeedback" class="feedback-success">
+                Feedback submitted successfully.
+              </div>
+            </div>
           </div>
-        </div>
-
-        <button class="btn btn-primary submit-btn" (click)="submitFeedback()" [disabled]="!message">
-          Submit Feedback
-        </button>
-
-      <!-- </form> -->
-
-    </div>
-
-    <!-- Last Feedback -->
-    <!-- <div *ngIf="lastFeedback" class="last-feedback">
-
-      <h4>Last Submitted Feedback</h4>
-
-      <div class="feedback-box">
-
-        <p><b>Name:</b> {{ lastFeedback.user_name }}</p>
-        <p><b>Email:</b> {{ lastFeedback.email }}</p>
-        <p><b>User Type:</b> {{ lastFeedback.user_type }}</p>
-        <p><b>Message:</b> {{ lastFeedback.message }}</p>
-
+        </section>
       </div>
-
-    </div> -->
+    </div>
 
   </div>
-
 </div>
+

@@ -3,6 +3,17 @@
 ================================ -->
 <img src="assets/images/i.jpg" class="bg-map" alt="Map background" />
 
+<div class="train-loader-overlay" *ngIf="showTrainAnimation" [class.fade-out]="loaderFadingOut">
+  <div class="train-loader-card">
+    <img
+      [src]="trainAnimationSrc"
+      class="train-loader-gif"
+      alt="Train loading animation"
+      (error)="onTrainAnimationError($event)"
+    />
+  </div>
+</div>
+
 <!-- ===============================
      LANGUAGE PILL (TOP RIGHT)
 ================================ -->
@@ -14,7 +25,7 @@
 <!-- ===============================
      LOGIN WRAPPER
 ================================ -->
-<div class="login-wrapper">
+<div class="login-wrapper" [class.fade-out]="loginFadingOut">
 
   <!-- ===============================
        PORTAL CARD

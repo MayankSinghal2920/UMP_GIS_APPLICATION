@@ -3,7 +3,7 @@ import { Login } from './components/login/login';
 import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
 import { authGuard } from './guards/auth-guard';
 import { DashboardHome } from './dashboard/dashboard-home/dashboard-home';
-import { HomeComponent } from './components/home/home';
+import { GisDashboardComponent } from './dashboard/gis-dashboard/gis-dashboard';
 import { UserManagementComponent } from './dashboard/user-management/user-management';
 import { adminGuard } from './guards/admin-guard';
 import { Feedback } from './dashboard/feedback/feedback';
@@ -30,7 +30,7 @@ export const routes: Routes = [
         data: { title: 'Dashboard' }
        },
       { path: 'railway-assets', 
-        component: HomeComponent,
+        component: GisDashboardComponent,
         data: {title: 'Railway Asset Editing'}
       },
        {
