@@ -118,6 +118,77 @@ async function markOtpUsed(userId) {
 }
 
 
+//**** One active session per user. Re-login replaces token automically.
+let authSessionTableReady = false;
+// token create if not Exist 
+async function ensureAuthSessionTable() {
+  if (authSessionTableReady) return;
+
+  const sql = `
+    CREATE TABLE IF NOT EXISTS auth_session (
+      user_id VARCHAR(128) PRIMARY KEY,
+      token TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `;
+
+  await pool.query(sql);
+  authSessionTableReady = true;
+}
+
+//JWT token save remove from DB
+async function saveSessionToken(userId, token, expiresAt) {
+  await ensureAuthSessionTable();
+
+  // Upsert keeps only the latest valid token per user.
+  const sql = `
+    INSERT INTO auth_session (user_id, token, expires_at, revoked_at, created_at, updated_at)
+    VALUES ($1, $2, $3, NULL, NOW(), NOW())
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      token = EXCLUDED.token,
+      expires_at = EXCLUDED.expires_at,
+      revoked_at = NULL,
+      updated_at = NOW();
+  `;
+
+  await pool.query(sql, [userId, token, expiresAt]);
+}
+
+async function getSessionToken(userId) {
+  await ensureAuthSessionTable();
+
+  const sql = `
+    SELECT user_id, token, expires_at, revoked_at
+    FROM auth_session
+    WHERE user_id = $1
+    LIMIT 1;
+  `;
+
+  const { rows } = await pool.query(sql, [userId]);
+  return rows[0] || null;
+}
+
+
+async function revokeSessionByToken(userId, token) {
+  await ensureAuthSessionTable();
+
+  // Revoke only the currently presented token for precise logout.
+  const sql = `
+    UPDATE auth_session
+    SET revoked_at = NOW(),
+        updated_at = NOW()
+    WHERE user_id = $1
+      AND token = $2;
+  `;
+
+  await pool.query(sql, [userId, token]);
+}
+
+
 module.exports = {
   findUserById,
   getUserEmailById,
@@ -126,4 +197,7 @@ module.exports = {
   getOtpState,
   incrementOtpAttempts,
   markOtpUsed,
+  saveSessionToken,
+  getSessionToken,
+  revokeSessionByToken,
 };

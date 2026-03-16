@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const authController = require('./auth.controller');
+const authenticateToken = require('../../middleware/auth');
 
 const captchaService = require('../../services/captcha/captchaService'); // ✅ ADD THIS
 
@@ -17,6 +18,9 @@ router.post('/verify-otp', authController.verifyOtp);
 
 // Optional: resend OTP using the same otpRef
 router.post('/resend-otp', authController.resendOtp);
+
+// Logout invalidates current DB-backed token session immediately.
+router.post('/logout', authenticateToken, authController.logout);   // logout routes
 
 /**
  * CAPTCHA

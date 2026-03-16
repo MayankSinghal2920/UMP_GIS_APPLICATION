@@ -1,10 +1,41 @@
 const authModel = require('./auth.model');
 const otpService = require('../../services/otp/otp-service');
+const jwt = require('jsonwebtoken');
 const activeResend = new Map(); // user_id -> true
 
 
 function genOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// Issue Token
+async function issueAccessToken(user) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const err = new Error('JWT_SECRET not configured');
+    err.status = 500;
+    throw err;
+  }
+
+  const expiresIn = process.env.JWT_EXPIRES_IN || '8h';         
+
+  const payload = {
+    // Keep payload minimal; user profile comes from DB-backed APIs.
+    sub: user.user_id,
+    user_id: user.user_id,
+    user_type: user.user_type,
+    division: user.division_code,
+    department: user.department,
+  };
+
+  const token = jwt.sign(payload, secret, { expiresIn });
+  // token and expiry to support server-side invalidation on logout.
+  const decoded = jwt.decode(token);
+  const expMs = Number(decoded?.exp || 0) * 1000;
+  const expiresAt = new Date(expMs);
+
+  await authModel.saveSessionToken(user.user_id, token, expiresAt);
+  return token;
 }
 
 /**
@@ -28,8 +59,12 @@ async function login(req, res, next) {
       throw err;
     }
 
+    const accessToken = await issueAccessToken(user);    // token create
+
     res.json({
-      success: true,
+      success: true, 
+      accessToken,        // token create
+      tokenType: 'Bearer',    // token type 
       user: {
         user_id: user.user_id,
         user_name: user.user_name,
@@ -201,8 +236,12 @@ async function verifyOtp(req, res, next) {
     // ✅ Success: mark used or clear
     await authModel.clearOtp(user_id); // simplest & safest
 
+    const accessToken = await issueAccessToken(user);  // token create
+
     return res.json({
       success: true,
+      accessToken,          // token
+      tokenType: 'Bearer',     // token type
       user: {
         user_id: user.user_id,
         user_name: user.user_name,
@@ -217,7 +256,6 @@ async function verifyOtp(req, res, next) {
     next(err);
   }
 }
-
 
 /**
  * Resend OTP
@@ -288,8 +326,28 @@ async function resendOtp(req, res, next) {
   }
 }
 
+// Logout
 
+async function logout(req, res, next) {
+  try {
+    const userId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const token = String(req?.authToken || '').trim();
 
+    if (!userId || !token) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Immediate invalidation: token remains signed but is rejected by DB session check.
+    await authModel.revokeSessionByToken(userId, token);
+
+    return res.json({
+      success: true,
+      message: 'Logged out successfully',
+    });
+  } catch (err) {
+    return next(err);
+  }
+}
 
 
 
@@ -299,4 +357,5 @@ module.exports = {
   requestOtp,
   verifyOtp,
   resendOtp,
+  logout,
 };

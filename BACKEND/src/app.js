@@ -5,6 +5,7 @@ const path = require('path');
 
 const notFound = require('./middleware/notFound');
 const errorHandler = require('./middleware/errorHandler');
+const authenticateToken = require('./middleware/auth');
 const authRoutes = require('./modules/auth/auth.routes');
 const commonLayersRoutes = require('./modules/common/view/layers/layers.routes');
 const ceaViewRoutes = require('./modules/departments/civilEngineeringAssets/view/layers/layers.routes');
@@ -53,15 +54,15 @@ app.use('/api/auth', authRoutes);
 
 
 // ✅ change these two:
-app.use('/api/common/view/layers', commonLayersRoutes);
-app.use('/api/civil_engineering_assets/view/layers', ceaViewRoutes);
+app.use('/api/common/view/layers', authenticateToken, commonLayersRoutes);
+app.use('/api/civil_engineering_assets/view/layers', authenticateToken, ceaViewRoutes);
 
 // keep as-is
-app.use('/api/civil_engineering_assets/view/dashboard', ceaDashboardRoutes);
-app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
-app.use('/api/rating', ratingRoutes);
+app.use('/api/civil_engineering_assets/view/dashboard', authenticateToken, ceaDashboardRoutes);
+app.use('/api/civil_engineering_assets/edit', authenticateToken, ceaEditRoutes);
+app.use('/api/rating', authenticateToken, ratingRoutes);
 
-app.use('/api/user-management/view/users', userManagementRoutes);
+app.use('/api/user-management/view/users',authenticateToken, userManagementRoutes);
 
 
 
