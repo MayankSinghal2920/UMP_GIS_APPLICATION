@@ -1,19 +1,44 @@
-.feedback-card{
-border-radius:10px;
+.feedback-page {
+  min-height: 100vh;
+  background: #f4f6f9;
+  padding: 30px;
 }
 
-.card{
-border-radius:10px;
+.feedback-card {
+  background: #fff;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
-textarea{
-resize:none;
+.submit-btn {
+  margin-top: 10px;
+  padding: 10px 30px;
+  background: #312f36;
 }
 
-@media (max-width:768px){
-
-.card{
-margin:10px;
+.submit-btn :hover {
+  background-color: #000000;
 }
 
+.last-feedback {
+  margin-top: 30px;
+}
+
+.feedback-box {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.submit-btn {
+  transition: all 0.3s ease;
+}
+
+.submit-btn:not(:disabled):hover {
+  background-color: black;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 10px rgba(0,0,0,0.2);
 }

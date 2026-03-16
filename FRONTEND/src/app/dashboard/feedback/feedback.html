@@ -1,63 +1,38 @@
-<div class="container mt-4">
+<div class="feedback-page">
 
-  <div class="row justify-content-center">
+  <div class="container-fluid">
 
-    <div class="col-lg-6 col-md-8 col-sm-12">
+    <div class="page-header text-center">
+      <h2>User Feedback</h2>
+      <p>Share your feedback to help us improve the application.</p>
+    </div>
 
-      <div class="card shadow-lg feedback-card">
+    <div class="feedback-card">
 
-        <div class="card-header text-center bg-primary text-white">
-          <h4>Add Feedback</h4>
-        </div>
+      <!-- <form > -->
 
-        <div class="card-body">
+        <fieldset [disabled]="true">
 
-          <form (ngSubmit)="submitFeedback()">
+          <div class="row">
 
-            <!-- Name -->
-            <div class="mb-3">
-              <label class="form-label">Name</label>
-              <input
-                type="text"
-                class="form-control"
-                [(ngModel)]="feedbackForm.name"
-                name="name"
-                required
-              />
+            <div class="col-md-3 mb-3">
+              <label>Name</label>
+              <input type="text" class="form-control" [(ngModel)]="user_name" name="name" />
             </div>
 
-            <!-- Email -->
-            <div class="mb-3">
-              <label class="form-label">Email</label>
-              <input
-                type="email"
-                class="form-control"
-                [(ngModel)]="feedbackForm.email"
-                name="email"
-                required
-              />
+            <div class="col-md-3 mb-3">
+              <label>Email</label>
+              <input type="email" class="form-control" [(ngModel)]="email" name="email" />
             </div>
 
-            <!-- Mobile -->
-            <div class="mb-3">
-              <label class="form-label">Mobile</label>
-              <input
-                type="text"
-                class="form-control"
-                [(ngModel)]="feedbackForm.mobile"
-                name="mobile"
-              />
+            <div class="col-md-3 mb-3">
+              <label>Mobile</label>
+              <input type="text" class="form-control" [(ngModel)]="mobile" name="mobile" />
             </div>
 
-            <!-- User Type -->
-            <div class="mb-3">
-              <label class="form-label">User Type</label>
-
-              <select
-                class="form-control"
-                [(ngModel)]="feedbackForm.user_type"
-                name="user_type"
-              >
+            <div class="col-md-3 mb-3">
+              <label>User Type</label>
+              <select class="form-control" [(ngModel)]="user_type" name="user_type">
                 <option value="">Select</option>
                 <option value="Admin">Admin</option>
                 <option value="Maker">Maker</option>
@@ -65,50 +40,44 @@
               </select>
             </div>
 
-            <!-- Message -->
-            <div class="mb-3">
-              <label class="form-label">Feedback Message</label>
+          </div>
 
-              <textarea
-                rows="4"
-                class="form-control"
-                [(ngModel)]="feedbackForm.message"
-                name="message"
-                required
-              ></textarea>
-            </div>
+        </fieldset>
 
-            <button class="btn btn-primary w-100">
-              Submit Feedback
-            </button>
-
-          </form>
-
+        <div class="row">
+          <div class="col-12 mb-3">
+            <label>Feedback Message</label>
+            <textarea rows="6" class="form-control"
+              [(ngModel)]="message"
+              name="message"
+              required>
+            </textarea>
+          </div>
         </div>
 
-      </div>
+        <button class="btn btn-primary submit-btn" (click)="submitFeedback()" [disabled]="!message">
+          Submit Feedback
+        </button>
 
-
-      <!-- Last Feedback -->
-      <div *ngIf="lastFeedback" class="card mt-4 shadow">
-
-        <div class="card-header bg-success text-white">
-          Last Feedback Submitted
-        </div>
-
-        <div class="card-body">
-
-          <p><b>Name:</b> {{ lastFeedback.user_name }}</p>
-          <p><b>Email:</b> {{ lastFeedback.email }}</p>
-          <p><b>User Type:</b> {{ lastFeedback.user_type }}</p>
-          <p><b>Message:</b> {{ lastFeedback.message }}</p>
-          <p><b>Date:</b> {{ lastFeedback.created_at | date:'medium' }}</p>
-
-        </div>
-
-      </div>
+      <!-- </form> -->
 
     </div>
+
+    <!-- Last Feedback -->
+    <!-- <div *ngIf="lastFeedback" class="last-feedback">
+
+      <h4>Last Submitted Feedback</h4>
+
+      <div class="feedback-box">
+
+        <p><b>Name:</b> {{ lastFeedback.user_name }}</p>
+        <p><b>Email:</b> {{ lastFeedback.email }}</p>
+        <p><b>User Type:</b> {{ lastFeedback.user_type }}</p>
+        <p><b>Message:</b> {{ lastFeedback.message }}</p>
+
+      </div>
+
+    </div> -->
 
   </div>
 
