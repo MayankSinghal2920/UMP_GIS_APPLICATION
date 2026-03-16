@@ -14,6 +14,7 @@ const userManagementRoutes = require('./modules/user-management/view/users/users
 const ratingRoutes = require('./modules/rating/rating.routes');
 const feedbackRoutes = require('./modules/feedback/feedback.routes');
 
+
 const app = express();
 
 app.use(cors({
@@ -48,6 +49,7 @@ app.use('/api/civil_engineering_assets/edit', ceaEditRoutes);
 app.use('/api/rating', ratingRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/user-management/view/users', userManagementRoutes);
+// app.use('/api/user-management/view/users', usersRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
