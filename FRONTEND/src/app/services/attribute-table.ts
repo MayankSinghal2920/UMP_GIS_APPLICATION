@@ -49,6 +49,8 @@ export class AttributeTableService {
   private _clearSelection = new Subject<void>();
   clearSelection$ = this._clearSelection.asObservable();
 
+  private materializeTimer: ReturnType<typeof setTimeout> | null = null;
+
   setTabs(tabs: LayerKey[]) {
     const uniqueTabs = Array.from(new Set(tabs.filter(Boolean)));
     const nextTabs = uniqueTabs.length ? uniqueTabs : ['Km Post', 'Railway Track'];
@@ -70,18 +72,18 @@ export class AttributeTableService {
 
   setActive(tab: LayerKey) {
     this._active.next(tab);
-    if (this._open.getValue()) this.materializeTab(tab);
+    if (this._open.getValue()) this.scheduleMaterialize(tab);
   }
 
   toggle() {
     const next = !this._open.getValue();
     this._open.next(next);
-    if (next) this.materializeTab(this._active.getValue());
+    if (next) this.scheduleMaterialize(this._active.getValue());
   }
 
   show() {
     this._open.next(true);
-    this.materializeTab(this._active.getValue());
+    this.scheduleMaterialize(this._active.getValue());
   }
 
   hide() {
@@ -110,7 +112,7 @@ export class AttributeTableService {
     this._datasets.next(next);
 
     if (this._open.getValue() && this._active.getValue() === tab) {
-      this.materializeTab(tab);
+      this.scheduleMaterialize(tab);
     }
   }
 
@@ -134,6 +136,17 @@ export class AttributeTableService {
   clearSelection() {
     this._selected.next(null);
     this._clearSelection.next();
+  }
+
+  private scheduleMaterialize(tab: LayerKey) {
+    if (this.materializeTimer) {
+      clearTimeout(this.materializeTimer);
+    }
+
+    this.materializeTimer = setTimeout(() => {
+      this.materializeTimer = null;
+      this.materializeTab(tab);
+    }, 0);
   }
 
   private materializeTab(tab: LayerKey) {
