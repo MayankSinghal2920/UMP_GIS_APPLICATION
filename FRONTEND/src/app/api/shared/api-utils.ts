@@ -1,7 +1,7 @@
 import { HttpParams } from '@angular/common/http';
 import { getCurrentUserSnapshot } from '../../services/current-user.store';
 
-export const BASE_URL = '';
+export const BASE_URL = 'http://127.0.0.1:4000';
 
 export function getDivision(): string {
   return (getCurrentUserSnapshot()?.division || '').trim();

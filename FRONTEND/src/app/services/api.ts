@@ -215,9 +215,9 @@ export class Api {
 
 
 
-addFeedBack(obj: any){
-return this.http.post(this.BASE_URL + "v1/api/feedback/create", obj)
-}
+// addFeedBack(obj: any){
+// return this.http.post(this.BASE_URL + "v1/api/feedback/create", obj)
+// }
 
 
 getMakerCheckerList() {
