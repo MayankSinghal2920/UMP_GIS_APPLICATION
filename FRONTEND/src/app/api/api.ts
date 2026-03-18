@@ -4,6 +4,7 @@ import { CommonDashboardApi } from './common/dashboard/dashboard.api';
 import { CommonViewingApi } from './common/viewing/common-viewing.api';
 import { CivilEngineeringAssetsViewingApi } from './civil_engineering_assets/viewing/viewing.api';
 import { CivilEngineeringAssetsEditingApi } from './civil_engineering_assets/editing/editing.api';
+import { FeedbackApi } from './feedback/feedback.api';
 import { RatingApi } from './rating/rating.api';
 
 @Injectable({ providedIn: 'root' })
@@ -14,6 +15,7 @@ export class Api {
     private commonDashboardApi: CommonDashboardApi,
     private ceaViewingApi: CivilEngineeringAssetsViewingApi,
     private ceaEditingApi: CivilEngineeringAssetsEditingApi,
+    private feedbackApi: FeedbackApi,
     private ratingApi: RatingApi
   ) {}
 
@@ -66,6 +68,9 @@ export class Api {
   }
   getStationByCode(code: string) {
     return this.ceaEditingApi.getStationByCode(code);
+  }
+  validateStationCode(code: string) {
+    return this.ceaEditingApi.validateStationCode(code);
   }
 
   // auth
@@ -126,5 +131,9 @@ export class Api {
   }
   getRating(obj: any) {
     return this.ratingApi.getRating(obj);
+  }
+
+  addFeedBack(obj: any) {
+    return this.feedbackApi.addFeedBack(obj);
   }
 }

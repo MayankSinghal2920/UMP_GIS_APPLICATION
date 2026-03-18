@@ -1,11 +1,7 @@
-<div class="container-fluid user-management-page h-100">
-
-  <div class="row full-height h-100">
-
-    <!-- ================= LEFT PANEL ================= -->
-    <div class="col-lg-3 col-md-4 d-flex">
-      <div class="left-panel-box">
-
+<div class="container-fluid user-management-page dashboard-page-shell">
+  <div class="row g-4 h-100">
+    <div class="col-12 col-lg-4 col-xl-3 d-flex">
+      <div class="left-panel-box w-100">
         <div class="card welcome-card text-center mb-3">
           <div class="card-body py-2">
             <h6 class="mb-0">Hi, admin delhi civil</h6>
@@ -21,37 +17,48 @@
           </div>
         </div>
 
-<div
-  class="stats-card card mb-2"
-  *ngFor="let stat of stats"
-  (click)="filterByRole(stat.label)"
-  [class.active-filter]="activeRoleFilter === stat.label"
->          <div class="card-body stats-body">
-            <div class="stats-label">{{ stat.label }}</div>
-            <div class="stats-value">{{ stat.value }}</div>
+        <div class="row g-2 stats-grid">
+          <div class="col-12 col-sm-6 col-lg-12" *ngFor="let stat of stats">
+            <div
+              class="stats-card card h-100"
+              (click)="filterByRole(stat.label)"
+              [class.active-filter]="activeRoleFilter === stat.label"
+            >
+              <div class="card-body stats-body">
+                <div class="stats-label">{{ stat.label }}</div>
+                <div class="stats-value">{{ stat.value }}</div>
+              </div>
+            </div>
           </div>
         </div>
-
       </div>
     </div>
 
-    <!-- ================= RIGHT PANEL ================= -->
-    <div class="col-lg-9 col-md-8 d-flex">
-
-      <div class="card main-card">
-
+    <div class="col-12 col-lg-8 col-xl-9 d-flex">
+      <div class="card main-card w-100">
         <div class="card-body d-flex flex-column">
+          <div class="row g-3 align-items-center mb-3">
+            <div class="col-12 col-xl">
+              <h5 class="mb-0">User List / Layer Assign</h5>
+            </div>
+
 
           <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
             <h5 class="mb-2">User List / Layer Assign</h5>
 
-            <div class="action-buttons">
-              <button class="btn btn-warning btn-sm me-2 mb-2">+ Assign Layer</button>
-              <button class="btn btn-warning btn-sm me-2 mb-2">+ Assign Checker</button>
-            </div>
+           <div class="action-buttons">
+  <button class="btn action-btn me-2 mb-2">+ Assign Layer</button>
+<button
+  class="btn action-btn me-2 mb-2"
+  (click)="openAssignCheckerModal()"
+>
+  + Assign Checker
+</button>
+</div>
+
           </div>
 
-          <ul class="nav nav-tabs mb-3">
+          <ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto user-tabs">
             <li class="nav-item">
               <a class="nav-link active">User List</a>
             </li>
@@ -63,69 +70,112 @@
             </li>
           </ul>
 
-          <!-- SEARCH -->
-          <div class="d-flex justify-content-end mb-3">
-            <input
-              type="text"
-              class="form-control form-control-sm"
-              style="max-width: 250px;"
-              placeholder="Search"
-              [(ngModel)]="searchText"
-              (input)="searchUsers()"
-            />
+          <div class="row g-3 align-items-center mb-3">
+            <div class="col-12 col-md-6 col-xl-4 ms-xl-auto">
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="Search"
+                [(ngModel)]="searchText"
+                (input)="searchUsers()"
+              />
+            </div>
           </div>
 
+
           <!-- TABLE -->
-          <div class="table-responsive flex-grow-1">
+<div class="table-responsive flex-grow-1">
 
-  <table class="table table-bordered table-striped table-sm align-middle">
+<table class="table user-table align-middle">
 
-    <thead class="table-light">
-      <tr>
-        <th>#</th>
-        <th>User Name</th>
-        <th>User Type</th>
-        <th>Unit Type</th>
-        <th>Zone</th>
-        <th>Division</th>
-        <th>Department</th>
-        <th>HRMS ID</th>
-        <th>Designation</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
+<thead>
+<tr>
+<th>#</th>
 
-    <tbody>
+<th>
+User Name
+<span class="sort-icons">▲▼</span>
+</th>
 
-      <tr *ngFor="let user of paginatedUsers; index as i; trackBy: trackById">
-        <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
-        <td>{{ user.user_name }}</td>
-        <td>{{ user.user_type }}</td>
-        <td>{{ user.unit_type }}</td>
-        <td>{{ user.zone }}</td>
-        <td>{{ user.division }}</td>
-        <td>{{ user.department_id }}</td>
-        <td>{{ user.hrmsid }}</td>
-        <td>{{ user.designation }}</td>
-        <td>
-          <button class="btn btn-sm btn-primary me-1">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button class="btn btn-sm btn-danger">
-            <i class="bi bi-trash"></i>
-          </button>
-        </td>
-      </tr>
+<th>
+User Type
+<span class="sort-icons">▲▼</span>
+</th>
 
-      <tr *ngIf="paginatedUsers.length === 0">
-        <td colspan="10" class="text-center text-muted">
-          No users found
-        </td>
-      </tr>
+<th>
+Unit Type
+<span class="sort-icons">▲▼</span>
+</th>
 
-    </tbody>
+<th>
+Zone
+<span class="sort-icons">▲▼</span>
+</th>
 
-  </table>
+<th>
+Division
+<span class="sort-icons">▲▼</span>
+</th>
+
+<th>
+Department
+<span class="sort-icons">▲▼</span>
+</th>
+
+<th>
+HRMS ID
+<span class="sort-icons">▲▼</span>
+</th>
+
+<th>
+Designation
+<span class="sort-icons">▲▼</span>
+</th>
+
+<th>Actions</th>
+
+</tr>
+</thead>
+
+<tbody>
+
+<tr *ngFor="let user of paginatedUsers; index as i; trackBy: trackById">
+
+<td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+
+<td>{{ user.user_name }}</td>
+<td>{{ user.user_type }}</td>
+<td>{{ user.unit_type }}</td>
+<td>{{ user.zone }}</td>
+<td>{{ user.division }}</td>
+<td>{{ user.department_id }}</td>
+<td>{{ user.hrmsid }}</td>
+<td>{{ user.designation }}</td>
+
+<td class="action-buttons">
+
+<button class="btn-action btn-edit">
+<i class="bi bi-pencil-fill"></i>
+</button>
+
+<button class="btn-action btn-delete">
+<i class="bi bi-trash-fill"></i>
+</button>
+
+</td>
+
+</tr>
+
+<tr *ngIf="paginatedUsers.length === 0">
+<td colspan="10" class="text-center text-muted">
+No users found
+</td>
+</tr>
+
+</tbody>
+
+</table>
+
 </div>
 
 
@@ -156,8 +206,99 @@
   </div>
 
 </div>
-    </div>
 
+    </div>
   </div>
+</div>
+
 
 </div>
+
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showAssignCheckerModal"
+>
+
+<div class="assign-checker-modal">
+
+<div class="modal-header">
+
+<h5>Assign Checker</h5>
+
+<button class="close-btn" (click)="closeAssignCheckerModal()">✕</button>
+
+</div>
+
+<hr>
+
+<div class="row">
+
+<div class="col-md-6">
+
+<label>Maker</label>
+
+<select
+  class="form-control"
+  [(ngModel)]="selectedMaker"
+>
+
+<option [ngValue]="null">Select Maker</option>
+
+<option
+  *ngFor="let maker of makers"
+  [ngValue]="maker.objectid"
+>
+{{ maker.user_name }}
+</option>
+
+</select>
+
+</div>
+
+<div class="col-md-6">
+
+<label>Checker</label>
+
+<select
+  class="form-control"
+  [(ngModel)]="selectedChecker"
+  [disabled]="!selectedMaker"
+>
+
+<option [ngValue]="null">
+Please select a maker first
+</option>
+
+<option
+  *ngFor="let checker of checkers"
+  [ngValue]="checker.objectid"
+>
+{{ checker.user_name }}
+</option>
+
+</select>
+
+</div>
+
+</div>
+
+<div class="modal-actions">
+
+<button class="btn btn-orange" (click)="assignChecker()">
+  Add
+</button>
+
+<button
+  class="btn btn-outline-secondary"
+  (click)="closeAssignCheckerModal()"
+>
+Cancel
+</button>
+
+</div>
+
+</div>
+
+</div>
+

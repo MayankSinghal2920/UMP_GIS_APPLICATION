@@ -6,9 +6,10 @@ import { UiState } from '../../services/ui-state';
 
 @Component({
   selector: 'app-legend-panel',
+  standalone: true,
   imports: [CommonModule],
   templateUrl: './legend-panel.html',
-  styleUrl: './legend-panel.css',
+  styleUrls: ['./legend-panel.css'],
 })
 export class LegendPanel {
     constructor(

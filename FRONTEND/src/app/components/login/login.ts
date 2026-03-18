@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
@@ -18,8 +18,13 @@ type Step = 'LOGIN' | 'OTP';
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
-export class Login implements OnInit, AfterViewInit {
+export class Login implements OnInit, AfterViewInit, OnDestroy {
   loginStep: Step = 'LOGIN';
+  showTrainAnimation = false;
+  trainAnimationSrc = '/assets/images/Train.gif';
+  trainAnimationReady = false;
+  loginFadingOut = false;
+  loaderFadingOut = false;
 
   // Step 1
   username = '';
@@ -43,6 +48,8 @@ export class Login implements OnInit, AfterViewInit {
   private captchaLoading = false;
 
   private errorTimer: any = null;
+  private redirectTimer: any = null;
+  private finalRedirectTimer: any = null;
 
   constructor(
     private auth: Auth,
@@ -61,7 +68,9 @@ export class Login implements OnInit, AfterViewInit {
       });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.preloadTrainAnimation();
+  }
 
   ngAfterViewInit(): void {
     setTimeout(() => this.loadCaptcha('ngAfterViewInit'), 0);
@@ -254,7 +263,7 @@ verifyOtp() {
       this.loading = false;
 
       if (res?.success) {
-        this.router.navigateByUrl('/dashboard');
+        this.startPostLoginAnimation();
       } else {
         this.showError(res?.message || 'Invalid OTP');
       }
@@ -307,5 +316,57 @@ verifyOtp() {
         this.showError(err?.error?.message || 'Server error while resending OTP');
       },
     });
+  }
+
+  private preloadTrainAnimation() {
+    const image = new Image();
+    image.onload = () => {
+      this.zone.run(() => {
+        this.trainAnimationReady = true;
+        this.cdr.markForCheck();
+      });
+    };
+    image.onerror = () => {
+      this.zone.run(() => {
+        this.trainAnimationReady = false;
+      });
+    };
+    image.src = this.trainAnimationSrc;
+  }
+
+  private startPostLoginAnimation() {
+    this.loginFadingOut = true;
+    this.showTrainAnimation = true;
+    this.cdr.detectChanges();
+
+    requestAnimationFrame(() => {
+      this.redirectTimer = setTimeout(() => {
+        this.loaderFadingOut = true;
+        this.cdr.detectChanges();
+      }, 1100);
+
+      this.finalRedirectTimer = setTimeout(() => {
+        this.router.navigateByUrl('/dashboard');
+      }, 1450);
+    });
+  }
+
+  onTrainAnimationError(_event: Event) {
+    this.trainAnimationReady = false;
+  }
+
+  ngOnDestroy(): void {
+    if (this.errorTimer) {
+      clearTimeout(this.errorTimer);
+      this.errorTimer = null;
+    }
+    if (this.redirectTimer) {
+      clearTimeout(this.redirectTimer);
+      this.redirectTimer = null;
+    }
+    if (this.finalRedirectTimer) {
+      clearTimeout(this.finalRedirectTimer);
+      this.finalRedirectTimer = null;
+    }
   }
 }

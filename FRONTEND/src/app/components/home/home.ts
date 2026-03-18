@@ -3,15 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 
-import { Map } from '../map/map';
+import { GisDashboardComponent } from '../../dashboard/gis-dashboard/gis-dashboard';
 import { UiState } from '../../services/ui-state';
 import { EditState } from '../../services/edit-state';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, Map],
-  template: `<app-map></app-map>`,
+  imports: [CommonModule, GisDashboardComponent],
+  template: `<app-gis-dashboard></app-gis-dashboard>`,
 })
 export class HomeComponent implements OnInit, OnDestroy {
   private qpSub?: Subscription;

@@ -45,5 +45,12 @@ export class CivilEngineeringAssetsEditingApi {
     const c = String(code || '').trim().toUpperCase();
     return this.http.get<any>(`${BASE_URL}/api/station_codes/${encodeURIComponent(c)}`);
   }
+
+  validateStationCode(code: string): Observable<any> {
+    const station_code = String(code || '').trim().toUpperCase();
+    return this.http.post<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/validate`, {
+      station_code,
+    });
+  }
 }
 

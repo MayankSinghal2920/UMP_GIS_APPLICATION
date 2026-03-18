@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require('./edit.controller');
 
+router.post('/station/validate', controller.validateStation);
 router.get('/:layer/table', controller.getTable);
 router.get('/:layer/:id', controller.getById);
 

@@ -1,37 +1,10 @@
-/* =========================================================
-   SAFETY RESET
-   ========================================================= */
-html,
-body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-/* =========================================================
-   HOST (Map component root)
-   ========================================================= */
 :host {
   display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
-
-  /* layout variables */
-  --widget-width: 56px;
-  --widget-gap: 10px;
-
-  /* panel widths (default vs edit) */
-  --panel-width: 420px;
-  --panel-width-edit: 600px;
-
-  /* computed at runtime via .panel-open / :has() */
-  --current-panel-width: 0px;
 }
 
-/* =========================================================
-   MAP CARD RESET
-   ========================================================= */
 .map-card,
 .map-card > .card-body,
 .map-card-body {
@@ -44,16 +17,13 @@ body {
 }
 
 .map-card {
-  height: 100%;
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-/* =========================================================
-   MAP BODY
-   ========================================================= */
 .map-card-body {
   position: relative;
   flex: 1 1 auto;
@@ -62,32 +32,13 @@ body {
   height: 100%;
 }
 
-/* =========================================================
-   MAP CONTAINER
-   ========================================================= */
 .map-container {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-
-  /* default (no panel open) */
-  --current-panel-width: 0px;
 }
 
-/* when any right panel is open -> default width */
-.map-container.panel-open {
-  --current-panel-width: var(--panel-width);
-}
-
-/* when edit panel is open -> wider width */
-.map-container.panel-open:has(.right-panel.edit.open) {
-  --current-panel-width: var(--panel-width-edit);
-}
-
-/* =========================================================
-   LEAFLET TARGET (BELOW UI)
-   ========================================================= */
 #map {
   position: absolute;
   inset: 0;
@@ -104,167 +55,10 @@ body {
   height: 100%;
 }
 
-/* =========================================================
-   RIGHT DOCK (CONTAINS RAIL + PANEL)
-   NOTE: Panel styling is now GLOBAL in styles.css
-   ========================================================= */
-.right-dock {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-
-  z-index: 1000;
-  pointer-events: none; /* map clicks pass through */
-}
-
-.right-dock .widget-rail,
-.right-dock .right-panel {
-  pointer-events: auto;
-}
-
-/* =========================================================
-   WIDGET RAIL (EXTREME RIGHT; DOES NOT SHIFT)
-   ========================================================= */
-.widget-rail {
-  position: absolute;
-  top: 50%;
-  right: 12px;
-  transform: translateY(-50%);
-
-  width: var(--widget-width);
-  padding: 10px 6px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
-
-  background: rgba(17, 24, 39, 0.95);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-
-  z-index: 1002;
-}
-
-.widget-rail button {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-
-  transition: background 0.15s ease, transform 0.08s ease;
-}
-
-.widget-rail button:hover {
-  background: rgba(255, 255, 255, 0.18);
-  transform: translateY(-1px);
-}
-
-.widget-rail button.active {
-  background: #f97316;
-}
-
-/* =========================================================
-   RIGHT SIDEBAR PANEL (OPENS LEFT OF RAIL)
-   Width changes based on active widget.
-   Visual styling handled by global .panel theme in styles.css
-   ========================================================= */
-.right-panel {
-  position: absolute;
-
-  /* ⬇⬇ increase panel height */
-  top: 4px;          /* was 11px */
-  bottom: 8px;       /* was 32px */
-
-  right: calc(12px + var(--widget-width) + var(--widget-gap));
-  width: var(--current-panel-width);
-
-  z-index: 1001;
-
-  /* hidden state */
-  opacity: 0;
-  transform: translateX(12px);
-  pointer-events: none;
-
-  transition: transform 220ms ease, opacity 220ms ease;
-}
-
-
-/* =========================================================
-   Shift EDIT panel slightly more to the left
-   ========================================================= */
-.right-panel.edit {
-  right: calc(
-    12px +
-    var(--widget-width) +
-    var(--widget-gap) +
-    150px   /* ← adjust this value */
-  );
-}
-
-/* open state */
-.right-panel.open {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-/* =========================================================
-   IMPORTANT:
-   Remove/avoid panel styling here.
-   All .panel / .panel-header / close button styling is in styles.css
-   ========================================================= */
-
-/* =========================================================
-   ATTRIBUTE TABLE (BOTTOM DOCK)
-   ========================================================= */
-.attr-dock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  z-index: 3000;
-  background: #fff;
-}
-
-/* =========================================================
-   LEAFLET UI SAFETY
-   ========================================================= */
 :host ::ng-deep .leaflet-control {
   z-index: 600;
 }
 
 :host ::ng-deep .leaflet-container {
   background: #e5e7eb;
-}
-
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
-@media (max-width: 900px) {
-  :host {
-    --panel-width: calc(100vw - 90px);
-    --panel-width-edit: calc(100vw - 90px);
-  }
-
-  .right-panel {
-    top: 80px;
-    bottom: 80px;
-  }
-
-  .widget-rail {
-    top: auto;
-    bottom: 80px;
-    transform: none;
-  }
 }
