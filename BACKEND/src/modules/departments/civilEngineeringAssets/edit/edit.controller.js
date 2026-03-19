@@ -1,8 +1,6 @@
 const configMap = require('./edit.config');
 const model = require('./edit.model');
 
-/* ========== Resolve Layer Config ========== */
-
 function resolveConfig(layer) {
   const config = configMap[layer];
   if (!config) {
@@ -12,8 +10,6 @@ function resolveConfig(layer) {
   }
   return config;
 }
-
-/* ========== GET BY ID ========== */
 
 async function getById(req, res, next) {
   try {
@@ -41,8 +37,6 @@ async function getById(req, res, next) {
   }
 }
 
-/* ========== CREATE ========== */
-
 async function create(req, res, next) {
   try {
     const { layer } = req.params;
@@ -63,8 +57,6 @@ async function create(req, res, next) {
   }
 }
 
-/* ========== UPDATE ========== */
-
 async function update(req, res, next) {
   try {
     const { layer, id } = req.params;
@@ -77,12 +69,7 @@ async function update(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-    const row = await model.update(
-      config,
-      Number(id),
-      division,
-      req.body
-    );
+    const row = await model.update(config, Number(id), division, req.body);
 
     if (!row) {
       const err = new Error('Record not found');
@@ -96,8 +83,6 @@ async function update(req, res, next) {
   }
 }
 
-/* ========== DELETE ========== */
-
 async function remove(req, res, next) {
   try {
     const { layer, id } = req.params;
@@ -110,11 +95,7 @@ async function remove(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-    const deleted = await model.remove(
-      config,
-      Number(id),
-      division
-    );
+    const deleted = await model.remove(config, Number(id), division);
 
     if (!deleted) {
       const err = new Error('Record not found');
@@ -127,8 +108,6 @@ async function remove(req, res, next) {
     next(err);
   }
 }
-
-/* ========== TABLE ========== */
 
 async function getTable(req, res, next) {
   try {
@@ -143,22 +122,12 @@ async function getTable(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-
-    const result = await model.getTable(
-      config,
-      page,
-      pageSize,
-      q,
-      division
-    );
-
+    const result = await model.getTable(config, page, pageSize, q, division);
     res.json(result);
   } catch (err) {
     next(err);
   }
 }
-
-/* ========== VALIDATE STATION ========== */
 
 async function validateStation(req, res, next) {
   try {
@@ -189,6 +158,43 @@ async function validateStation(req, res, next) {
   }
 }
 
+async function sendStationEdit(req, res, next) {
+  try {
+    const config = resolveConfig('station');
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const division = String(req.query.division || '').trim();
+    const { id } = req.params;
+
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const result = await model.sendStationEdit(config, Number(id), division, req.body || {}, makerUserId);
+
+    if (!result) {
+      const err = new Error('Record not found');
+      err.status = 404;
+      throw err;
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Station edit sent to checker',
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getById,
   create,
@@ -196,4 +202,5 @@ module.exports = {
   remove,
   getTable,
   validateStation,
+  sendStationEdit,
 };

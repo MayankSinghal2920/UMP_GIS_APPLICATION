@@ -25,7 +25,7 @@ export class CivilEngineeringAssetsEditingApi {
   }
 
   sendStationEdit(id: number, payload: any) {
-    return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}/send`, payload, {
+    return this.http.post(${BASE_URL}/api/civil_engineering_assets/edit/station//send, payload, {
       params: { division: getDivision() },
     });
   }
@@ -59,3 +59,4 @@ export class CivilEngineeringAssetsEditingApi {
     });
   }
 }
+

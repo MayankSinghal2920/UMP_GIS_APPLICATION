@@ -419,9 +419,50 @@ export class EditPanel implements OnInit, OnDestroy {
     if (!this.draft?.objectid) { this.error = 'Station id missing'; this.cdr.detectChanges(); return; }
     const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
-    const payload = { stationtype: this.draft.stationtype, distkm: this.draft.distkm, distm: this.draft.distm, state: this.draft.state, district: this.draft.district, constituency: this.draft.constituency, lat, lng, lon: lng, longitude: lng, latitude: lat };
+    const payload = {
+      sttncode: this.draft.sttncode,
+      sttnname: this.draft.sttnname,
+      sttntype: this.draft.stationtype,
+      category: this.draft.category,
+      distkm: this.draft.distkm,
+      distm: this.draft.distm,
+      state: this.draft.state,
+      district: this.draft.district,
+      constituncy: this.draft.constituency,
+      lat,
+      lng,
+      lon: lng,
+      longitude: lng,
+      latitude: lat,
+      xcoord: lng,
+      ycoord: lat,
+    };
     this.saving = true;
-    this.api.updateStation(this.draft.objectid, payload).subscribe({ next: () => { this.saving = false; this.mode = 'table'; this.draft = null; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight(); setTimeout(() => this.load(false), 0); this.cdr.detectChanges(); }, error: () => { this.saving = false; this.error = 'Failed to save changes'; this.cdr.detectChanges(); } });
+    const rawStatus = this.originalDraft?.status == null ? '' : String(this.originalDraft.status).trim().toLowerCase();
+    const request$ = !rawStatus
+      ? this.api.sendStationEdit(this.draft.objectid, payload)
+      : this.api.updateStation(this.draft.objectid, payload);
+    request$.subscribe({
+      next: () => {
+        this.saving = false;
+        this.mode = 'table';
+        this.draft = null;
+        this.originalDraft = null;
+        this.stationValidated = false;
+        this.geomEditing = false;
+        this.dragSub?.unsubscribe();
+        this.dragSub = undefined;
+        this.mapZoom.zoomHome();
+        this.mapZoom.clearHighlight();
+        setTimeout(() => this.load(false), 0);
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.saving = false;
+        this.error = err?.error?.message || err?.error?.error || 'Failed to save changes';
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   validateStationCode() {
