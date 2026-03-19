@@ -30,6 +30,12 @@ export class CivilEngineeringAssetsEditingApi {
     });
   }
 
+  sendNewStationEdit(payload: any) {
+    return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/send-new`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
   deleteStation(id: number) {
     return this.http.delete(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, {
       params: { division: getDivision() },

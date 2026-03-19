@@ -63,6 +63,9 @@ export class Api {
   createStation(payload: any) {
     return this.ceaEditingApi.createStation(payload);
   }
+  sendNewStationEdit(payload: any) {
+    return this.ceaEditingApi.sendNewStationEdit(payload);
+  }
   getStationById(id: number) {
     return this.ceaEditingApi.getStationById(id);
   }

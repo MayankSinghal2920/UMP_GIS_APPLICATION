@@ -104,7 +104,7 @@
     <ng-container *ngIf="currentTableLayer && mode === 'table'">
 
       <div class="toolbar">
-        <button class="add-btn" *ngIf="!isMakerRejectedView()">Add New Record</button>
+        <button class="add-btn" *ngIf="!isMakerRejectedView() && currentTableLayer === 'stations'" (click)="startAddStation()">Add New Record</button>
         <div class="spacer"></div>
         <label class="search">Search:</label>
         <input
@@ -397,3 +397,4 @@
 
   </div>
 </div>
+

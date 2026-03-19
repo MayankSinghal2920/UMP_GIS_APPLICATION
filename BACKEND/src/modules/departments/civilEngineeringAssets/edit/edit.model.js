@@ -78,9 +78,12 @@ async function getDraftAssignments(client, makerUserId, fallbackDivision) {
   const makerSql = `
     SELECT
       u.department_id,
+      u.user_name,
+      dept.department,
       COALESCE(d.divcode, $2) AS division_code
     FROM user_master u
     LEFT JOIN div_master d ON u.div_id = d.div_id
+    LEFT JOIN sde.department_table dept ON u.department_id = dept.department_id
     WHERE u.user_id = $1
     LIMIT 1
   `;
@@ -106,6 +109,8 @@ async function getDraftAssignments(client, makerUserId, fallbackDivision) {
 
   const { rows } = await client.query(assignmentSql, [maker.department_id ?? null, maker.division_code || fallbackDivision]);
   return {
+    makerUserName: maker.user_name ? String(maker.user_name).trim() : makerUserId,
+    makerDepartment: maker.department ? String(maker.department).trim() : null,
     checkerUserId: rows[0]?.checker_user_id ? String(rows[0].checker_user_id).trim() : null,
     approverUserId: rows[0]?.approver_user_id ? String(rows[0].approver_user_id).trim() : null,
   };
@@ -140,35 +145,50 @@ async function getById(config, id, division) {
 }
 
 async function create(config, data, division) {
-  const fields = [...config.insertFields];
+  const insertColumns = [config.idColumn, 'globalid'];
+  const placeholders = [];
   const values = [];
 
-  const globalid = generateGUID();
-  fields.unshift('globalid');
-  values.push(globalid);
+  const nextId = config.idStrategy === 'manual'
+    ? await getNextManualId(pool, config.table, config.idColumn)
+    : null;
 
-  let idSql = '';
-  if (config.idStrategy === 'manual') {
-    idSql = `(SELECT COALESCE(MAX(${config.idColumn}),0)+1 FROM ${config.table})`;
-  }
+  values.push(nextId);
+  placeholders.push(`$${values.length}`);
+
+  values.push(generateGUID());
+  placeholders.push(`$${values.length}`);
 
   config.insertFields.forEach((field) => {
+    insertColumns.push(field);
     values.push(data[field] ?? null);
+    placeholders.push(`$${values.length}`);
   });
 
-  fields.push('division');
+  insertColumns.push('division');
   values.push(division);
+  placeholders.push(`$${values.length}`);
 
-  const placeholders = values.map((_, i) => `$${i + 1}`).join(',');
+  if (config.geometry?.enabled && config.geometry.column) {
+    const x = Number(data?.[config.geometry.xField] ?? data?.xcoord ?? data?.lng ?? data?.longitude ?? null);
+    const y = Number(data?.[config.geometry.yField] ?? data?.ycoord ?? data?.lat ?? data?.latitude ?? null);
+
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      insertColumns.push(config.geometry.column);
+      values.push(x);
+      const xIndex = values.length;
+      values.push(y);
+      const yIndex = values.length;
+      placeholders.push(`ST_SetSRID(ST_MakePoint($${xIndex}, $${yIndex}), 4326)`);
+    }
+  }
 
   const sql = `
     INSERT INTO ${config.table} (
-      ${config.idColumn},
-      ${fields.join(',')}
+      ${insertColumns.join(',')}
     )
     VALUES (
-      ${idSql},
-      ${placeholders}
+      ${placeholders.join(',')}
     )
     RETURNING *
   `;
@@ -276,7 +296,38 @@ async function validateStation(config, stationCode) {
   return rows[0];
 }
 
-async function sendStationEdit(config, id, division, data, makerUserId) {
+function buildStationDraftInsert(draftTableColumns, config, record) {
+  const insertColumns = [];
+  const placeholders = [];
+  const values = [];
+
+  draftTableColumns.forEach((column) => {
+    if (column === config.geometry?.column) return;
+    if (!Object.prototype.hasOwnProperty.call(record, column)) return;
+    const value = record[column];
+    if (value === undefined) return;
+    insertColumns.push(column);
+    if (value === '__NOW__') {
+      placeholders.push('NOW()::timestamp without time zone');
+      return;
+    }
+    values.push(value);
+    placeholders.push(`$${values.length}`);
+  });
+
+  if (config.geometry?.enabled && draftTableColumns.includes(config.geometry.column)) {
+    const x = Number(record[config.geometry.xField]);
+    const y = Number(record[config.geometry.yField]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      insertColumns.push(config.geometry.column);
+      placeholders.push(`ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326)`);
+    }
+  }
+
+  return { insertColumns, placeholders, values };
+}
+
+async function sendStationEdit(config, id, division, data, makerUserId, submittingUserType) {
   if (!config.draftWorkflow) {
     const err = new Error('Draft workflow config not found for layer');
     err.status = 400;
@@ -308,39 +359,24 @@ async function sendStationEdit(config, id, division, data, makerUserId) {
     const record = {
       ...merged,
       division,
-      [workflow.editIdColumn]: draftTableColumns.includes(workflow.editIdColumn)
-        ? await getNextManualId(client, workflow.table, workflow.editIdColumn)
-        : undefined,
-      [workflow.originalIdColumn]: originalRow[config.idColumn],
+      zone_name: draftTableColumns.includes('zone_name') ? (data?.zone_name ?? originalRow.railway ?? null) : undefined,
+      fname: draftTableColumns.includes('fname') ? (data?.fname ?? data?.zone_name ?? originalRow.railway ?? null) : undefined,
+      div_name: draftTableColumns.includes('div_name') ? (data?.div_name ?? division ?? null) : undefined,
+      department: draftTableColumns.includes('department') ? (data?.department ?? assignments.makerDepartment ?? null) : undefined,
+      [workflow.editIdColumn]: originalRow[config.idColumn],
+      [workflow.originalIdColumn]: originalRow.gis_unique_id ?? null,
       [workflow.statusColumn]: workflow.draftStatusValue,
       [workflow.checkerColumn]: assignments.checkerUserId,
       [workflow.approverColumn]: assignments.approverUserId,
+      edited_by: String(submittingUserType || '').toLowerCase() === 'maker' && draftTableColumns.includes('edited_by') ? assignments.makerUserName : undefined,
+      edited_at: String(submittingUserType || '').toLowerCase() === 'maker' && draftTableColumns.includes('edited_at') ? '__NOW__' : undefined,
+      modified_by: String(submittingUserType || '').toLowerCase() === 'maker' && draftTableColumns.includes('modified_by') ? assignments.makerUserName : undefined,
+      modified_date: String(submittingUserType || '').toLowerCase() === 'maker' && draftTableColumns.includes('modified_date') ? '__NOW__' : undefined,
       objectid: draftTableColumns.includes('objectid') ? await getNextManualId(client, workflow.table, 'objectid') : undefined,
       globalid: draftTableColumns.includes('globalid') ? generateGUID() : undefined,
     };
 
-    const insertColumns = [];
-    const placeholders = [];
-    const values = [];
-
-    draftTableColumns.forEach((column) => {
-      if (column === config.geometry?.column) return;
-      if (!Object.prototype.hasOwnProperty.call(record, column)) return;
-      const value = record[column];
-      if (value === undefined) return;
-      insertColumns.push(column);
-      values.push(value);
-      placeholders.push(`$${values.length}`);
-    });
-
-    if (config.geometry?.enabled && draftTableColumns.includes(config.geometry.column)) {
-      const x = Number(record[config.geometry.xField]);
-      const y = Number(record[config.geometry.yField]);
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        insertColumns.push(config.geometry.column);
-        placeholders.push(`ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326)`);
-      }
-    }
+    const { insertColumns, placeholders, values } = buildStationDraftInsert(draftTableColumns, config, record);
 
     const insertSql = `
       INSERT INTO ${workflow.table} (
@@ -381,6 +417,75 @@ async function sendStationEdit(config, id, division, data, makerUserId) {
   }
 }
 
+async function sendNewStationEdit(config, division, data, makerUserId, submittingUserType) {
+  if (!config.draftWorkflow) {
+    const err = new Error('Draft workflow config not found for layer');
+    err.status = 400;
+    throw err;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const workflow = config.draftWorkflow;
+    const draftTableColumns = await getTableColumns(client, workflow.table);
+    const assignments = await getDraftAssignments(client, makerUserId, division);
+    const merged = normalizeStationDraftPayload(data || {}, {});
+    const nextDraftObjectId = draftTableColumns.includes('objectid')
+      ? await getNextManualId(client, workflow.table, 'objectid')
+      : undefined;
+    const nextEditId = draftTableColumns.includes(workflow.editIdColumn)
+      ? await getNextManualId(client, workflow.table, workflow.editIdColumn)
+      : undefined;
+    const isMakerSubmit = String(submittingUserType || '').toLowerCase() === 'maker';
+
+    const record = {
+      ...merged,
+      division,
+      zone_name: draftTableColumns.includes('zone_name') ? (data?.zone_name ?? data?.railway ?? null) : undefined,
+      fname: draftTableColumns.includes('fname') ? (data?.fname ?? data?.zone_name ?? data?.railway ?? null) : undefined,
+      div_name: draftTableColumns.includes('div_name') ? (data?.div_name ?? division ?? null) : undefined,
+      department: draftTableColumns.includes('department') ? (data?.department ?? assignments.makerDepartment ?? null) : undefined,
+      [workflow.editIdColumn]: nextEditId,
+      [workflow.originalIdColumn]: null,
+      [workflow.statusColumn]: workflow.draftStatusValue,
+      [workflow.checkerColumn]: assignments.checkerUserId,
+      [workflow.approverColumn]: assignments.approverUserId,
+      edited_by: isMakerSubmit && draftTableColumns.includes('edited_by') ? assignments.makerUserName : undefined,
+      edited_at: isMakerSubmit && draftTableColumns.includes('edited_at') ? '__NOW__' : undefined,
+      created_by: isMakerSubmit && draftTableColumns.includes('created_by') ? assignments.makerUserName : undefined,
+      created_date: isMakerSubmit && draftTableColumns.includes('created_date') ? '__NOW__' : undefined,
+      objectid: nextDraftObjectId,
+      globalid: draftTableColumns.includes('globalid') ? generateGUID() : undefined,
+    };
+
+    const { insertColumns, placeholders, values } = buildStationDraftInsert(draftTableColumns, config, record);
+
+    const insertSql = `
+      INSERT INTO ${workflow.table} (
+        ${insertColumns.join(',')}
+      )
+      VALUES (
+        ${placeholders.join(',')}
+      )
+      RETURNING *
+    `;
+
+    const { rows } = await client.query(insertSql, values);
+
+    await client.query('COMMIT');
+    return {
+      draft: rows[0],
+      original: null,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 module.exports = {
   getById,
   create,
@@ -389,5 +494,7 @@ module.exports = {
   getTable,
   validateStation,
   sendStationEdit,
+  sendNewStationEdit,
 };
+
 

@@ -158,10 +158,41 @@ async function validateStation(req, res, next) {
   }
 }
 
+async function sendNewStationEdit(req, res, next) {
+  try {
+    const config = resolveConfig('station');
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
+    const division = String(req.query.division || '').trim();
+
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const result = await model.sendNewStationEdit(config, division, req.body || {}, makerUserId, submittingUserType);
+
+    res.status(201).json({
+      success: true,
+      message: 'New station sent to checker',
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 async function sendStationEdit(req, res, next) {
   try {
     const config = resolveConfig('station');
     const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
     const division = String(req.query.division || '').trim();
     const { id } = req.params;
 
@@ -177,7 +208,14 @@ async function sendStationEdit(req, res, next) {
       throw err;
     }
 
-    const result = await model.sendStationEdit(config, Number(id), division, req.body || {}, makerUserId);
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) {
+      const err = new Error('Invalid station id');
+      err.status = 400;
+      throw err;
+    }
+
+    const result = await model.sendStationEdit(config, numericId, division, req.body || {}, makerUserId, submittingUserType);
 
     if (!result) {
       const err = new Error('Record not found');
@@ -203,4 +241,7 @@ module.exports = {
   getTable,
   validateStation,
   sendStationEdit,
+  sendNewStationEdit,
 };
+
+

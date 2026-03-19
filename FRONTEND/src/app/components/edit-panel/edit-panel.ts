@@ -62,6 +62,7 @@ export class EditPanel implements OnInit, OnDestroy {
   geomEditing = false;
   private dragSub?: Subscription;
   private stateSub?: Subscription;
+  private createPointSub?: Subscription;
   private loadSeq = 0;
 
   private tableColumns: TableColumn[] = [
@@ -91,7 +92,11 @@ export class EditPanel implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.stateSub = this.edit.stateChanged$.subscribe(() => {
       if (!this.edit.enabled) return;
-      if (this.edit.editLayer === 'stations' && this.mode === 'table') this.load(true);
+      if (this.edit.editLayer === 'stations' && this.mode === 'table' && !this.edit.creatingStation) this.load(true);
+    });
+
+    this.createPointSub = this.edit.createStationPoint$.subscribe(({ lat, lng }) => {
+      this.beginStationCreationDraft(lat, lng);
     });
 
     if (this.edit.enabled && this.edit.editLayer === 'stations') {
@@ -105,6 +110,9 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.stateSub?.unsubscribe();
     this.stateSub = undefined;
+
+    this.createPointSub?.unsubscribe();
+    this.createPointSub = undefined;
   }
 
   get totalPages(): number {
@@ -337,6 +345,64 @@ export class EditPanel implements OnInit, OnDestroy {
   nextPage() { if (this.page >= this.totalPages) return; this.page++; this.applyPagination(); this.cdr.detectChanges(); }
   prevPage() { if (this.page <= 1) return; this.page--; this.applyPagination(); this.cdr.detectChanges(); }
 
+  startAddStation() {
+    if (this.currentTableLayer !== 'stations') return;
+    this.error = null;
+    this.mode = 'table';
+    this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
+    this.validating = false;
+    this.saving = false;
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.clearHighlight();
+    this.edit.startCreateStation();
+    alert('Point drawing mode is on. Double-click inside the division buffer to place the new station.');
+    this.cdr.detectChanges();
+  }
+
+  private beginStationCreationDraft(lat: number, lng: number) {
+    const railway = localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '';
+    const department = localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
+
+    this.mode = 'edit';
+    this.error = null;
+    this.stationValidated = false;
+    this.validating = false;
+    this.saving = false;
+    this.deleting = false;
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+
+    this.draft = {
+      objectid: null,
+      sttncode: '',
+      sttnname: '',
+      stationtype: '',
+      category: '',
+      distkm: null,
+      distm: null,
+      state: '',
+      district: '',
+      constituency: '',
+      lat,
+      lng,
+      latitude: lat,
+      longitude: lng,
+      xcoord: lng,
+      ycoord: lat,
+      railway,
+      zone_name: railway,
+      department,
+    };
+    this.originalDraft = { ...this.draft };
+    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: 17, draggable: false } as any);
+    this.cdr.detectChanges();
+  }
+
   editRow(row: any) {
     this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false;
     this.validating = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
@@ -411,12 +477,14 @@ export class EditPanel implements OnInit, OnDestroy {
 
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
-    this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
+    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
   send() {
     if (this.isReviewer()) return;
-    if (!this.draft?.objectid) { this.error = 'Station id missing'; this.cdr.detectChanges(); return; }
+    const draftObjectId = this.draft?.objectid;
+    const hasExistingId = draftObjectId !== null && draftObjectId !== undefined && String(draftObjectId).trim() !== '' && Number.isFinite(Number(draftObjectId));
+    const isCreate = !hasExistingId;
     const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
     const payload = {
@@ -436,15 +504,29 @@ export class EditPanel implements OnInit, OnDestroy {
       latitude: lat,
       xcoord: lng,
       ycoord: lat,
+      railway: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
+      zone_name: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
+      fname: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
+      div_name: localStorage.getItem('division') || this.currentUser.getSnapshot()?.division || '',
+      department: localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '',
     };
     this.saving = true;
     const rawStatus = this.originalDraft?.status == null ? '' : String(this.originalDraft.status).trim().toLowerCase();
-    const request$ = !rawStatus
-      ? this.api.sendStationEdit(this.draft.objectid, payload)
-      : this.api.updateStation(this.draft.objectid, payload);
+    const isMakerSend = !isCreate && this.isMaker() && !rawStatus;
+    if (isCreate) {
+      alert('Station creation sent successfully to checker');
+    } else if (isMakerSend) {
+      alert('Message sent successfully to checker');
+    }
+    const request$ = isCreate
+      ? this.api.sendNewStationEdit(payload)
+      : isMakerSend
+        ? this.api.sendStationEdit(this.draft.objectid, payload)
+        : this.api.updateStation(this.draft.objectid, payload);
     request$.subscribe({
       next: () => {
         this.saving = false;
+        this.edit.cancelCreateStation();
         this.mode = 'table';
         this.draft = null;
         this.originalDraft = null;
@@ -508,3 +590,10 @@ export class EditPanel implements OnInit, OnDestroy {
     this.mapZoom.zoomHome(); this.mapZoom.clearHighlight(); this.ui.activePanel = null; this.resetPanelState(); this.edit.disable();
   }
 }
+
+
+
+
+
+
+
