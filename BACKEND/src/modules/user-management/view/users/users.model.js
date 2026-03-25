@@ -82,8 +82,50 @@ async function assignChecker(maker_id, checker_id) {
 
 }
 
+async function getAssignedCheckerUsers(divisionCode) {
+  const sql = `
+    SELECT
+      u.objectid,
+      u.user_name,
+      u.user_type,
+      u.unit_type,
+      u.zone,
+      u.division,
+      u.department_id,
+      u.hrmsid,
+      u.designation,
+      u.assigned_checker AS assigned_checker_name
+    FROM user_master u
+    JOIN div_master d
+      ON u.division = d.div_name
+    WHERE d.divcode = $1
+      AND LOWER(TRIM(u.user_type)) = 'maker'
+      AND u.assigned_checker IS NOT NULL
+      AND TRIM(u.assigned_checker) <> ''
+    ORDER BY u.user_name
+  `;
+
+  const result = await pool.query(sql, [divisionCode]);
+  return result.rows;
+}
+
+async function unassignChecker(makerId) {
+  const sql = `
+    UPDATE user_master
+    SET assigned_checker = NULL
+    WHERE objectid = $1
+  `;
+
+  await pool.query(sql, [makerId]);
+}
+
+
+
+
 module.exports = {
   getUsersByDivision,
   getMakerCheckerList,
-  assignChecker
+  assignChecker,
+  getAssignedCheckerUsers,
+  unassignChecker
 };
