@@ -22,6 +22,26 @@ type TableColumn = {
   layerGroups?: LayerGroupKey[];
   stationLink?: boolean;
 };
+const RAILWAY_CODE_MAP: Record<string, string> = {
+  'Central Railway': 'CR',
+  'Eastern Railway': 'ER',
+  'East Central Railway': 'ECR',
+  'East Coast Railway': 'ECoR',
+  'Northern Railway': 'NR',
+  'North Central Railway': 'NCR',
+  'North Eastern Railway': 'NER',
+  'Northeast Frontier Railway': 'NFR',
+  'North Western Railway': 'NWR',
+  'Southern Railway': 'SR',
+  'South Central Railway': 'SCR',
+  'South Eastern Railway': 'SER',
+  'South East Central Railway': 'SECR',
+  'South Western Railway': 'SWR',
+  'Western Railway': 'WR',
+  'West Central Railway': 'WCR',
+  'Metro Railway': 'MTP',
+  'Konkan Railway': 'KR',
+};
 
 @Component({
   selector: 'app-edit-panel',
@@ -64,6 +84,17 @@ export class EditPanel implements OnInit, OnDestroy {
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
   private loadSeq = 0;
+  private readonly mandatoryStationFields: Array<keyof any> = [
+    'sttncode',
+    'sttnname',
+    'stationtype',
+    'distkm',
+    'distm',
+    'state',
+    'district',
+    'category',
+    'constituency',
+  ];
 
   private tableColumns: TableColumn[] = [
     { key: 'sttncode', label: 'Station Code', layers: ['stations'], stationLink: true },
@@ -239,6 +270,17 @@ export class EditPanel implements OnInit, OnDestroy {
   isMakerRejectedView(): boolean { return this.isMaker() && this.mode === 'table' && this.makerTab === 'rejected'; }
   isMakerSentForDeletionView(): boolean { return this.isMaker() && this.makerTab === 'sent_for_deletion'; }
   isStationFieldsLocked(): boolean { return this.stationValidated || this.isReviewer() || this.isMakerSentForDeletionView(); }
+  private getReviewerDraftStatus(): string {
+    if (!this.isReviewer()) return '';
+    if (this.checkerTab === 'pending') {
+      return this.isApprover() ? 'Sent to Approver' : 'Sent to Checker';
+    }
+    if (this.checkerTab === 'approved') return 'Sent to Database';
+    if (this.checkerTab === 'deletion_proposed') {
+      return this.isApprover() ? 'Sent to Approver for Deletion' : 'Sent to Checker for Deletion';
+    }
+    return '';
+  }
   get currentTableLayer(): EditLayerKey | null { if (this.isMakerRejectedView()) return this.rejectedLayer; return (this.edit.editLayer as EditLayerKey | null) ?? null; }
 
   onRejectedLayerChange() {
@@ -248,13 +290,65 @@ export class EditPanel implements OnInit, OnDestroy {
     if (this.rejectedLayer) setTimeout(() => this.load(true), 0);
   }
 
-  acceptRow(row: any) { alert(`Accept action clicked for station ${row?.sttncode || ''}.`); }
-  rejectRow(row: any) { alert(`Reject action clicked for station ${row?.sttncode || ''}.`); }
+  private updateReviewerDraftStatus(row: any, status: 'Sent to Approver' | 'Sent Back to Maker' | 'Sent to Database') {
+    if (!this.isReviewer()) return;
+
+    const id = Number(row?.objectid);
+    if (!Number.isFinite(id)) {
+      this.error = 'Invalid draft record';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.saving = true;
+    this.error = null;
+
+    this.api.updateStationDraftStatus(id, status).subscribe({
+      next: (res: any) => {
+        const updatedDraft = res?.draft || row;
+        const updatedId = Number(updatedDraft?.objectid ?? row?.objectid);
+        this.saving = false;
+
+        const alertText = status === 'Sent to Approver'
+          ? 'Asset Sent to Approver'
+          : status === 'Sent Back to Maker'
+            ? 'Asset Sent Back to Maker'
+            : 'Asset Finalised';
+        alert(alertText);
+
+        if (this.draft && Number(this.draft?.objectid) === updatedId) {
+          this.mode = 'table';
+          this.draft = null;
+          this.originalDraft = null;
+          this.stationValidated = false;
+          this.geomEditing = false;
+          this.dragSub?.unsubscribe();
+          this.dragSub = undefined;
+          this.mapZoom.zoomHome();
+          this.mapZoom.clearHighlight();
+        }
+
+        setTimeout(() => this.load(false), 0);
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.saving = false;
+        this.error = err?.error?.message || err?.error?.error || 'Failed to update draft status';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  acceptRow(row: any) {
+    const nextStatus = this.isApprover() ? 'Sent to Database' : 'Sent to Approver';
+    this.updateReviewerDraftStatus(row, nextStatus);
+  }
+  rejectRow(row: any) { this.updateReviewerDraftStatus(row, 'Sent Back to Maker'); }
   forwardDraft() { if (!this.draft) return; this.acceptRow(this.draft); }
   sentBackDraft() { if (!this.draft) return; this.rejectRow(this.draft); }
   sendToApproverDraft() { if (!this.draft) return; this.forwardDraft(); }
   sendBackToMakerDraft() { if (!this.draft) return; this.sentBackDraft(); }
-  saveToDatabaseDraft() { if (!this.draft) return; alert(`Save to Database clicked for station ${this.draft?.sttncode || ''}.`); }
+  saveToDatabaseDraft() { if (!this.draft) return; this.updateReviewerDraftStatus(this.draft, 'Sent to Database'); }
 
   private isVisibleForUser(row: any): boolean {
     const userType = this.getUserType();
@@ -297,7 +391,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const fetchOne = (p: number) => {
       if (seq !== this.loadSeq) return;
 
-      this.api.getStationTable(p, this.fetchPageSize, this.search).subscribe({
+      (this.isReviewer() ? this.api.getStationDraftTable(p, this.fetchPageSize, this.search, this.getReviewerDraftStatus()) : this.api.getStationTable(p, this.fetchPageSize, this.search)).subscribe({
         next: (res) => {
           if (seq !== this.loadSeq) return;
           const rows = Array.isArray(res?.rows) ? res.rows : [];
@@ -364,7 +458,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   private beginStationCreationDraft(lat: number, lng: number) {
-    const railway = localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '';
+    const railway = this.getRailwayName();
     const department = localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
 
     this.mode = 'edit';
@@ -394,7 +488,7 @@ export class EditPanel implements OnInit, OnDestroy {
       longitude: lng,
       xcoord: lng,
       ycoord: lat,
-      railway,
+      railway: this.getRailwayCode(),
       zone_name: railway,
       department,
     };
@@ -409,7 +503,9 @@ export class EditPanel implements OnInit, OnDestroy {
 
     const id = Number(row?.objectid); if (!Number.isFinite(id)) return;
 
-    this.api.getStationById(id).subscribe({
+    const detailRequest$ = this.isReviewer() ? this.api.getStationDraftById(id) : this.api.getStationById(id);
+
+    detailRequest$.subscribe({
       next: (full) => {
         const n = this.normalizeStation(full);
         this.draft = { ...this.draft, ...n };
@@ -475,6 +571,37 @@ export class EditPanel implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  isMandatoryStationField(field: string): boolean {
+    return this.mandatoryStationFields.includes(field);
+  }
+
+  private isBlankValue(value: unknown): boolean {
+    return value == null || String(value).trim() === '';
+  }
+
+  private hasMissingMandatoryStationFields(): boolean {
+    if (!this.draft) return true;
+    return this.mandatoryStationFields.some((field) => this.isBlankValue(this.draft?.[field]));
+  }
+
+  private getRailwayName(): string {
+    return String(
+      localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || ''
+    ).trim();
+  }
+
+  private getRailwayCode(): string {
+    const storedCode = String(
+      localStorage.getItem('railway_code') || localStorage.getItem('zone_code') || ''
+    ).trim();
+    if (storedCode) return storedCode;
+    return RAILWAY_CODE_MAP[this.getRailwayName()] || this.getRailwayName();
+  }
+
+  private requiresStationValidationBeforeSend(): boolean {
+    return this.currentTableLayer === 'stations' && this.isMaker() && !this.stationValidated;
+  }
+
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
     this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
@@ -482,6 +609,14 @@ export class EditPanel implements OnInit, OnDestroy {
 
   send() {
     if (this.isReviewer()) return;
+    if (this.requiresStationValidationBeforeSend()) {
+      alert('Please validate the station before sending the record to checker');
+      return;
+    }
+    if (this.hasMissingMandatoryStationFields()) {
+      alert('Not all mandatory fields are filled');
+      return;
+    }
     const draftObjectId = this.draft?.objectid;
     const hasExistingId = draftObjectId !== null && draftObjectId !== undefined && String(draftObjectId).trim() !== '' && Number.isFinite(Number(draftObjectId));
     const isCreate = !hasExistingId;
@@ -504,9 +639,9 @@ export class EditPanel implements OnInit, OnDestroy {
       latitude: lat,
       xcoord: lng,
       ycoord: lat,
-      railway: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
-      zone_name: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
-      fname: localStorage.getItem('railway') || this.currentUser.getSnapshot()?.railway || '',
+      railway: this.getRailwayCode(),
+      zone_name: this.getRailwayName(),
+      fname: this.getRailwayName(),
       div_name: localStorage.getItem('division') || this.currentUser.getSnapshot()?.division || '',
       department: localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '',
     };
@@ -590,6 +725,9 @@ export class EditPanel implements OnInit, OnDestroy {
     this.mapZoom.zoomHome(); this.mapZoom.clearHighlight(); this.ui.activePanel = null; this.resetPanelState(); this.edit.disable();
   }
 }
+
+
+
 
 
 
