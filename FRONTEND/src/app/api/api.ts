@@ -51,6 +51,9 @@ export class Api {
   getStationTable(page: number, pageSize: number, search: string) {
     return this.ceaEditingApi.getStationTable(page, pageSize, search);
   }
+  getStationDraftTable(page: number, pageSize: number, search: string, status: string) {
+    return this.ceaEditingApi.getStationDraftTable(page, pageSize, search, status);
+  }
   updateStation(id: number, payload: any) {
     return this.ceaEditingApi.updateStation(id, payload);
   }
@@ -63,8 +66,17 @@ export class Api {
   createStation(payload: any) {
     return this.ceaEditingApi.createStation(payload);
   }
+  sendNewStationEdit(payload: any) {
+    return this.ceaEditingApi.sendNewStationEdit(payload);
+  }
   getStationById(id: number) {
     return this.ceaEditingApi.getStationById(id);
+  }
+  getStationDraftById(id: number) {
+    return this.ceaEditingApi.getStationDraftById(id);
+  }
+  updateStationDraftStatus(id: number, status: string) {
+    return this.ceaEditingApi.updateStationDraftStatus(id, status);
   }
   getStationByCode(code: string) {
     return this.ceaEditingApi.getStationByCode(code);
@@ -134,3 +146,4 @@ export class Api {
     return this.feedbackApi.addFeedBack(obj);
   }
 }
+

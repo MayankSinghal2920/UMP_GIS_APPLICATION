@@ -18,6 +18,18 @@ export class CivilEngineeringAssetsEditingApi {
     return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/table`, { params });
   }
 
+  getStationDraftTable(page: number, pageSize: number, search: string, status: string) {
+    const params: any = {
+      page,
+      pageSize,
+      division: getDivision(),
+    };
+    if (search) params.q = search;
+    if (status) params.status = status;
+
+    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/draft-table`, { params });
+  }
+
   updateStation(id: number, payload: any) {
     return this.http.put(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, payload, {
       params: { division: getDivision() },
@@ -26,6 +38,12 @@ export class CivilEngineeringAssetsEditingApi {
 
   sendStationEdit(id: number, payload: any) {
     return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}/send`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
+  sendNewStationEdit(payload: any) {
+    return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/send-new`, payload, {
       params: { division: getDivision() },
     });
   }
@@ -45,6 +63,21 @@ export class CivilEngineeringAssetsEditingApi {
   getStationById(id: number) {
     const params = new HttpParams().set('division', getDivision());
     return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/${id}`, { params });
+  }
+
+  getStationDraftById(id: number) {
+    const params = new HttpParams().set('division', getDivision());
+    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/station/draft/${id}`, { params });
+  }
+
+  updateStationDraftStatus(id: number, status: string) {
+    return this.http.post<any>(
+      `${BASE_URL}/api/civil_engineering_assets/edit/station/draft/${id}/status`,
+      { status },
+      {
+        params: { division: getDivision() },
+      }
+    );
   }
 
   getStationByCode(code: string): Observable<any> {
