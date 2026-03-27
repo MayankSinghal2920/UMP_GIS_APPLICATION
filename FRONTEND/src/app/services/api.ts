@@ -236,6 +236,16 @@ assignChecker(data: any) {
 }
 
 
+getAssignedCheckerUsers(): Observable<any> {
+  const params = new HttpParams().set('division', this.getDivision());
+  return this.http.get<any>(`${this.BASE_URL}/api/user-management/view/users/assigned-checkers`, { params });
+}
+
+unassignChecker(data: any) {
+  return this.http.post(`${this.BASE_URL}/api/user-management/view/users/unassign-checker`, data);
+}
+
+
 
 
 
