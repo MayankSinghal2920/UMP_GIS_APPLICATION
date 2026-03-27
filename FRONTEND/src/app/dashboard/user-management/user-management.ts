@@ -32,6 +32,10 @@ export class UserManagementComponent implements OnInit {
 
   showAssignCheckerModal = false;
 
+  showDeleteConfirmModal = false;
+  selectedAssignedCheckerUser: any = null;
+
+
   stats = [
     { label: 'Total', value: 0 },
     { label: 'Admin', value: 0 },
@@ -265,22 +269,21 @@ export class UserManagementComponent implements OnInit {
   }
 
 
-  unassignChecker(user: any) {
-  const confirmed = confirm(`Unassign checker from ${user.user_name}?`);
-
-  if (!confirmed) {
+  unassignChecker() {
+  if (!this.selectedAssignedCheckerUser) {
     return;
   }
 
   const payload = {
-    maker_id: user.objectid
+    maker_id: this.selectedAssignedCheckerUser.objectid
   };
 
   this.api.unassignChecker(payload).subscribe({
     next: (res) => {
       console.log('Checker unassigned successfully', res);
-      alert('Checker unassigned successfully');
+      this.closeDeleteConfirmModal();
       this.loadAssignedCheckerUsers();
+      alert('Checker unassigned successfully');
     },
     error: (err) => {
       console.error('Failed to unassign checker', err);
@@ -288,5 +291,19 @@ export class UserManagementComponent implements OnInit {
     }
   });
 }
+
+
+openDeleteConfirmModal(user: any) {
+  this.selectedAssignedCheckerUser = user;
+  this.showDeleteConfirmModal = true;
+  this.cdr.detectChanges();
+}
+
+closeDeleteConfirmModal() {
+  this.showDeleteConfirmModal = false;
+  this.selectedAssignedCheckerUser = null;
+  this.cdr.detectChanges();
+}
+
 
 }
