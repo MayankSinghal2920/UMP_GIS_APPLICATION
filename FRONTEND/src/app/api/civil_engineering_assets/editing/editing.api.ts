@@ -54,6 +54,12 @@ export class CivilEngineeringAssetsEditingApi {
     });
   }
 
+  resendStationDraft(id: number, payload: any) {
+    return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/draft/${id}/resend`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
   sendNewStationEdit(payload: any) {
     return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/station/send-new`, payload, {
       params: { division: getDivision() },

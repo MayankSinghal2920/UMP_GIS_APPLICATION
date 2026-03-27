@@ -146,7 +146,11 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   get formFields(): EditFieldConfig[] {
-    return this.currentLayerSchema?.formFields ?? [];
+    const fields = this.currentLayerSchema?.formFields ?? [];
+    if (this.currentTableLayer === 'stations' && this.isMakerSentForDeletionView()) {
+      return fields;
+    }
+    return fields.filter((field) => field.key !== 'status');
   }
 
   get activeTableColumns(): TableColumnConfig[] {
@@ -169,6 +173,9 @@ export class EditPanel implements OnInit, OnDestroy {
     if (key === 'bridgeno') return row?.bridgeno ?? row?.rorno;
     if (key === 'comments') {
       return row?.comments ?? row?.comment ?? row?.remarks ?? row?.remark ?? row?.reject_reason ?? row?.rejected_reason;
+    }
+    if (key === 'status') {
+      return row?.status ?? row?.asset_status ?? row?.workflow_status;
     }
     return row?.[key];
   }
@@ -438,7 +445,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private isVisibleForCurrentView(row: any): boolean {
     if (this.isMaker() && this.mode === 'table' && this.makerTab === 'sent_for_deletion') {
       const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
-      return status === 'sent to checker for deletion' || status === 'sent to approver for deletion';
+      return status === 'sent to checker for deletion' || status === 'sent to approver for deletion' || status === 'asset deleted';
     }
     if (this.isMakerRejectedView()) {
       const status = row?.status == null ? '' : String(row.status).trim().toLowerCase();
@@ -582,6 +589,7 @@ export class EditPanel implements OnInit, OnDestroy {
       state: s?.state,
       district: s?.district,
       constituency: s?.constituncy ?? s?.constituency,
+      status: s?.status ?? s?.asset_status ?? s?.workflow_status ?? '',
       lat: Number(s?.lat ?? s?.ycoord ?? s?.latitude),
       lng: Number(s?.lon ?? s?.lng ?? s?.xcoord ?? s?.longitude),
     };
@@ -669,6 +677,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   isFieldReadonly(field: EditFieldConfig): boolean {
     if (this.currentTableLayer === 'stations') {
+      if (field.key === 'status') return true;
       if (field.key === 'sttncode' || field.key === 'category' || field.key === 'sttnname') {
         return this.isStationFieldsLocked();
       }
@@ -735,17 +744,20 @@ export class EditPanel implements OnInit, OnDestroy {
     };
     this.saving = true;
     const rawStatus = this.originalDraft?.status == null ? '' : String(this.originalDraft.status).trim().toLowerCase();
+    const isMakerRejectedResend = !isCreate && this.isMaker() && rawStatus === 'sent back to maker';
     const isMakerSend = !isCreate && this.isMaker() && !rawStatus;
     if (isCreate) {
       alert('Station creation sent successfully to checker');
-    } else if (isMakerSend) {
+    } else if (isMakerRejectedResend || isMakerSend) {
       alert('Message sent successfully to checker');
     }
     const request$ = isCreate
       ? this.api.sendNewStationEdit(payload)
-      : isMakerSend
-        ? this.api.sendStationEdit(this.draft.objectid, payload)
-        : this.api.updateStation(this.draft.objectid, payload);
+      : isMakerRejectedResend
+        ? this.api.resendStationDraft(this.draft.objectid, payload)
+        : isMakerSend
+          ? this.api.sendStationEdit(this.draft.objectid, payload)
+          : this.api.updateStation(this.draft.objectid, payload);
     request$.subscribe({
       next: () => {
         this.saving = false;
@@ -784,7 +796,7 @@ export class EditPanel implements OnInit, OnDestroy {
         const categoryChanged = String(this.draft.category || '') !== String(validatedCategory || '');
         this.draft.sttnname = validatedName;
         this.draft.category = validatedCategory;
-        if (this.draft?.objectid && (nameChanged || categoryChanged)) {
+        if (this.draft?.objectid && (nameChanged || categoryChanged) && !(this.isMaker() && String(this.originalDraft?.status || '').trim().toLowerCase() === 'sent back to maker')) {
           const payload = { distkm: this.draft.distkm, distm: this.draft.distm, state: this.draft.state, district: this.draft.district, constituncy: this.draft.constituency, sttnname: this.draft.sttnname, category: this.draft.category, sttntype: this.draft.stationtype };
           this.api.updateStation(this.draft.objectid, payload).subscribe({ next: () => { this.validating = false; this.stationValidated = true; alert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges(); }, error: (err: any) => { this.validating = false; alert(err?.error?.message || 'Station code validated but failed to update station details'); this.cdr.detectChanges(); } });
           return;
@@ -855,7 +867,8 @@ export class EditPanel implements OnInit, OnDestroy {
   deleteDraft() {
     if (!this.draft?.objectid) return;
     if (!confirm(`Delete station "${this.draft?.sttncode || ''}"?`)) return;
-    if (this.isMakerRejectedView()) {
+    const isRejectedDraft = this.isMaker() && this.makerTab === 'rejected';
+    if (isRejectedDraft) {
       this.requestDeletionFromDraft(this.draft);
       return;
     }

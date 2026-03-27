@@ -434,6 +434,51 @@ async function requestStationDraftDeletion(req, res, next) {
   }
 }
 
+async function resendStationDraft(req, res, next) {
+  try {
+    const config = resolveConfig('station');
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
+    const division = String(req.query.division || '').trim();
+    const { id } = req.params;
+
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) {
+      const err = new Error('Invalid draft id');
+      err.status = 400;
+      throw err;
+    }
+
+    const result = await model.resendStationDraft(config, numericId, division, req.body || {}, makerUserId, submittingUserType);
+
+    if (!result?.draft) {
+      const err = new Error('Draft record not found');
+      err.status = 404;
+      throw err;
+    }
+
+    res.json({
+      success: true,
+      message: 'Station draft sent to checker',
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getById,
   getDraftById,
@@ -448,6 +493,7 @@ module.exports = {
   updateStationDraftStatus,
   requestStationDeletion,
   requestStationDraftDeletion,
+  resendStationDraft,
 };
 
 

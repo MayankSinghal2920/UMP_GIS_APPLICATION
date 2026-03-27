@@ -66,6 +66,9 @@ export class Api {
   requestStationDraftDeletion(id: number) {
     return this.ceaEditingApi.requestStationDraftDeletion(id);
   }
+  resendStationDraft(id: number, payload: any) {
+    return this.ceaEditingApi.resendStationDraft(id, payload);
+  }
   deleteStation(id: number) {
     return this.ceaEditingApi.deleteStation(id);
   }

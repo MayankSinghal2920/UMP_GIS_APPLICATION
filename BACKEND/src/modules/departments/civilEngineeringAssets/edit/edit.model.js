@@ -656,6 +656,134 @@ async function requestStationDraftDeletion(config, draftObjectId, division, make
   }
 }
 
+async function resendStationDraft(config, draftObjectId, division, data, makerUserId, submittingUserType) {
+  if (!config.draftWorkflow) {
+    const err = new Error('Draft workflow config not found for layer');
+    err.status = 400;
+    throw err;
+  }
+
+  if (String(submittingUserType || '').trim().toLowerCase() !== 'maker') {
+    const err = new Error('Only maker can resend draft');
+    err.status = 403;
+    throw err;
+  }
+
+  const workflow = config.draftWorkflow;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const draftSql = `
+      SELECT *
+      FROM ${workflow.table}
+      WHERE objectid = $1
+        AND UPPER(division) = UPPER($2)
+      FOR UPDATE
+    `;
+    const { rows: draftRows } = await client.query(draftSql, [draftObjectId, division]);
+    const draft = draftRows[0];
+    if (!draft) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const currentStatus = String(draft?.[workflow.statusColumn] || '').trim().toLowerCase();
+    if (currentStatus !== 'sent back to maker') {
+      const err = new Error('Only sent-back drafts can be resent to checker');
+      err.status = 400;
+      throw err;
+    }
+
+    const draftTableColumns = await getTableColumns(client, workflow.table);
+    const assignments = await getDraftAssignments(client, makerUserId, division);
+    const makerUserName = await getUserNameByUserId(client, makerUserId);
+    const merged = normalizeStationDraftPayload(data || {}, draft);
+
+    const record = {
+      ...draft,
+      ...merged,
+      division,
+      railway: draftTableColumns.includes('railway')
+        ? (assignments.makerRailwayCode ?? data?.railway ?? draft?.railway ?? null)
+        : undefined,
+      zone_name: draftTableColumns.includes('zone_name')
+        ? (data?.zone_name ?? draft?.zone_name ?? null)
+        : undefined,
+      fname: draftTableColumns.includes('fname')
+        ? (data?.fname ?? data?.zone_name ?? draft?.fname ?? draft?.zone_name ?? null)
+        : undefined,
+      div_name: draftTableColumns.includes('div_name')
+        ? (assignments.makerDivisionName ?? data?.div_name ?? draft?.div_name ?? division ?? null)
+        : undefined,
+      department: draftTableColumns.includes('department')
+        ? (data?.department ?? assignments.makerDepartment ?? draft?.department ?? null)
+        : undefined,
+      [workflow.statusColumn]: workflow.draftStatusValue,
+      [workflow.checkerColumn]: assignments.checkerUserId,
+      [workflow.approverColumn]: assignments.approverUserId,
+      edited_by: draftTableColumns.includes('edited_by') ? makerUserName : undefined,
+      edited_at: draftTableColumns.includes('edited_at') ? '__NOW__' : undefined,
+      modified_by: draftTableColumns.includes('modified_by') ? makerUserName : undefined,
+      modified_date: draftTableColumns.includes('modified_date') ? '__NOW__' : undefined,
+    };
+
+    const setClauses = [];
+    const values = [];
+    draftTableColumns.forEach((column) => {
+      if (column === 'objectid' || column === 'globalid') return;
+      if (column === config.geometry?.column) return;
+      if (!Object.prototype.hasOwnProperty.call(record, column)) return;
+      const value = record[column];
+      if (value === undefined) return;
+      if (value === '__NOW__') {
+        setClauses.push(`${column} = NOW()::timestamp without time zone`);
+        return;
+      }
+      values.push(value);
+      setClauses.push(`${column} = $${values.length}`);
+    });
+
+    const x = Number(record[config.geometry?.xField]);
+    const y = Number(record[config.geometry?.yField]);
+    if (config.geometry?.enabled && config.geometry.column && Number.isFinite(x) && Number.isFinite(y)) {
+      setClauses.push(`${config.geometry.column} = ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326)`);
+    }
+
+    values.push(draftObjectId);
+    values.push(division);
+
+    const updateSql = `
+      UPDATE ${workflow.table}
+      SET ${setClauses.join(', ')}
+      WHERE objectid = $${values.length - 1}
+        AND UPPER(division) = UPPER($${values.length})
+      RETURNING *
+    `;
+
+    const { rows } = await client.query(updateSql, values);
+    const original = await updateMainStatusFromDraft(
+      client,
+      config,
+      workflow,
+      draft,
+      division,
+      workflow.originalStatusValue
+    );
+
+    await client.query('COMMIT');
+    return {
+      draft: rows[0],
+      original,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function create(config, data, division) {
   const insertColumns = [config.idColumn, 'globalid'];
   const placeholders = [];
@@ -1060,6 +1188,7 @@ module.exports = {
   updateStationDraftStatus,
   requestStationDeletion,
   requestStationDraftDeletion,
+  resendStationDraft,
   create,
   update,
   remove,

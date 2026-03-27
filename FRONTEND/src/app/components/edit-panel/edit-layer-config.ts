@@ -47,6 +47,7 @@ export const EDIT_LAYER_CONFIG: Record<EditLayerKey, LayerFormConfig> = {
       { key: 'district', label: 'District', required: true },
       { key: 'category', label: 'Category', required: true },
       { key: 'constituency', label: 'Constituency', required: true, full: true },
+      { key: 'status', label: 'Current Status', full: true },
     ],
   },
   landplan: {
