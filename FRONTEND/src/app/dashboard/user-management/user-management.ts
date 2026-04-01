@@ -17,8 +17,8 @@ export class UserManagementComponent implements OnInit {
   assignedCheckerUsers: any[] = [];
   filteredAssignedCheckerUsers: any[] = [];
 
-  searchText = '';
-  activeRoleFilter = 'Total';
+  searchText: string = '';
+  activeRoleFilter: string = 'Total';
   activeTab: 'user-list' | 'assigned-layers' | 'assigned-checker' = 'user-list';
 
   pageSize = 12;
@@ -31,11 +31,14 @@ export class UserManagementComponent implements OnInit {
   selectedChecker: any = null;
 
   showAssignCheckerModal = false;
+
   showDeleteConfirmModal = false;
   selectedAssignedCheckerUser: any = null;
 
   showUserInfoModal = false;
-  selectedUserInfo: any = null;
+selectedUserInfo: any = null;
+
+
 
   stats = [
     { label: 'Total', value: 0 },
@@ -54,7 +57,8 @@ export class UserManagementComponent implements OnInit {
 
   loadUsers(): void {
     this.api.getUsers().subscribe({
-      next: (res: any) => {
+
+      next: (res) => {
         this.users = res || [];
         this.filteredUsers = [...this.users];
         this.calculateStats();
@@ -68,13 +72,13 @@ export class UserManagementComponent implements OnInit {
 
   loadAssignedCheckerUsers(): void {
     this.api.getAssignedCheckerUsers().subscribe({
-      next: (res: any) => {
+      next: (res) => {
         this.assignedCheckerUsers = res || [];
         this.filteredAssignedCheckerUsers = [...this.assignedCheckerUsers];
         this.currentPage = 1;
         this.cdr.detectChanges();
       },
-      error: (err: any) => {
+      error: (err) => {
         console.error('Failed to load assigned checker users', err);
       }
     });
@@ -158,22 +162,23 @@ export class UserManagementComponent implements OnInit {
     ];
   }
 
-  filterByRole(role: string) {
-    this.activeTab = 'user-list';
-    this.activeRoleFilter = role;
-    this.searchText = '';
-    this.currentPage = 1;
+filterByRole(role: string) {
+  this.activeTab = 'user-list';
+  this.activeRoleFilter = role;
+  this.searchText = '';
+  this.currentPage = 1;
 
-    if (role === 'Total') {
-      this.filteredUsers = [...this.users];
-    } else {
-      this.filteredUsers = this.users.filter(
-        user => user.user_type?.toLowerCase() === role.toLowerCase()
-      );
-    }
-
-    this.cdr.detectChanges();
+  if (role === 'Total') {
+    this.filteredUsers = [...this.users];
+  } else {
+    this.filteredUsers = this.users.filter(
+      user => user.user_type?.toLowerCase() === role.toLowerCase()
+    );
   }
+
+  this.cdr.detectChanges();
+}
+
 
   trackById(index: number, item: any) {
     return item.objectid;
@@ -189,9 +194,10 @@ export class UserManagementComponent implements OnInit {
     const start = (this.currentPage - 1) * this.pageSize;
     const end = start + this.pageSize;
 
-    const source = this.activeTab === 'assigned-checker'
-      ? this.filteredAssignedCheckerUsers
-      : this.filteredUsers;
+    const source =
+      this.activeTab === 'assigned-checker'
+        ? this.filteredAssignedCheckerUsers
+        : this.filteredUsers;
 
     return source.slice(start, end);
   }
@@ -224,12 +230,12 @@ export class UserManagementComponent implements OnInit {
     this.selectedChecker = null;
 
     this.api.getMakerCheckerList().subscribe({
-      next: (res: any) => {
+      next: (res) => {
         this.makers = res.makers || [];
         this.checkers = res.checkers || [];
         this.cdr.detectChanges();
       },
-      error: (err: any) => {
+      error: (err) => {
         console.error('Failed to load maker/checker list', err);
       }
     });
@@ -239,6 +245,7 @@ export class UserManagementComponent implements OnInit {
     this.showAssignCheckerModal = false;
     this.cdr.detectChanges();
   }
+
 
   assignChecker() {
     if (!this.selectedMaker || !this.selectedChecker) {
@@ -252,8 +259,9 @@ export class UserManagementComponent implements OnInit {
     };
 
     this.api.assignChecker(payload).subscribe({
-      next: (res: any) => {
+      next: (res) => {
         console.log('Checker assigned successfully', res);
+
         this.showAssignCheckerModal = false;
         this.selectedMaker = null;
         this.selectedChecker = null;
@@ -265,57 +273,62 @@ export class UserManagementComponent implements OnInit {
 
         alert('Checker assigned successfully');
       },
-      error: (err: any) => {
+      error: (err) => {
         console.error('Failed to assign checker', err);
         alert('Failed to assign checker');
       }
     });
   }
 
+
   unassignChecker() {
-    if (!this.selectedAssignedCheckerUser) {
-      return;
+  if (!this.selectedAssignedCheckerUser) {
+    return;
+  }
+
+  const payload = {
+    maker_id: this.selectedAssignedCheckerUser.objectid
+  };
+
+  this.api.unassignChecker(payload).subscribe({
+    next: (res) => {
+      console.log('Checker unassigned successfully', res);
+      this.closeDeleteConfirmModal();
+      this.loadAssignedCheckerUsers();
+      alert('Checker unassigned successfully');
+    },
+    error: (err) => {
+      console.error('Failed to unassign checker', err);
+      alert('Failed to unassign checker');
     }
+  });
+}
 
-    const payload = {
-      maker_id: this.selectedAssignedCheckerUser.objectid
-    };
 
-    this.api.unassignChecker(payload).subscribe({
-      next: (res: any) => {
-        console.log('Checker unassigned successfully', res);
-        this.closeDeleteConfirmModal();
-        this.loadAssignedCheckerUsers();
-        alert('Checker unassigned successfully');
-      },
-      error: (err: any) => {
-        console.error('Failed to unassign checker', err);
-        alert('Failed to unassign checker');
-      }
-    });
-  }
+openDeleteConfirmModal(user: any) {
+  this.selectedAssignedCheckerUser = user;
+  this.showDeleteConfirmModal = true;
+  this.cdr.detectChanges();
+}
 
-  openDeleteConfirmModal(user: any) {
-    this.selectedAssignedCheckerUser = user;
-    this.showDeleteConfirmModal = true;
-    this.cdr.detectChanges();
-  }
+closeDeleteConfirmModal() {
+  this.showDeleteConfirmModal = false;
+  this.selectedAssignedCheckerUser = null;
+  this.cdr.detectChanges();
+}
 
-  closeDeleteConfirmModal() {
-    this.showDeleteConfirmModal = false;
-    this.selectedAssignedCheckerUser = null;
-    this.cdr.detectChanges();
-  }
+openUserInfoModal(user: any) {
+  this.selectedUserInfo = user;
+  this.showUserInfoModal = true;
+  this.cdr.detectChanges();
+}
 
-  openUserInfoModal(user: any) {
-    this.selectedUserInfo = user;
-    this.showUserInfoModal = true;
-    this.cdr.detectChanges();
-  }
+closeUserInfoModal() {
+  this.showUserInfoModal = false;
+  this.selectedUserInfo = null;
+  this.cdr.detectChanges();
+}
 
-  closeUserInfoModal() {
-    this.showUserInfoModal = false;
-    this.selectedUserInfo = null;
-    this.cdr.detectChanges();
-  }
+
+
 }
