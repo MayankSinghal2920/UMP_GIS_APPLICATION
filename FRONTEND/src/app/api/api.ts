@@ -6,6 +6,7 @@ import { CivilEngineeringAssetsViewingApi } from './civil_engineering_assets/vie
 import { CivilEngineeringAssetsEditingApi } from './civil_engineering_assets/editing/editing.api';
 import { FeedbackApi } from './feedback/feedback.api';
 import { RatingApi } from './rating/rating.api';
+import { UserManagementApi } from './user_management/user-management.api';
 
 @Injectable({ providedIn: 'root' })
 export class Api {
@@ -16,7 +17,8 @@ export class Api {
     private ceaViewingApi: CivilEngineeringAssetsViewingApi,
     private ceaEditingApi: CivilEngineeringAssetsEditingApi,
     private feedbackApi: FeedbackApi,
-    private ratingApi: RatingApi
+    private ratingApi: RatingApi,
+    private userManagementApi: UserManagementApi
   ) {}
 
   getStations(bbox: string) {
@@ -37,6 +39,12 @@ export class Api {
   }
   getDivisionBufferKey(z: number) {
     return this.commonViewingApi.getDivisionBufferKey(z);
+  }
+  getDepartmentLayerCatalog(departmentRef: string) {
+    return this.commonViewingApi.getDepartmentLayerCatalog(departmentRef);
+  }
+  getDepartmentLayerData(departmentRef: string, layerKey: string, bbox: string) {
+    return this.commonViewingApi.getDepartmentLayerData(departmentRef, layerKey, bbox);
   }
   getlandboundary(bbox: string) {
     return this.ceaViewingApi.getLandBoundary(bbox);
@@ -153,6 +161,26 @@ export class Api {
 
   addFeedBack(obj: any) {
     return this.feedbackApi.addFeedBack(obj);
+  }
+
+  getUsers() {
+    return this.userManagementApi.getUsers();
+  }
+
+  getMakerCheckerList() {
+    return this.userManagementApi.getMakerCheckerList();
+  }
+
+  assignChecker(data: any) {
+    return this.userManagementApi.assignChecker(data);
+  }
+
+  getAssignedCheckerUsers() {
+    return this.userManagementApi.getAssignedCheckerUsers();
+  }
+
+  unassignChecker(data: any) {
+    return this.userManagementApi.unassignChecker(data);
   }
 }
 
