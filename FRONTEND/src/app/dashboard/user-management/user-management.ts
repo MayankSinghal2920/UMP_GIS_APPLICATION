@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Api } from 'src/app/services/api';
+import { Api } from 'src/app/api/api';
 
 @Component({
   selector: 'app-user-management',
@@ -57,13 +57,14 @@ selectedUserInfo: any = null;
 
   loadUsers(): void {
     this.api.getUsers().subscribe({
+
       next: (res) => {
         this.users = res || [];
         this.filteredUsers = [...this.users];
         this.calculateStats();
         this.cdr.detectChanges();
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Failed to load users', err);
       }
     });
@@ -244,6 +245,7 @@ filterByRole(role: string) {
     this.showAssignCheckerModal = false;
     this.cdr.detectChanges();
   }
+
 
   assignChecker() {
     if (!this.selectedMaker || !this.selectedChecker) {

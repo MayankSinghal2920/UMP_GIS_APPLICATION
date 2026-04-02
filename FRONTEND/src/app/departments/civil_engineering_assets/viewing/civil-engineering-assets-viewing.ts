@@ -3,9 +3,10 @@ import * as L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import { NgZone } from '@angular/core';
 import { Api } from '../../../api/api';
-import { circleMarkerOptionsFromLegend, defineLegend, MapLayer, pathStyleFromLegend } from '../../../services/interface';
+import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend } from '../../../services/interface';
+import { inferCivilLegendFromFeatureCollection } from '../../../components/legend-panel/legend-panel';
 
-const STATION_LEGEND = defineLegend({
+const STATION_LEGEND: LayerLegend = defineLegend({
   type: 'point' as const,
   color: '#d32f2f',
   label: 'Railway Station',
@@ -13,17 +14,22 @@ const STATION_LEGEND = defineLegend({
   fillOpacity: 0.9,
   strokeColor: '#ffffff',
   strokeWidth: 1,
-  radius: 8,
+  radius: 5,
+  symbolKind: 'circle' as const,
+  imageUrl: 'assets/images/download.png',
+  imageWidth: 26,
+  imageHeight: 26,
 });
 
 const LANDPLAN_ONTRACK_LEGEND = defineLegend({
   type: 'polygon' as const,
   color: '#FFA500',
   label: 'Landplan Ontrack',
-  fillColor: '#FFA500',
-  fillOpacity: 0.15,
-  strokeColor: '#FFA500',
-  strokeWidth: 3,
+  fillColor: '#fff59d',
+  fillOpacity: 0.72,
+  strokeColor: '#d4a017',
+  strokeWidth: 2,
+  symbolKind: 'square' as const,
 });
 
 const LAND_OFFSET_LEGEND = defineLegend({
@@ -32,6 +38,7 @@ const LAND_OFFSET_LEGEND = defineLegend({
   label: 'Land Offset',
   strokeColor: '#000000',
   strokeWidth: 2,
+  symbolKind: 'line' as const,
 });
 
 const LAND_BOUNDARY_LEGEND = defineLegend({
@@ -40,7 +47,61 @@ const LAND_BOUNDARY_LEGEND = defineLegend({
   label: 'Land Boundary',
   strokeColor: 'orange',
   strokeWidth: 3,
+  symbolKind: 'line' as const,
 });
+
+const DEFAULT_DYNAMIC_LEGEND: LayerLegend = defineLegend({
+  type: 'polygon' as const,
+  color: '#4dd0e1',
+  label: 'Department Layer',
+  fillColor: '#4dd0e1',
+  fillOpacity: 0.35,
+  strokeColor: '#4dd0e1',
+  strokeWidth: 2,
+  radius: 6,
+  symbolKind: 'square' as const,
+});
+
+const DEPARTMENT_POLYGON_PANE = 'DepartmentPolygonPane';
+const DEPARTMENT_LINE_PANE = 'DepartmentLinePane';
+const DEPARTMENT_DECORATOR_PANE = 'DepartmentDecoratorPane';
+const DEPARTMENT_POINT_PANE = 'DepartmentPointPane';
+const TOWN_LEVEL_MIN_ZOOM = 10;
+
+function paneZIndex(paneName: string): number {
+  if (paneName === DEPARTMENT_POLYGON_PANE) return 390;
+  if (paneName === DEPARTMENT_LINE_PANE) return 440;
+  if (paneName === DEPARTMENT_DECORATOR_PANE) return 445;
+  return 460;
+}
+
+function ensurePane(map: L.Map, paneName: string, pointerEvents = 'none'): void {
+  if (!map.getPane(paneName)) {
+    map.createPane(paneName);
+  }
+  const pane = map.getPane(paneName)!;
+  pane.style.zIndex = String(paneZIndex(paneName));
+  pane.style.pointerEvents = pointerEvents;
+}
+
+function paneNameForLegend(legend: LayerLegend): string {
+  if (legend.type === 'polygon') return DEPARTMENT_POLYGON_PANE;
+  if (legend.type === 'line') return DEPARTMENT_LINE_PANE;
+  return DEPARTMENT_POINT_PANE;
+}
+
+function orderLayerInPane(layer: L.GeoJSON, legend: LayerLegend): void {
+  if (legend.type === 'polygon') layer.bringToBack();
+  else layer.bringToFront();
+}
+
+function inferMinZoomFromTitle(title: string): number {
+  const normalized = String(title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  if (normalized.includes('station')) return 0;
+  if (normalized.includes('track')) return 0;
+  if (normalized.includes('km post')) return 0;
+  return TOWN_LEVEL_MIN_ZOOM;
+}
 
 export class StationViewingLayer implements MapLayer {
   id = 'stations';
@@ -50,12 +111,11 @@ export class StationViewingLayer implements MapLayer {
 
   protected readonly LABEL_ZOOM = 12;
 
-  legend = STATION_LEGEND;
+  legend: LayerLegend = STATION_LEGEND;
 
-  protected layer: L.GeoJSON;
+  protected layer: L.FeatureGroup;
   private lastBbox = '';
   private isOnMap = false;
-  private onZoomEndHandler?: () => void;
   private onMoveStartHandler?: () => void;
   private onMoveEndHandler?: () => void;
   private requestSeq = 0;
@@ -65,35 +125,7 @@ export class StationViewingLayer implements MapLayer {
     protected zone: NgZone,
     protected onData?: (geojson: any) => void
   ) {
-    this.layer = L.geoJSON(null, {
-      pointToLayer: (feature: any, latlng: L.LatLng) => {
-        const marker = L.circleMarker(latlng, circleMarkerOptionsFromLegend(this.legend));
-
-        const p = feature?.properties || {};
-        const name = (p.sttnname || '').toString().trim();
-        this.onMarkerCreated(feature, marker as any);
-
-        if (name) {
-          marker.bindTooltip(name, {
-            permanent: false,
-            direction: 'top',
-            offset: L.point(0, -8),
-            opacity: 0.95,
-            className: 'station-label',
-          });
-        }
-
-        return marker;
-      },
-      onEachFeature: (feature: any, layer: any) => {
-        const p: any = feature.properties || {};
-        layer.bindPopup(`
-          <b>${p.sttnname || 'Station'}</b><br>
-          Code: ${p.sttncode || '-'}
-        `);
-        this.onFeatureReady(feature, layer);
-      },
-    });
+    this.layer = L.featureGroup();
   }
 
   protected onMarkerCreated(_feature: any, _marker: L.Marker) {}
@@ -102,30 +134,25 @@ export class StationViewingLayer implements MapLayer {
 
   addTo(map: L.Map) {
     if (this.visible && !this.isOnMap) {
+      ensurePane(map, DEPARTMENT_POINT_PANE);
       this.layer.addTo(map);
       this.isOnMap = true;
 
-      if (!this.onZoomEndHandler) {
-        this.onZoomEndHandler = () => this.updateLabels(map);
-      }
       if (!this.onMoveStartHandler) {
         this.onMoveStartHandler = () => this.closeLabels();
       }
       if (!this.onMoveEndHandler) {
         this.onMoveEndHandler = () => this.updateLabels(map);
       }
-      map.on('zoomend', this.onZoomEndHandler);
       map.on('zoomstart', this.onMoveStartHandler);
       map.on('movestart', this.onMoveStartHandler);
       map.on('moveend', this.onMoveEndHandler);
+      this.layer.bringToFront();
       this.updateLabels(map);
     }
   }
 
   removeFrom(map: L.Map) {
-    if (this.onZoomEndHandler) {
-      map.off('zoomend', this.onZoomEndHandler);
-    }
     if (this.onMoveStartHandler) {
       map.off('zoomstart', this.onMoveStartHandler);
       map.off('movestart', this.onMoveStartHandler);
@@ -154,13 +181,66 @@ export class StationViewingLayer implements MapLayer {
 
   protected beforeRender(_geojson: any) {}
 
+
+  protected createStationMarker(feature: any, latlng: L.LatLng): L.Layer {
+    const p = feature?.properties || {};
+    const name = (p.sttnname || '').toString().trim();
+    const code = (p.sttncode || '').toString().trim();
+    const stationLabel = code && name ? code + ' : ' + name : (code || name);
+    const iconWidth = this.legend.imageWidth ?? 20;
+    const iconHeight = this.legend.imageHeight ?? 20;
+    const marker = L.marker(latlng, {
+      pane: DEPARTMENT_POINT_PANE,
+      keyboard: false,
+      interactive: true,
+      icon: L.divIcon({
+        className: 'map-symbol-icon station-symbol-icon',
+        html: '<img src="' + (this.legend.imageUrl || 'assets/images/download.png') + '" style="display:block;width:' + iconWidth + 'px;height:' + iconHeight + 'px;object-fit:contain;" alt="Station">',
+        iconSize: [iconWidth, iconHeight],
+        iconAnchor: [iconWidth / 2, iconHeight / 2],
+        popupAnchor: [0, -Math.round(iconHeight / 2)],
+      }),
+    }) as any;
+    this.onMarkerCreated(feature, marker as any);
+
+    if (stationLabel && marker.bindTooltip) {
+      marker.bindTooltip(stationLabel, {
+        permanent: false,
+        direction: 'top',
+        offset: L.point(0, -8),
+        opacity: 0.95,
+        className: 'station-label',
+      });
+    }
+
+    if (marker.bindPopup) {
+      marker.bindPopup('<b>' + (p.sttnname || 'Station') + '</b><br>Code: ' + (p.sttncode || '-'));
+    }
+
+    this.onFeatureReady(feature, marker);
+    return marker;
+  }
+
+  protected renderStationFeatures(_map: L.Map, geojson: any): void {
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+
+    this.layer.clearLayers();
+    features.forEach((feature: any) => {
+      const coords = feature?.geometry?.coordinates || [];
+      const lng = Number(coords[0]);
+      const lat = Number(coords[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      this.layer.addLayer(this.createStationMarker(feature, L.latLng(lat, lng)));
+    });
+  }
+
   loadForMap(map: L.Map) {
     if (!this.visible) return;
 
     this.addTo(map);
 
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const bbox = b.getWest() + ',' + b.getSouth() + ',' + b.getEast() + ',' + b.getNorth();
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
@@ -171,8 +251,7 @@ export class StationViewingLayer implements MapLayer {
         if (requestId !== this.requestSeq) return;
         this.zone.run(() => {
           this.beforeRender(geojson);
-          this.layer.clearLayers();
-          this.layer.addData(geojson);
+          this.renderStationFeatures(map, geojson);
           this.onData?.(geojson);
           this.updateLabels(map);
         });
@@ -181,22 +260,20 @@ export class StationViewingLayer implements MapLayer {
     });
   }
 }
-
 export class LandPlanOntrackViewingLayer implements MapLayer {
   id = 'landplan_ontrack';
   title = 'Landplan Ontrack';
   visible = true;
   layerGroup = 'department' as const;
 
-  minZoom = 10;
+  minZoom = TOWN_LEVEL_MIN_ZOOM;
 
   legend = LANDPLAN_ONTRACK_LEGEND;
 
   protected layer: L.GeoJSON;
   private lastKey = '';
-  private paneReady = false;
-
   private onZoomEndHandler?: () => void;
+
   private requestSeq = 0;
 
   constructor(protected api: Api, protected onData?: (geojson: any) => void) {
@@ -224,19 +301,6 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   }
 
   addTo(map: L.Map) {
-    const paneName = 'LandPlanOntrackPane';
-
-    if (!this.paneReady) {
-      if (!map.getPane(paneName)) {
-        map.createPane(paneName);
-      }
-      const pane = map.getPane(paneName)!;
-      pane.style.zIndex = '450';
-      pane.style.pointerEvents = this.panePointerEvents();
-
-      this.paneReady = true;
-    }
-
     this.onZoomEndHandler = () => this.syncVisibility(map);
     map.on('zoomend', this.onZoomEndHandler);
     this.syncVisibility(map);
@@ -246,9 +310,10 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     const shouldShow = this.canShow(map);
 
     if (shouldShow) {
-      if (!map.hasLayer(this.layer)) this.layer.addTo(map);
-      this.layer.bringToFront();
-      this.loadForMap(map);
+      if (!map.hasLayer(this.layer)) {
+        this.layer.addTo(map);
+        this.layer.bringToBack();
+      }
     } else {
       if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
       this.lastKey = '';
@@ -304,7 +369,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
         this.layer.clearLayers();
         this.layer.addData(fc);
-        this.layer.bringToFront();
+        this.layer.bringToBack();
       },
       error: (err: any) => {
         console.error('LandPlanOntrack API error', err);
@@ -312,14 +377,13 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     });
   }
 }
-
 export class LandOffsetLayer implements MapLayer {
   id = 'land_offset';
   title = 'Land Offset';
   visible = true;
   layerGroup = 'department' as const;
 
-  minZoom = 11;
+  minZoom = TOWN_LEVEL_MIN_ZOOM;
 
   legend = LAND_OFFSET_LEGEND;
 
@@ -489,7 +553,7 @@ export class LandBoundaryLayer implements MapLayer {
   visible = true;
   layerGroup = 'department' as const;
 
-  minZoom = 10;
+  minZoom = TOWN_LEVEL_MIN_ZOOM;
 
   legend = LAND_BOUNDARY_LEGEND;
 
@@ -574,6 +638,120 @@ export class LandBoundaryLayer implements MapLayer {
     });
   }
 }
+
+export class DynamicDepartmentLayer implements MapLayer {
+  visible = true;
+  layerGroup = 'department' as const;
+  legend = DEFAULT_DYNAMIC_LEGEND;
+
+  private layer: L.GeoJSON;
+  private lastBbox = '';
+  private requestSeq = 0;
+  private added = false;
+  private readonly minZoom: number;
+  private onZoomEndHandler?: () => void;
+
+  constructor(
+    public id: string,
+    public title: string,
+    private api: Api,
+    private departmentRef: string,
+    private layerKey: string,
+    private onData?: (geojson: any) => void
+  ) {
+    this.minZoom = inferMinZoomFromTitle(title);
+    this.layer = L.geoJSON(null, {
+      style: () => pathStyleFromLegend(this.legend),
+      pointToLayer: (_feature: any, latlng: L.LatLng) =>
+        pointLayerFromLegend(this.legend, latlng),
+      onEachFeature: (feature: any, layer: any) => {
+        const props = feature?.properties || {};
+        const firstKeys = Object.keys(props).slice(0, 5);
+        if (!firstKeys.length) return;
+        const html = firstKeys
+          .map((key) => `<b>${key}</b>: ${props[key] ?? '-'}`)
+          .join('<br>');
+        layer.bindPopup(html);
+      },
+    });
+  }
+
+  private canShow(map: L.Map): boolean {
+    return this.visible && map.getZoom() >= this.minZoom;
+  }
+
+  addTo(map: L.Map): void {
+    if (!this.visible || this.added) return;
+    if (!this.onZoomEndHandler) {
+      this.onZoomEndHandler = () => {
+        if (this.canShow(map)) {
+          if (!map.hasLayer(this.layer)) this.layer.addTo(map);
+          this.added = true;
+        } else if (map.hasLayer(this.layer)) {
+          map.removeLayer(this.layer);
+          this.added = false;
+          this.lastBbox = '';
+          this.layer.clearLayers();
+        }
+      };
+      map.on('zoomend', this.onZoomEndHandler);
+    }
+
+    if (!this.canShow(map)) return;
+    this.layer.addTo(map);
+    this.added = true;
+  }
+
+  removeFrom(map: L.Map): void {
+    if (this.onZoomEndHandler) {
+      map.off('zoomend', this.onZoomEndHandler);
+      this.onZoomEndHandler = undefined;
+    }
+    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    this.added = false;
+  }
+
+  loadForMap(map: L.Map): void {
+    if (!this.visible) return;
+
+    this.addTo(map);
+    if (!this.canShow(map)) {
+      this.lastBbox = '';
+      this.layer.clearLayers();
+      return;
+    }
+
+    const b = map.getBounds();
+    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    if (bbox === this.lastBbox) return;
+    this.lastBbox = bbox;
+    const requestId = ++this.requestSeq;
+
+    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox).subscribe({
+      next: (geojson: any) => {
+        if (requestId !== this.requestSeq) return;
+        this.legend = inferCivilLegendFromFeatureCollection(this.title, this.layerKey, geojson);
+        this.layer.clearLayers();
+        this.layer.addData(geojson);
+        if (this.legend.type !== 'polygon') {
+          this.layer.bringToFront();
+        }
+        this.onData?.(geojson);
+      },
+      error: (err: any) => console.error(`Dynamic department layer error (${this.layerKey})`, err),
+    });
+  }
+}
+
+
+
+
+
+
+
+
+
+
 
 
 
