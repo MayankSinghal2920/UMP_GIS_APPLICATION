@@ -35,6 +35,10 @@ export class UserManagementComponent implements OnInit {
   showDeleteConfirmModal = false;
   selectedAssignedCheckerUser: any = null;
 
+  showUserInfoModal = false;
+selectedUserInfo: any = null;
+
+
 
   stats = [
     { label: 'Total', value: 0 },
@@ -157,17 +161,23 @@ export class UserManagementComponent implements OnInit {
     ];
   }
 
-  filterByRole(role: string) {
-    this.activeRoleFilter = role;
+filterByRole(role: string) {
+  this.activeTab = 'user-list';
+  this.activeRoleFilter = role;
+  this.searchText = '';
+  this.currentPage = 1;
 
-    if (role === 'Total') {
-      this.filteredUsers = [...this.users];
-    } else {
-      this.filteredUsers = this.users.filter(user => user.user_type === role);
-    }
-
-    this.currentPage = 1;
+  if (role === 'Total') {
+    this.filteredUsers = [...this.users];
+  } else {
+    this.filteredUsers = this.users.filter(
+      user => user.user_type?.toLowerCase() === role.toLowerCase()
+    );
   }
+
+  this.cdr.detectChanges();
+}
+
 
   trackById(index: number, item: any) {
     return item.objectid;
@@ -304,6 +314,19 @@ closeDeleteConfirmModal() {
   this.selectedAssignedCheckerUser = null;
   this.cdr.detectChanges();
 }
+
+openUserInfoModal(user: any) {
+  this.selectedUserInfo = user;
+  this.showUserInfoModal = true;
+  this.cdr.detectChanges();
+}
+
+closeUserInfoModal() {
+  this.showUserInfoModal = false;
+  this.selectedUserInfo = null;
+  this.cdr.detectChanges();
+}
+
 
 
 }
