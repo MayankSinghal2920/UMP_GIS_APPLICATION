@@ -406,3 +406,132 @@ background: #e46a00;
 
 
 
+.btn-info-user {
+  background: #ff7a00;
+}
+
+.user-info-modal {
+  width: 720px;
+  max-width: 92%;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+}
+
+.user-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #d9d9d9;
+  padding-bottom: 10px;
+}
+
+.user-info-header h3 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 500;
+  color: #4b6491;
+}
+
+.user-info-close {
+  border: none;
+  background: transparent;
+  font-size: 34px;
+  line-height: 1;
+  color: #0d6efd;
+  cursor: pointer;
+}
+
+.user-info-body {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.user-info-left {
+  flex: 0 0 200px;
+}
+
+.user-avatar-card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(53, 181, 167, 0.18);
+  padding: 10px;
+  text-align: center;
+}
+
+.user-avatar-card img {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+}
+
+.user-info-right {
+  flex: 1;
+}
+
+.user-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 28px;
+}
+
+.info-item label {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: #4c4c4c;
+  margin-bottom: 2px;
+}
+
+.info-item div {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ff6a00;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.user-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 26px;
+}
+
+.user-info-cancel-btn {
+  min-width: 90px;
+  background: #ffffff;
+  color: #ff7a00;
+  border: 1px solid #ff7a00;
+  border-radius: 6px;
+  padding: 8px 18px;
+}
+
+.user-info-cancel-btn:hover {
+  background: #fff4eb;
+  color: #ff7a00;
+}
+
+@media (max-width: 768px) {
+  .user-info-body {
+    flex-direction: column;
+  }
+
+  .user-info-left {
+    flex: unset;
+    width: 100%;
+  }
+
+  .user-avatar-card img {
+    width: 130px;
+    height: 130px;
+  }
+
+  .user-info-grid {
+    grid-template-columns: 1fr;
+  }
+}

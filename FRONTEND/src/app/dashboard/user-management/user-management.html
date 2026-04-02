@@ -169,6 +169,15 @@
                     <td *ngIf="activeTab === 'assigned-checker'">{{ user.assigned_checker_name }}</td>
 
                     <td class="action-buttons">
+                      <button
+  *ngIf="activeTab === 'assigned-checker'"
+  class="btn-action btn-info-user"
+  (click)="openUserInfoModal(user)"
+  title="User Information"
+>
+  <i class="bi bi-person-vcard-fill"></i>
+</button>
+
   <button class="btn-action btn-edit">
     <i class="bi bi-pencil-fill"></i>
   </button>
@@ -316,5 +325,71 @@
     </div>
   </div>
 </div>
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showUserInfoModal"
+>
+  <div class="user-info-modal">
+    <div class="user-info-header">
+      <h3>User Details</h3>
+      <button class="user-info-close" (click)="closeUserInfoModal()">×</button>
+    </div>
+
+    <div class="user-info-body">
+      <div class="user-info-left">
+        <div class="user-avatar-card">
+          <img src="assets/user-avatar.png" alt="User Avatar" />
+        </div>
+      </div>
+
+      <div class="user-info-right">
+        <div class="user-info-grid">
+          <div class="info-item">
+            <label>User Name :</label>
+            <div>{{ selectedUserInfo?.user_name }}</div>
+          </div>
+
+          <div class="info-item">
+            <label>User Type :</label>
+            <div>{{ selectedUserInfo?.user_type }}</div>
+          </div>
+
+          <div class="info-item">
+            <label>Unit Type:</label>
+            <div>{{ selectedUserInfo?.unit_type }}</div>
+          </div>
+
+          <div class="info-item">
+            <label>Department :</label>
+            <div>{{ selectedUserInfo?.department_id }}</div>
+          </div>
+
+          <div class="info-item">
+            <label>Division :</label>
+            <div>{{ selectedUserInfo?.division }}</div>
+          </div>
+
+          <div class="info-item">
+            <label>Zone :</label>
+            <div>{{ selectedUserInfo?.zone }}</div>
+          </div>
+
+          <div class="info-item full-width">
+            <label>Assigned Checker :</label>
+            <div>{{ selectedUserInfo?.assigned_checker_name }}</div>
+          </div>
+        </div>
+
+        <div class="user-info-actions">
+          <button class="btn user-info-cancel-btn" (click)="closeUserInfoModal()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
   </div>
 </div>
