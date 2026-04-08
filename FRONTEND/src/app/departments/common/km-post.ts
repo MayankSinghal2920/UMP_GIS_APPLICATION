@@ -1,4 +1,4 @@
-import * as L from 'leaflet';
+﻿import * as L from 'leaflet';
 import { Api } from '../../api/api';
 import { defineLegend, MapLayer, pointLayerFromLegend } from '../../services/interface';
 
@@ -42,6 +42,7 @@ export class KmPostLayer implements MapLayer {
   private requestSeq = 0;
   private onMoveStartHandler?: () => void;
   private onMoveEndHandler?: () => void;
+  private labelUpdateTimer: any = null;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.featureGroup();
@@ -98,7 +99,7 @@ export class KmPostLayer implements MapLayer {
         this.onMoveStartHandler = () => this.closeLabels();
       }
       if (!this.onMoveEndHandler) {
-        this.onMoveEndHandler = () => this.updateLabels(map);
+        this.onMoveEndHandler = () => this.scheduleLabelUpdate(map);
       }
       map.on('zoomstart', this.onMoveStartHandler);
       map.on('movestart', this.onMoveStartHandler);
@@ -117,6 +118,8 @@ export class KmPostLayer implements MapLayer {
     if (this.onMoveEndHandler) map.off('moveend', this.onMoveEndHandler);
     this.onMoveStartHandler = undefined;
     this.onMoveEndHandler = undefined;
+    if (this.labelUpdateTimer) clearTimeout(this.labelUpdateTimer);
+    this.labelUpdateTimer = null;
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
     this.isOnMap = false;
   }
@@ -127,12 +130,34 @@ export class KmPostLayer implements MapLayer {
     });
   }
 
+  private scheduleLabelUpdate(map: L.Map) {
+    if (this.labelUpdateTimer) clearTimeout(this.labelUpdateTimer);
+    this.labelUpdateTimer = setTimeout(() => this.updateLabels(map), 180);
+  }
+
   private updateLabels(map: L.Map) {
     const show = map.getZoom() >= this.LABEL_ZOOM;
+    const bounds = map.getBounds();
+    const occupied: Array<{ x: number; y: number }> = [];
+    const minDistancePx = 54;
+    let shownCount = 0;
+    const maxLabels = 120;
     this.layer.eachLayer((l: any) => {
       const tooltip = l.getTooltip?.();
-      if (!tooltip) return;
-      show ? l.openTooltip() : l.closeTooltip();
+      if (!tooltip || !l.getLatLng) return;
+      if (!show) { l.closeTooltip(); return; }
+      const latlng = l.getLatLng();
+      if (!bounds.contains(latlng)) { l.closeTooltip(); return; }
+      const p = map.latLngToContainerPoint(latlng);
+      const tooClose = occupied.some((q) => {
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        return (dx * dx + dy * dy) < (minDistancePx * minDistancePx);
+      });
+      if (tooClose || shownCount >= maxLabels) { l.closeTooltip(); return; }
+      occupied.push({ x: p.x, y: p.y });
+      shownCount++;
+      l.openTooltip();
     });
   }
 
@@ -181,7 +206,7 @@ export class KmPostLayer implements MapLayer {
           this.layer.addLayer(this.createKmPostMarker(feature, L.latLng(lat, lng)));
         });
 
-        this.updateLabels(map);
+        this.scheduleLabelUpdate(map);
         this.isLoading = false;
       },
       error: (err: any) => {
@@ -191,4 +216,8 @@ export class KmPostLayer implements MapLayer {
     });
   }
 }
+
+
+
+
 

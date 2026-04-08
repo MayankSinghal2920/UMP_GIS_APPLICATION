@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
+﻿import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
@@ -122,7 +122,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private forceMapResize(): void { if (!this.map) return; this.map.invalidateSize(); requestAnimationFrame(() => this.map?.invalidateSize()); setTimeout(() => this.map?.invalidateSize(), 350); }
-  private scheduleReload(): void { if (!this.map) return; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; this.layerManager.reloadVisible(this.map); }, 260); }
+  private scheduleReload(): void { if (!this.map) return; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; this.layerManager.reloadVisible(this.map); }, 600); }
 
   private captureHomeAfterFirstSettle(): void {
     if (!this.map || this.homeCaptured) return;
@@ -263,14 +263,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (this.map) return;
     const anyEl = el as any; if (anyEl._leaflet_id) { try { anyEl._leaflet_id = undefined; } catch {} }
     this.ui.activePanel = null; this.edit.disable();
-    this.map = L.map(el, { preferCanvas: false, zoomAnimation: true, fadeAnimation: true, markerZoomAnimation: false, zoomAnimationThreshold: 4, wheelDebounceTime: 40, wheelPxPerZoomLevel: 90 }).setView([22.5, 79], 5);
+    this.map = L.map(el, { preferCanvas: false, zoomAnimation: true, fadeAnimation: true, markerZoomAnimation: false, zoomAnimationThreshold: 8, wheelDebounceTime: 60, wheelPxPerZoomLevel: 140 }).setView([22.5, 79], 5);
     this.mapRegistry.setMap(this.map);
     this.createStationDblClickHandler = (e: L.LeafletMouseEvent) => this.handleStationCreateDoubleClick(e);
     this.map.on('dblclick', this.createStationDblClickHandler);
     this.sidebarSub?.unsubscribe(); this.sidebarSub = new Subscription();
     this.sidebarSub.add(this.ui.layoutChanged$.subscribe(() => { setTimeout(() => this.forceMapResize(), 320); }));
     this.sidebarSub.add(this.router.events.pipe(filter((e) => e instanceof NavigationStart)).subscribe((e: any) => { const fromUrl = this.router.url || ''; const toUrl = e?.url || ''; const isMapPage = (u: string) => u.includes('/dashboard/railway-assets') || u.includes('/map'); if (isMapPage(fromUrl) && !isMapPage(toUrl)) { this.ui.activePanel = null; this.edit.disable(); this.mapZoom.clearHighlight(); this.clearZoomArtifacts(); this.applyEditSuppression(); } }));
-    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles Ã‚Â© Esri' }).addTo(this.map);
+    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles Ãƒâ€šÃ‚Â© Esri' }).addTo(this.map);
     base.once('load', () => { this.forceMapResize(); setTimeout(() => { if (this.map) this.layerManager.reloadAll(this.map); }, 250); });
     this.registerDepartmentLayers();
     this.map.whenReady(() => {
@@ -295,6 +295,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     try { if (this.createStationDblClickHandler) this.map.off('dblclick', this.createStationDblClickHandler); if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom); else this.map.off(); this.layerManager.removeAll(this.map); this.map.remove(); } finally { this.map = undefined; this.onMoveOrZoom = undefined; this.highlightLayer = undefined; this.homeCenter = undefined; this.homeZoom = undefined; this.homeCaptured = false; this.dragMarker = undefined; this.zoomHighlight = undefined; this.suppressedVis.clear(); this.createStationDblClickHandler = undefined; }
   }
 }
+
+
+
+
 
 
 
