@@ -33,4 +33,24 @@ export class UserManagementApi {
   unassignChecker(data: any) {
     return this.http.post(`${BASE_URL}/api/user-management/view/users/unassign-checker`, data);
   }
+
+  updateUserDetails(data: any) {
+  return this.http.put(`${BASE_URL}/api/user-management/view/users/update-user`, data);
+}
+
+getMakerLayerList() {
+  const params = new HttpParams().set('division', this.getDivision());
+  return this.http.get<any>(`${BASE_URL}/api/user-management/view/users/maker-layer-list`, { params });
+}
+
+getDepartmentLayers(departmentId: string) {
+  const params = new HttpParams().set('department_id', departmentId);
+  return this.http.get<any>(`${BASE_URL}/api/user-management/view/users/department-layers`, { params });
+}
+
+assignLayers(data: any) {
+  return this.http.post(`${BASE_URL}/api/user-management/view/users/assign-layers`, data);
+}
+
+
 }
