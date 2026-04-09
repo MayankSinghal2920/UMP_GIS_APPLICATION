@@ -42,7 +42,9 @@
               <h5 class="mb-2">User List / Layer Assign</h5>
 
               <div class="action-buttons">
-                <button class="btn action-btn me-2 mb-2">+ Assign Layer</button>
+                <button class="btn action-btn me-2 mb-2" (click)="openAssignLayerModal()">
+                  + Assign Layer
+                </button>
                 <button
                   class="btn action-btn me-2 mb-2"
                   (click)="openAssignCheckerModal()"
@@ -52,7 +54,7 @@
               </div>
             </div>
 
-            <ul class="nav nav-tabs  flex-wrap user-tabs">
+            <ul class="nav nav-tabs flex-wrap user-tabs">
               <li class="nav-item">
                 <a
                   class="nav-link"
@@ -85,18 +87,15 @@
               </li>
             </ul>
 
-              <div class="col-12 col-md-6 col-xl-4 ms-xl-auto">
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  placeholder="Search"
-                  [(ngModel)]="searchText"
-                  (input)="searchUsers()"
-                />
-              </div>
-            
-
-  
+            <div class="col-12 col-md-6 col-xl-4 ms-xl-auto">
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                placeholder="Search"
+                [(ngModel)]="searchText"
+                (input)="searchUsers()"
+              />
+            </div>
 
             <div class="table-responsive flex-grow-1">
               <table class="table user-table align-middle">
@@ -170,28 +169,30 @@
 
                     <td class="action-buttons">
                       <button
-  *ngIf="activeTab === 'assigned-checker'"
-  class="btn-action btn-info-user"
-  (click)="openUserInfoModal(user)"
-  title="User Information"
->
-  <i class="bi bi-person-vcard-fill"></i>
-</button>
+                        class="btn-action btn-info-user"
+                        (click)="openUserInfoModal(user)"
+                        title="User Information"
+                      >
+                        <i class="bi bi-person-vcard-fill"></i>
+                      </button>
 
-  <button class="btn-action btn-edit">
-    <i class="bi bi-pencil-fill"></i>
-  </button>
+                      <button
+                        class="btn-action btn-edit"
+                        (click)="activeTab === 'assigned-checker' ? openChangeCheckerModal(user) : openEditUserModal(user)"
+                        title="Edit"
+                      >
+                        <i class="bi bi-pencil-fill"></i>
+                      </button>
 
-      <button
-        *ngIf="activeTab === 'assigned-checker'"
-        class="btn-action btn-delete"
-        (click)="openDeleteConfirmModal(user)"
-        title="Unassign Checker"
-      >
-        <i class="bi bi-trash-fill"></i>
-      </button>
-
-      </td>
+                      <button
+                        *ngIf="activeTab === 'assigned-checker'"
+                        class="btn-action btn-delete"
+                        (click)="openDeleteConfirmModal(user)"
+                        title="Unassign Checker"
+                      >
+                        <i class="bi bi-trash-fill"></i>
+                      </button>
+                    </td>
                   </tr>
 
                   <tr *ngIf="paginatedUsers.length === 0">
@@ -228,77 +229,201 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <div
-      class="modal-backdrop-custom"
-      *ngIf="showAssignCheckerModal"
-    >
-      <div class="assign-checker-modal">
-        <div class="modal-header">
-          <h5>Assign Checker</h5>
-          <button class="close-btn" (click)="closeAssignCheckerModal()">✕</button>
-        </div>
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showAssignLayerModal"
+>
+  <div class="assign-checker-modal">
+    <div class="modal-header">
+      <h5>Assign Layer</h5>
+      <button class="close-btn" (click)="closeAssignLayerModal()">✕</button>
+    </div>
 
-        <hr>
+    <hr />
 
-        <div class="row">
-          <div class="col-md-6">
-            <label>Maker</label>
+    <div class="row">
+      <div class="col-md-6">
+        <label>User</label>
 
-            <select
-              class="form-control"
-              [(ngModel)]="selectedMaker"
-            >
-              <option [ngValue]="null">Select Maker</option>
+        <select
+          class="form-control"
+          [(ngModel)]="selectedLayerMaker"
+          (change)="onLayerMakerChange()"
+        >
+          <option [ngValue]="null">Select Maker</option>
 
-              <option
-                *ngFor="let maker of makers"
-                [ngValue]="maker.objectid"
-              >
-                {{ maker.user_name }}
-              </option>
-            </select>
-          </div>
-
-          <div class="col-md-6">
-            <label>Checker</label>
-
-            <select
-              class="form-control"
-              [(ngModel)]="selectedChecker"
-              [disabled]="!selectedMaker"
-            >
-              <option [ngValue]="null">
-                Please select a maker first
-              </option>
-
-              <option
-                *ngFor="let checker of checkers"
-                [ngValue]="checker.objectid"
-              >
-                {{ checker.user_name }}
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn btn-orange" (click)="assignChecker()">
-            Add
-          </button>
-
-          <button
-            class="btn btn-outline-secondary"
-            (click)="closeAssignCheckerModal()"
+          <option
+            *ngFor="let maker of layerMakers"
+            [ngValue]="maker.objectid"
           >
-            Cancel
-          </button>
-        </div>
+            {{ maker.user_name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label>Layer</label>
+
+        <select
+          class="form-control"
+          multiple
+          [disabled]="!selectedLayerMaker"
+          (change)="onLayerSelectionChange($event)"
+        >
+          <option
+            *ngFor="let layer of availableLayers"
+            [value]="layer.objectid"
+          >
+            {{ layer.layar_name }}
+          </option>
+        </select>
       </div>
     </div>
 
-    
-      <div
+    <div class="modal-actions">
+      <button class="btn btn-orange" (click)="assignLayersToMaker()">
+        Add
+      </button>
+
+      <button
+        class="btn btn-outline-secondary"
+        (click)="closeAssignLayerModal()"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showAssignCheckerModal"
+>
+  <div class="assign-checker-modal">
+    <div class="modal-header">
+      <h5>Assign Checker</h5>
+      <button class="close-btn" (click)="closeAssignCheckerModal()">✕</button>
+    </div>
+
+    <hr />
+
+    <div class="row">
+      <div class="col-md-6">
+        <label>Maker</label>
+
+        <select
+          class="form-control"
+          [(ngModel)]="selectedMaker"
+        >
+          <option [ngValue]="null">Select Maker</option>
+
+          <option
+            *ngFor="let maker of makers"
+            [ngValue]="maker.objectid"
+          >
+            {{ maker.user_name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label>Checker</label>
+
+        <select
+          class="form-control"
+          [(ngModel)]="selectedChecker"
+          [disabled]="!selectedMaker"
+        >
+          <option [ngValue]="null">
+            Please select a maker first
+          </option>
+
+          <option
+            *ngFor="let checker of checkers"
+            [ngValue]="checker.objectid"
+          >
+            {{ checker.user_name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-orange" (click)="assignChecker()">
+        Add
+      </button>
+
+      <button
+        class="btn btn-outline-secondary"
+        (click)="closeAssignCheckerModal()"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showChangeCheckerModal"
+>
+  <div class="assign-checker-modal">
+    <div class="modal-header">
+      <h5>Assign Checker</h5>
+      <button class="close-btn" (click)="closeChangeCheckerModal()">✕</button>
+    </div>
+
+    <hr />
+
+    <div class="row">
+      <div class="col-md-6">
+        <label>Maker</label>
+        <input
+          type="text"
+          class="form-control"
+          [value]="selectedCheckerAssignmentUser?.user_name"
+          readonly
+        />
+      </div>
+
+      <div class="col-md-6">
+        <label>Checker</label>
+
+        <select
+          class="form-control"
+          [(ngModel)]="updatedCheckerId"
+        >
+          <option [ngValue]="null">Select Checker</option>
+
+          <option
+            *ngFor="let checker of checkers"
+            [ngValue]="checker.objectid"
+          >
+            {{ checker.user_name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-orange" (click)="updateAssignedChecker()">
+        Update
+      </button>
+
+      <button
+        class="btn btn-outline-secondary"
+        (click)="closeChangeCheckerModal()"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
   class="modal-backdrop-custom"
   *ngIf="showDeleteConfirmModal"
 >
@@ -339,7 +464,7 @@
     <div class="user-info-body">
       <div class="user-info-left">
         <div class="user-avatar-card">
-          <img src="assets/user-avatar.png" alt="User Avatar" />
+          <i class="bi bi-person-circle user-avatar-icon"></i>
         </div>
       </div>
 
@@ -356,7 +481,7 @@
           </div>
 
           <div class="info-item">
-            <label>Unit Type:</label>
+            <label>Unit Type :</label>
             <div>{{ selectedUserInfo?.unit_type }}</div>
           </div>
 
@@ -375,7 +500,10 @@
             <div>{{ selectedUserInfo?.zone }}</div>
           </div>
 
-          <div class="info-item full-width">
+          <div
+            class="info-item full-width"
+            *ngIf="activeTab === 'assigned-checker' && selectedUserInfo?.assigned_checker_name"
+          >
             <label>Assigned Checker :</label>
             <div>{{ selectedUserInfo?.assigned_checker_name }}</div>
           </div>
@@ -391,5 +519,124 @@
   </div>
 </div>
 
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showEditUserModal"
+>
+  <div class="edit-user-modal">
+    <div class="edit-user-header">
+      <h3>Edit User Details</h3>
+      <button class="edit-user-close" (click)="closeEditUserModal()">×</button>
+    </div>
+
+    <hr />
+
+    <div class="edit-user-form">
+      <div class="edit-form-group full-width">
+        <label>User Name <span class="required-star">*</span></label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="editUserForm.user_name"
+        />
+      </div>
+
+      <div class="edit-form-group full-width">
+        <label>User ID <span class="required-star">*</span></label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="editUserForm.user_id"
+          readonly
+        />
+      </div>
+
+      <div class="edit-form-group full-width">
+        <label>Password <span class="required-star">*</span></label>
+        <div class="password-input-wrap">
+          <input
+            [type]="showPassword ? 'text' : 'password'"
+            class="form-control"
+            [(ngModel)]="editUserForm.password"
+            placeholder="Enter new password"
+          />
+          <button
+            type="button"
+            class="password-toggle-btn"
+            (click)="togglePasswordVisibility()"
+          >
+            <i class="bi" [ngClass]="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+          </button>
+        </div>
+        <small class="field-error" *ngIf="passwordError">{{ passwordError }}</small>
+      </div>
+
+      <div class="edit-form-group">
+        <label>Zone</label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="editUserForm.zone"
+          readonly
+        />
+      </div>
+
+      <div class="edit-form-group">
+        <label>Division</label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="editUserForm.division"
+          readonly
+        />
+      </div>
+
+      <div class="edit-form-group full-width">
+        <label>Department</label>
+        <input
+          type="text"
+          class="form-control"
+          [(ngModel)]="editUserForm.department_id"
+          readonly
+        />
+      </div>
+
+      <div class="field-error full-width" *ngIf="editUserError">{{ editUserError }}</div>
+    </div>
+
+    <div class="edit-user-actions">
+      <button class="btn edit-update-btn" (click)="openEditConfirmModal()">
+        Update
+      </button>
+
+      <button class="btn edit-cancel-btn" (click)="closeEditUserModal()">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showEditConfirmModal"
+>
+  <div class="edit-confirm-modal">
+    <div class="edit-confirm-icon">
+      <i class="bi bi-exclamation-circle-fill"></i>
+    </div>
+
+    <div class="edit-confirm-text">
+      Please confirm to update user details
+    </div>
+
+    <div class="edit-confirm-actions">
+      <button class="btn edit-update-btn" (click)="updateUserDetails()">
+        Confirm
+      </button>
+
+      <button class="btn edit-cancel-btn" (click)="closeEditConfirmModal()">
+        Cancel
+      </button>
+    </div>
   </div>
 </div>

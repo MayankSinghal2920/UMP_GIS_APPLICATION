@@ -93,11 +93,90 @@ async function unassignChecker(req, res, next) {
   }
 }
 
+async function updateUserDetails(req, res, next) {
+  try {
+    const { objectid, user_name, password } = req.body || {};
+
+    if (!objectid || !user_name || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'objectid, user_name and password are required'
+      });
+    }
+
+    const updatedUser = await userModel.updateUserDetails(objectid, user_name, password);
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      user: updatedUser
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMakerLayerList(req, res, next) {
+  try {
+    const { division } = req.query;
+    const data = await userModel.getMakerLayerList(division);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getLayersByDepartment(req, res, next) {
+  try {
+    const { department_id } = req.query;
+
+    if (!department_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'department_id is required'
+      });
+    }
+
+    const layers = await userModel.getLayersByDepartment(department_id);
+    res.json(layers);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function assignLayersToMaker(req, res, next) {
+  try {
+    const { maker_id, layer_ids } = req.body || {};
+
+    if (!maker_id || !Array.isArray(layer_ids) || layer_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'maker_id and layer_ids are required'
+      });
+    }
+
+    await userModel.assignLayersToMaker(maker_id, layer_ids);
+
+    res.json({
+      success: true,
+      message: 'Layers assigned successfully'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+
 
 module.exports = {
   getUsers,
   getMakerCheckerList,
   assignChecker,
   getAssignedCheckerUsers,
-  unassignChecker
+  unassignChecker,
+  updateUserDetails,
+  getMakerLayerList,
+  getLayersByDepartment,
+  assignLayersToMaker
 };

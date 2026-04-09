@@ -182,5 +182,23 @@ export class Api {
   unassignChecker(data: any) {
     return this.userManagementApi.unassignChecker(data);
   }
+
+  updateUserDetails(data: any) {
+  return this.userManagementApi.updateUserDetails(data);
+}
+
+getMakerLayerList() {
+  return this.userManagementApi.getMakerLayerList();
+}
+
+getDepartmentLayers(departmentId: string) {
+  return this.userManagementApi.getDepartmentLayers(departmentId);
+}
+
+assignLayers(data: any) {
+  return this.userManagementApi.assignLayers(data);
+}
+
+
 }
 
