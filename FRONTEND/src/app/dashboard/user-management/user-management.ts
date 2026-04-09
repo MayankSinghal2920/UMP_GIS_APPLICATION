@@ -8,7 +8,7 @@ import { Api } from 'src/app/api/api';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './user-management.html',
-  styleUrl: './user-management.css'
+  styleUrl: './user-management.css',
 })
 export class UserManagementComponent implements OnInit {
   users: any[] = [];
@@ -38,6 +38,7 @@ export class UserManagementComponent implements OnInit {
   selectedLayerMaker: any = null;
   selectedLayerDepartmentId: string = '';
   selectedLayerIds: any[] = [];
+  selectedLayerObjects: any[] = [];
 
   showDeleteConfirmModal = false;
   selectedAssignedCheckerUser: any = null;
@@ -53,6 +54,13 @@ export class UserManagementComponent implements OnInit {
   showEditConfirmModal = false;
   showPassword = false;
 
+  assignedLayerUsers: any[] = [];
+  filteredAssignedLayerUsers: any[] = [];
+
+  showAssignedLayerDeleteConfirmModal = false;
+  selectedAssignedLayerUser: any = null;
+  isAssignLayerEditMode = false;
+
   editUserForm: any = {
     objectid: null,
     user_name: '',
@@ -60,7 +68,7 @@ export class UserManagementComponent implements OnInit {
     password: '',
     zone: '',
     division: '',
-    department_id: ''
+    department_id: '',
   };
 
   passwordError = '';
@@ -72,10 +80,13 @@ export class UserManagementComponent implements OnInit {
     { label: 'Maker', value: 0 },
     { label: 'Checker', value: 0 },
     { label: 'Approver', value: 0 },
-    { label: 'User', value: 0 }
+    { label: 'User', value: 0 },
   ];
 
-  constructor(private api: Api, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private api: Api,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.loadUsers();
@@ -91,7 +102,7 @@ export class UserManagementComponent implements OnInit {
       },
       error: (err: any) => {
         console.error('Failed to load users', err);
-      }
+      },
     });
   }
 
@@ -105,7 +116,7 @@ export class UserManagementComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load assigned checker users', err);
-      }
+      },
     });
   }
 
@@ -118,6 +129,10 @@ export class UserManagementComponent implements OnInit {
       this.filteredUsers = [...this.users];
     }
 
+    if (tab === 'assigned-layers') {
+      this.loadAssignedLayerUsers();
+    }
+
     if (tab === 'assigned-checker') {
       this.loadAssignedCheckerUsers();
     }
@@ -126,18 +141,39 @@ export class UserManagementComponent implements OnInit {
   searchUsers(): void {
     const term = this.searchText.toLowerCase().trim();
 
+    if (this.activeTab === 'assigned-layers') {
+      if (!term) {
+        this.filteredAssignedLayerUsers = [...this.assignedLayerUsers];
+      } else {
+        this.filteredAssignedLayerUsers = this.assignedLayerUsers.filter(
+          (user) =>
+            user.user_name?.toLowerCase().includes(term) ||
+            user.user_type?.toLowerCase().includes(term) ||
+            user.unit_type?.toLowerCase().includes(term) ||
+            user.zone?.toLowerCase().includes(term) ||
+            user.division?.toLowerCase().includes(term) ||
+            user.department_id?.toLowerCase().includes(term) ||
+            user.assigned_layer_names?.toLowerCase().includes(term),
+        );
+      }
+
+      this.currentPage = 1;
+      return;
+    }
+
     if (this.activeTab === 'assigned-checker') {
       if (!term) {
         this.filteredAssignedCheckerUsers = [...this.assignedCheckerUsers];
       } else {
-        this.filteredAssignedCheckerUsers = this.assignedCheckerUsers.filter(user =>
-          user.user_name?.toLowerCase().includes(term) ||
-          user.user_type?.toLowerCase().includes(term) ||
-          user.unit_type?.toLowerCase().includes(term) ||
-          user.zone?.toLowerCase().includes(term) ||
-          user.division?.toLowerCase().includes(term) ||
-          user.department_id?.toLowerCase().includes(term) ||
-          user.assigned_checker_name?.toLowerCase().includes(term)
+        this.filteredAssignedCheckerUsers = this.assignedCheckerUsers.filter(
+          (user) =>
+            user.user_name?.toLowerCase().includes(term) ||
+            user.user_type?.toLowerCase().includes(term) ||
+            user.unit_type?.toLowerCase().includes(term) ||
+            user.zone?.toLowerCase().includes(term) ||
+            user.division?.toLowerCase().includes(term) ||
+            user.department_id?.toLowerCase().includes(term) ||
+            user.assigned_checker_name?.toLowerCase().includes(term),
         );
       }
 
@@ -148,14 +184,15 @@ export class UserManagementComponent implements OnInit {
     if (!term) {
       this.filteredUsers = [...this.users];
     } else {
-      this.filteredUsers = this.users.filter(user =>
-        user.user_name?.toLowerCase().includes(term) ||
-        user.user_type?.toLowerCase().includes(term) ||
-        user.zone?.toLowerCase().includes(term) ||
-        user.division?.toLowerCase().includes(term) ||
-        user.designation?.toLowerCase().includes(term) ||
-        user.hrmsid?.toLowerCase().includes(term) ||
-        user.user_id?.toLowerCase().includes(term)
+      this.filteredUsers = this.users.filter(
+        (user) =>
+          user.user_name?.toLowerCase().includes(term) ||
+          user.user_type?.toLowerCase().includes(term) ||
+          user.zone?.toLowerCase().includes(term) ||
+          user.division?.toLowerCase().includes(term) ||
+          user.designation?.toLowerCase().includes(term) ||
+          user.hrmsid?.toLowerCase().includes(term) ||
+          user.user_id?.toLowerCase().includes(term),
       );
     }
 
@@ -169,10 +206,10 @@ export class UserManagementComponent implements OnInit {
       Maker: 0,
       Checker: 0,
       Approver: 0,
-      User: 0
+      User: 0,
     };
 
-    this.users.forEach(user => {
+    this.users.forEach((user) => {
       if (counts[user.user_type] !== undefined) {
         counts[user.user_type]++;
       }
@@ -184,7 +221,7 @@ export class UserManagementComponent implements OnInit {
       { label: 'Maker', value: counts.Maker },
       { label: 'Checker', value: counts.Checker },
       { label: 'Approver', value: counts.Approver },
-      { label: 'User', value: counts.User }
+      { label: 'User', value: counts.User },
     ];
   }
 
@@ -198,7 +235,7 @@ export class UserManagementComponent implements OnInit {
       this.filteredUsers = [...this.users];
     } else {
       this.filteredUsers = this.users.filter(
-        user => user.user_type?.toLowerCase() === role.toLowerCase()
+        (user) => user.user_type?.toLowerCase() === role.toLowerCase(),
       );
     }
 
@@ -210,6 +247,10 @@ export class UserManagementComponent implements OnInit {
   }
 
   get currentDataLength(): number {
+    if (this.activeTab === 'assigned-layers') {
+      return this.filteredAssignedLayerUsers.length;
+    }
+
     return this.activeTab === 'assigned-checker'
       ? this.filteredAssignedCheckerUsers.length
       : this.filteredUsers.length;
@@ -219,10 +260,15 @@ export class UserManagementComponent implements OnInit {
     const start = (this.currentPage - 1) * this.pageSize;
     const end = start + this.pageSize;
 
-    const source =
-      this.activeTab === 'assigned-checker'
-        ? this.filteredAssignedCheckerUsers
-        : this.filteredUsers;
+    let source = this.filteredUsers;
+
+    if (this.activeTab === 'assigned-layers') {
+      source = this.filteredAssignedLayerUsers;
+    }
+
+    if (this.activeTab === 'assigned-checker') {
+      source = this.filteredAssignedCheckerUsers;
+    }
 
     return source.slice(start, end);
   }
@@ -262,7 +308,7 @@ export class UserManagementComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load maker/checker list', err);
-      }
+      },
     });
   }
 
@@ -279,7 +325,7 @@ export class UserManagementComponent implements OnInit {
 
     const payload = {
       maker_id: this.selectedMaker,
-      checker_id: this.selectedChecker
+      checker_id: this.selectedChecker,
     };
 
     this.api.assignChecker(payload).subscribe({
@@ -300,25 +346,33 @@ export class UserManagementComponent implements OnInit {
       error: (err) => {
         console.error('Failed to assign checker', err);
         alert('Failed to assign checker');
-      }
+      },
     });
   }
 
-  openAssignLayerModal() {
+  openAssignLayerModal(user?: any) {
     this.showAssignLayerModal = true;
     this.selectedLayerMaker = null;
     this.selectedLayerDepartmentId = '';
     this.selectedLayerIds = [];
+    this.selectedLayerObjects = [];
     this.availableLayers = [];
+    this.isAssignLayerEditMode = !!user;
 
     this.api.getMakerLayerList().subscribe({
       next: (res) => {
         this.layerMakers = res.makers || [];
+
+        if (user) {
+          this.selectedLayerMaker = user.objectid;
+          this.onLayerMakerChange();
+        }
+
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Failed to load maker list for layer assignment', err);
-      }
+      },
     });
   }
 
@@ -327,16 +381,19 @@ export class UserManagementComponent implements OnInit {
     this.selectedLayerMaker = null;
     this.selectedLayerDepartmentId = '';
     this.selectedLayerIds = [];
+    this.selectedLayerObjects = [];
     this.availableLayers = [];
+    this.isAssignLayerEditMode = false;
     this.cdr.detectChanges();
   }
 
   onLayerMakerChange() {
     this.selectedLayerIds = [];
+    this.selectedLayerObjects = [];
     this.availableLayers = [];
 
     const selectedMakerObj = this.layerMakers.find(
-      maker => String(maker.objectid) === String(this.selectedLayerMaker)
+      (maker) => String(maker.objectid) === String(this.selectedLayerMaker),
     );
 
     this.selectedLayerDepartmentId = selectedMakerObj?.department_id || '';
@@ -348,17 +405,47 @@ export class UserManagementComponent implements OnInit {
     this.api.getDepartmentLayers(this.selectedLayerDepartmentId).subscribe({
       next: (res) => {
         this.availableLayers = res || [];
+
+        const existingAssignedIds = String(selectedMakerObj?.assigned_layers || '')
+          .split(',')
+          .map((id: string) => id.trim())
+          .filter((id: string) => id);
+
+        this.selectedLayerIds = [...existingAssignedIds];
+
+        this.selectedLayerObjects = this.availableLayers.filter((layer) =>
+          existingAssignedIds.includes(String(layer.layer_id)),
+        );
+
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Failed to load department layers', err);
-      }
+      },
     });
   }
 
   onLayerSelectionChange(event: Event) {
     const select = event.target as HTMLSelectElement;
-    this.selectedLayerIds = Array.from(select.selectedOptions).map(option => option.value);
+    const selectedIds = Array.from(select.selectedOptions).map((option) => option.value);
+
+    this.selectedLayerIds = selectedIds;
+
+    this.selectedLayerObjects = this.availableLayers.filter((layer) =>
+      selectedIds.includes(String(layer.layer_id)),
+    );
+
+    this.cdr.detectChanges();
+  }
+
+  removeSelectedLayer(layerId: any) {
+    this.selectedLayerIds = this.selectedLayerIds.filter((id) => String(id) !== String(layerId));
+
+    this.selectedLayerObjects = this.selectedLayerObjects.filter(
+      (layer) => String(layer.layer_id) !== String(layerId),
+    );
+
+    this.cdr.detectChanges();
   }
 
   assignLayersToMaker() {
@@ -374,20 +461,23 @@ export class UserManagementComponent implements OnInit {
 
     const payload = {
       maker_id: this.selectedLayerMaker,
-      layer_ids: this.selectedLayerIds
+      layer_ids: this.selectedLayerIds,
     };
 
     this.api.assignLayers(payload).subscribe({
       next: (res) => {
         console.log('Layers assigned successfully', res);
         this.closeAssignLayerModal();
-        alert('Layers assigned successfully');
+
         this.loadUsers();
+        this.loadAssignedLayerUsers();
+
+        alert('Layers assigned successfully');
       },
       error: (err) => {
         console.error('Failed to assign layers', err);
         alert('Failed to assign layers');
-      }
+      },
     });
   }
 
@@ -401,7 +491,7 @@ export class UserManagementComponent implements OnInit {
         this.checkers = res.checkers || [];
 
         const matchedChecker = this.checkers.find(
-          (checker: any) => checker.user_name === user.assigned_checker_name
+          (checker: any) => checker.user_name === user.assigned_checker_name,
         );
 
         this.updatedCheckerId = matchedChecker ? matchedChecker.objectid : null;
@@ -409,7 +499,7 @@ export class UserManagementComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to load checker list', err);
-      }
+      },
     });
   }
 
@@ -428,7 +518,7 @@ export class UserManagementComponent implements OnInit {
 
     const payload = {
       maker_id: this.selectedCheckerAssignmentUser.objectid,
-      checker_id: this.updatedCheckerId
+      checker_id: this.updatedCheckerId,
     };
 
     this.api.assignChecker(payload).subscribe({
@@ -441,7 +531,7 @@ export class UserManagementComponent implements OnInit {
       error: (err) => {
         console.error('Failed to update checker', err);
         alert('Failed to update checker');
-      }
+      },
     });
   }
 
@@ -451,7 +541,7 @@ export class UserManagementComponent implements OnInit {
     }
 
     const payload = {
-      maker_id: this.selectedAssignedCheckerUser.objectid
+      maker_id: this.selectedAssignedCheckerUser.objectid,
     };
 
     this.api.unassignChecker(payload).subscribe({
@@ -464,7 +554,7 @@ export class UserManagementComponent implements OnInit {
       error: (err) => {
         console.error('Failed to unassign checker', err);
         alert('Failed to unassign checker');
-      }
+      },
     });
   }
 
@@ -500,7 +590,7 @@ export class UserManagementComponent implements OnInit {
       password: '',
       zone: user.zone || '',
       division: user.division || '',
-      department_id: user.department_id || ''
+      department_id: user.department_id || '',
     };
 
     this.passwordError = '';
@@ -560,7 +650,7 @@ export class UserManagementComponent implements OnInit {
     const payload = {
       objectid: this.editUserForm.objectid,
       user_name: this.editUserForm.user_name.trim(),
-      password: this.editUserForm.password
+      password: this.editUserForm.password,
     };
 
     this.api.updateUserDetails(payload).subscribe({
@@ -580,7 +670,83 @@ export class UserManagementComponent implements OnInit {
         this.editUserError = 'Failed to update user';
         this.showEditConfirmModal = false;
         this.cdr.detectChanges();
-      }
+      },
+    });
+  }
+
+  loadAssignedLayerUsers(): void {
+    this.api.getAssignedLayerUsers().subscribe({
+      next: (res) => {
+        this.assignedLayerUsers = res || [];
+        this.filteredAssignedLayerUsers = [...this.assignedLayerUsers];
+        this.currentPage = 1;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load assigned layer users', err);
+      },
+    });
+  }
+
+  updateAssignedLayersForMaker() {
+    if (!this.selectedLayerMaker) {
+      alert('Please select Maker');
+      return;
+    }
+
+    const payload = {
+      maker_id: this.selectedLayerMaker,
+      layer_ids: this.selectedLayerIds,
+    };
+
+    this.api.updateAssignedLayers(payload).subscribe({
+      next: (res) => {
+        console.log('Assigned layers updated successfully', res);
+        this.closeAssignLayerModal();
+        this.loadAssignedLayerUsers();
+        this.loadUsers();
+        alert('Assigned layers updated successfully');
+      },
+      error: (err) => {
+        console.error('Failed to update assigned layers', err);
+        alert('Failed to update assigned layers');
+      },
+    });
+  }
+
+  openAssignedLayerDeleteConfirmModal(user: any) {
+    this.selectedAssignedLayerUser = user;
+    this.showAssignedLayerDeleteConfirmModal = true;
+    this.cdr.detectChanges();
+  }
+
+  closeAssignedLayerDeleteConfirmModal() {
+    this.showAssignedLayerDeleteConfirmModal = false;
+    this.selectedAssignedLayerUser = null;
+    this.cdr.detectChanges();
+  }
+
+  removeAllAssignedLayers() {
+    if (!this.selectedAssignedLayerUser) {
+      return;
+    }
+
+    const payload = {
+      maker_id: this.selectedAssignedLayerUser.objectid,
+    };
+
+    this.api.clearAssignedLayers(payload).subscribe({
+      next: (res) => {
+        console.log('Assigned layers removed successfully', res);
+        this.closeAssignedLayerDeleteConfirmModal();
+        this.loadAssignedLayerUsers();
+        this.loadUsers();
+        alert('Assigned layers removed successfully');
+      },
+      error: (err) => {
+        console.error('Failed to remove assigned layers', err);
+        alert('Failed to remove assigned layers');
+      },
     });
   }
 }

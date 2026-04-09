@@ -152,7 +152,8 @@ async function getMakerLayerList(divisionCode) {
     SELECT
       u.objectid,
       u.user_name,
-      u.department_id
+      u.department_id,
+      u.assigned_layers
     FROM user_master u
     JOIN div_master d
       ON u.division = d.div_name
@@ -168,10 +169,11 @@ async function getMakerLayerList(divisionCode) {
   };
 }
 
+
 async function getLayersByDepartment(departmentId) {
   const sql = `
     SELECT DISTINCT
-      objectid,
+      layer_id,
       layar_name
     FROM department_table
     WHERE TRIM(department_id) = TRIM($1)
@@ -214,6 +216,83 @@ async function assignLayersToMaker(makerId, layerIds) {
   await pool.query(updateSql, [makerId, finalValue]);
 }
 
+async function getAssignedLayerUsers(divisionCode) {
+  const sql = `
+    SELECT
+      u.objectid,
+      u.user_id,
+      u.user_name,
+      u.user_type,
+      u.unit_type,
+      u.zone,
+      u.division,
+      COALESCE(dt.department, u.department_id) AS department_id,
+      u.hrmsid,
+      u.designation,
+      COALESCE(
+        (
+          SELECT string_agg(layer_rows.layar_name, ', ' ORDER BY layer_rows.layar_name)
+          FROM (
+            SELECT DISTINCT dpt.layar_name
+            FROM department_table dpt
+            WHERE TRIM(dpt.layer_id::text) = ANY(
+              ARRAY(
+                SELECT TRIM(x)
+                FROM unnest(string_to_array(COALESCE(u.assigned_layers, ''), ',')) AS x
+              )
+            )
+          ) AS layer_rows
+        ),
+        ''
+      ) AS assigned_layer_names,
+      COALESCE(u.assigned_layers, '') AS assigned_layers
+    FROM user_master u
+    JOIN div_master d
+      ON u.division = d.div_name
+    LEFT JOIN (
+      SELECT department_id, MIN(department) AS department
+      FROM department_table
+      GROUP BY department_id
+    ) dt
+      ON TRIM(u.department_id) = TRIM(dt.department_id)
+    WHERE d.divcode = $1
+      AND LOWER(TRIM(u.user_type)) = 'maker'
+      AND u.assigned_layers IS NOT NULL
+      AND TRIM(u.assigned_layers) <> ''
+    ORDER BY u.user_name
+  `;
+
+  const result = await pool.query(sql, [divisionCode]);
+  return result.rows;
+}
+
+async function updateAssignedLayers(makerId, layerIds) {
+  const finalValue = (Array.isArray(layerIds) ? layerIds : [])
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .join(",");
+
+  const sql = `
+    UPDATE user_master
+    SET assigned_layers = $2
+    WHERE objectid = $1
+  `;
+
+  await pool.query(sql, [makerId, finalValue]);
+}
+
+async function clearAssignedLayers(makerId) {
+  const sql = `
+    UPDATE user_master
+    SET assigned_layers = NULL
+    WHERE objectid = $1
+  `;
+
+  await pool.query(sql, [makerId]);
+}
+
+
+
 
 module.exports = {
   getUsersByDivision,
@@ -224,5 +303,8 @@ module.exports = {
   updateUserDetails,
   getMakerLayerList,
   getLayersByDepartment,
-  assignLayersToMaker
+  assignLayersToMaker,
+  getAssignedLayerUsers,
+  updateAssignedLayers,
+  clearAssignedLayers,
 };

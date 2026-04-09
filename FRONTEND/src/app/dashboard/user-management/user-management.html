@@ -133,13 +133,18 @@
                       <span class="sort-icons">▲▼</span>
                     </th>
 
-                    <th *ngIf="activeTab !== 'assigned-checker'">
+                    <th *ngIf="activeTab === 'user-list'">
                       HRMS ID
                       <span class="sort-icons">▲▼</span>
                     </th>
 
-                    <th *ngIf="activeTab !== 'assigned-checker'">
+                    <th *ngIf="activeTab === 'user-list'">
                       Designation
+                      <span class="sort-icons">▲▼</span>
+                    </th>
+
+                    <th *ngIf="activeTab === 'assigned-layers'">
+                      Assigned Layers
                       <span class="sort-icons">▲▼</span>
                     </th>
 
@@ -163,8 +168,9 @@
                     <td>{{ user.division }}</td>
                     <td>{{ user.department_id }}</td>
 
-                    <td *ngIf="activeTab !== 'assigned-checker'">{{ user.hrmsid }}</td>
-                    <td *ngIf="activeTab !== 'assigned-checker'">{{ user.designation }}</td>
+                    <td *ngIf="activeTab === 'user-list'">{{ user.hrmsid }}</td>
+                    <td *ngIf="activeTab === 'user-list'">{{ user.designation }}</td>
+                    <td *ngIf="activeTab === 'assigned-layers'">{{ user.assigned_layer_names }}</td>
                     <td *ngIf="activeTab === 'assigned-checker'">{{ user.assigned_checker_name }}</td>
 
                     <td class="action-buttons">
@@ -176,13 +182,20 @@
                         <i class="bi bi-person-vcard-fill"></i>
                       </button>
 
-                      <button
-                        class="btn-action btn-edit"
-                        (click)="activeTab === 'assigned-checker' ? openChangeCheckerModal(user) : openEditUserModal(user)"
-                        title="Edit"
-                      >
-                        <i class="bi bi-pencil-fill"></i>
-                      </button>
+                     <button
+  class="btn-action btn-edit"
+  (click)="
+    activeTab === 'assigned-checker'
+      ? openChangeCheckerModal(user)
+      : activeTab === 'assigned-layers'
+        ? openAssignLayerModal(user)
+        : openEditUserModal(user)
+  "
+  title="Edit"
+>
+  <i class="bi bi-pencil-fill"></i>
+</button>
+
 
                       <button
                         *ngIf="activeTab === 'assigned-checker'"
@@ -192,11 +205,20 @@
                       >
                         <i class="bi bi-trash-fill"></i>
                       </button>
+
+                      <button
+  *ngIf="activeTab === 'assigned-layers'"
+  class="btn-action btn-delete"
+  (click)="openAssignedLayerDeleteConfirmModal(user)"
+  title="Remove Assigned Layers"
+>
+  <i class="bi bi-trash-fill"></i>
+</button>
                     </td>
                   </tr>
 
                   <tr *ngIf="paginatedUsers.length === 0">
-                    <td [attr.colspan]="activeTab === 'assigned-checker' ? 9 : 10" class="text-center text-muted">
+                    <td [attr.colspan]="activeTab === 'user-list' ? 10 : 9" class="text-center text-muted">
                       No users found
                     </td>
                   </tr>
@@ -248,45 +270,68 @@
       <div class="col-md-6">
         <label>User</label>
 
-        <select
-          class="form-control"
-          [(ngModel)]="selectedLayerMaker"
-          (change)="onLayerMakerChange()"
-        >
-          <option [ngValue]="null">Select Maker</option>
+       <select
+  class="form-control"
+  [(ngModel)]="selectedLayerMaker"
+  (change)="onLayerMakerChange()"
+  [disabled]="isAssignLayerEditMode"
+>
+  <option [ngValue]="null">Select Maker</option>
 
-          <option
-            *ngFor="let maker of layerMakers"
-            [ngValue]="maker.objectid"
-          >
-            {{ maker.user_name }}
-          </option>
-        </select>
+  <option
+    *ngFor="let maker of layerMakers"
+    [ngValue]="maker.objectid"
+  >
+    {{ maker.user_name }}
+  </option>
+</select>
       </div>
 
       <div class="col-md-6">
         <label>Layer</label>
 
-        <select
-          class="form-control"
-          multiple
-          [disabled]="!selectedLayerMaker"
-          (change)="onLayerSelectionChange($event)"
-        >
-          <option
-            *ngFor="let layer of availableLayers"
-            [value]="layer.objectid"
+        <div class="selected-layer-box" *ngIf="selectedLayerObjects.length > 0">
+          <div
+            class="selected-layer-chip"
+            *ngFor="let layer of selectedLayerObjects"
           >
-            {{ layer.layar_name }}
-          </option>
-        </select>
+            <span>{{ layer.layar_name }}</span>
+            <button
+              type="button"
+              class="chip-remove-btn"
+              (click)="removeSelectedLayer(layer.layer_id)"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <select
+  class="form-control"
+  multiple
+  size="6"
+  [disabled]="!selectedLayerMaker"
+  (change)="onLayerSelectionChange($event)"
+>
+  <option
+    *ngFor="let layer of availableLayers"
+    [value]="layer.layer_id"
+  >
+    {{ layer.layar_name }}
+  </option>
+</select>
+
       </div>
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-orange" (click)="assignLayersToMaker()">
-        Add
-      </button>
+      <button
+  class="btn btn-orange"
+  (click)="isAssignLayerEditMode ? updateAssignedLayersForMaker() : assignLayersToMaker()"
+>
+  {{ isAssignLayerEditMode ? 'Update' : 'Add' }}
+</button>
+
 
       <button
         class="btn btn-outline-secondary"
@@ -507,6 +552,14 @@
             <label>Assigned Checker :</label>
             <div>{{ selectedUserInfo?.assigned_checker_name }}</div>
           </div>
+
+          <div
+            class="info-item full-width"
+            *ngIf="activeTab === 'assigned-layers' && selectedUserInfo?.assigned_layer_names"
+          >
+            <label>Assigned Layers :</label>
+            <div>{{ selectedUserInfo?.assigned_layer_names }}</div>
+          </div>
         </div>
 
         <div class="user-info-actions">
@@ -640,3 +693,32 @@
     </div>
   </div>
 </div>
+
+<div
+  class="modal-backdrop-custom"
+  *ngIf="showAssignedLayerDeleteConfirmModal"
+>
+  <div class="delete-confirm-modal">
+    <div class="delete-icon-wrap">
+      <i class="bi bi-trash-fill"></i>
+    </div>
+
+    <div class="delete-confirm-text">
+      Please Confirm to Delete<br />
+      Assigned Layers
+    </div>
+
+    <hr />
+
+    <div class="delete-confirm-actions">
+      <button class="btn delete-confirm-btn" (click)="removeAllAssignedLayers()">
+        Delete
+      </button>
+
+      <button class="btn delete-cancel-btn" (click)="closeAssignedLayerDeleteConfirmModal()">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
