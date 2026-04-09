@@ -1,26 +1,13 @@
- .user-management-page {
+.user-management-page {
   min-height: 100%;
-}
-/* .user-management-page {
-  height: calc(100vh - 20px);
-  overflow: hidden;
-} */
-
-.left-panel-box,
-.main-card {
-  height: 100%;
-}
-
-.main-card .card-body {
-  overflow: hidden;
 }
 
 .left-panel-box {
-  border: 1px solid rgba(0,0,0,0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   padding: 15px;
   background: #fafafa;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -39,6 +26,7 @@
   border-radius: 6px;
   font-weight: 500;
 }
+
 .welcome-card .card-body {
   padding-top: 18px !important;
   padding-bottom: 18px !important;
@@ -65,6 +53,11 @@
   justify-content: center;
   margin: 0 auto;
   font-size: 28px;
+}
+
+.role-text {
+  font-size: 18px;
+  font-weight: 500;
 }
 
 .stats-card {
@@ -96,12 +89,7 @@
   font-size: 28px;
   font-weight: 700;
   color: #2a3fbd;
-  margin-top: 4px;
-}
-
-.role-text {
-  font-size: 18px;
-  font-weight: 500;
+  margin-top: 6px;
 }
 
 .nav-tabs .nav-link.active {
@@ -109,6 +97,13 @@
   font-weight: 600;
 }
 
+.user-tabs .nav-link {
+  color: #4c4c4c !important;
+}
+
+.user-tabs .nav-link:hover {
+  color: #4c4c4c !important;
+}
 
 /* ================= TABLE ================= */
 
@@ -118,44 +113,34 @@
   border-collapse: collapse;
 }
 
-/* Header */
 .user-table thead th {
-
   background: #f3f6fb;
   font-weight: 600;
   font-size: 18px;
   color: #3c4b64;
-
   border-bottom: 2px solid #d6dbe5;
   border-top: 1px solid #d6dbe5;
-
   white-space: nowrap;
-  padding: 8px 10px;
+  padding: 10px 10px;
 }
 
-/* Sort icons */
 .sort-icons {
   font-size: 9px;
   margin-left: 5px;
   color: #a1a1aa;
 }
 
-/* Table cells */
 .user-table td {
-
   border-top: 1px solid #e5e7eb;
   vertical-align: middle;
-
-  padding: 8px 10px;
+  padding: 10px;
   font-size: 18px;
 }
 
-/* Zebra rows */
 .user-table tbody tr:nth-child(even) {
   background: #fafafa;
 }
 
-/* Hover effect */
 .user-table tbody tr:hover {
   background: #f1f5ff;
 }
@@ -167,155 +152,122 @@
   gap: 6px;
 }
 
-/* base */
 .btn-action {
-
   width: 40px;
   height: 40px;
-
   border: none;
   border-radius: 4px;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   color: white;
   font-size: 18px;
-
   cursor: pointer;
 }
 
-/* edit */
 .btn-edit {
   background: #2563eb;
 }
 
-/* delete */
 .btn-delete {
   background: #ef4444;
+}
+
+.btn-info-user {
+  background: #ff7a00;
 }
 
 .btn-action:hover {
   opacity: 0.85;
 }
 
-/* Top Action Buttons */
+/* ================= TOP ACTION BUTTONS ================= */
 
 .action-btn {
-
   background: #fe8207;
   color: white;
-
-      /* bigger width + height */
-
   font-size: 20px;
   font-weight: 500;
-
   border-radius: 6px;
   border: none;
-
   min-width: 300px;
-  height: 45px;   /* makes buttons wider */
+  height: 45px;
 }
 
-/* Hover */
 .action-btn:hover {
   background: #1d4ed8;
   color: white;
 }
 
-
-/* BACKDROP */
+/* ================= MODAL BACKDROP ================= */
 
 .modal-backdrop-custom {
-
-position: fixed;
-top: 0;
-left: 0;
-
-width: 100%;
-height: 100%;
-
-background: rgba(0,0,0,0.4);
-
-display: flex;
-align-items: center;
-justify-content: center;
-
-z-index: 1050;
-
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
 }
 
-
-/* MODAL */
+/* ================= ASSIGN / CHANGE CHECKER MODAL ================= */
 
 .assign-checker-modal {
-
-width: 550px;
-
-background: white;
-
-border-radius: 8px;
-
-padding: 20px;
-
-box-shadow: 0 5px 25px rgba(0,0,0,0.2);
-
+  width: 550px;
+  max-width: 92%;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
 }
-
-
-/* HEADER */
 
 .modal-header {
-
-display: flex;
-justify-content: space-between;
-align-items: center;
-
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
+.modal-header h5 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  color: #445b84;
+}
 
 .close-btn {
-
-background: none;
-border: none;
-font-size: 20px;
-cursor: pointer;
-
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  color: #0d6efd;
+  cursor: pointer;
 }
-
-
-/* BUTTONS */
 
 .modal-actions {
-
-margin-top: 20px;
-
-display: flex;
-justify-content: flex-end;
-gap: 10px;
-
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
-
 
 .btn-orange {
-
-background: #ff7a00;
-color: white;
-border: none;
-
-padding: 6px 20px;
-
+  background: #ff7a00;
+  color: white;
+  border: none;
+  padding: 8px 24px;
+  border-radius: 6px;
 }
-
 
 .btn-orange:hover {
-
-background: #e46a00;
-
+  background: #e46a00;
+  color: white;
 }
 
+/* ================= SEARCH ================= */
 
 .search-bar-wrap {
   display: flex;
@@ -332,14 +284,7 @@ background: #e46a00;
   border-radius: 4px;
 }
 
-.user-tabs .nav-link {
-  color: #4c4c4c !important;
-}
-
-.user-tabs .nav-link:hover {
-  color: #4c4c4c !important;
-}
-
+/* ================= DELETE CONFIRM MODAL ================= */
 
 .delete-confirm-modal {
   width: 470px;
@@ -404,11 +349,7 @@ background: #e46a00;
   color: #ff7a00;
 }
 
-
-
-.btn-info-user {
-  background: #ff7a00;
-}
+/* ================= USER INFO MODAL ================= */
 
 .user-info-modal {
   width: 720px;
@@ -462,10 +403,10 @@ background: #e46a00;
   text-align: center;
 }
 
-.user-avatar-card img {
-  width: 160px;
-  height: 160px;
-  object-fit: contain;
+.user-avatar-icon {
+  font-size: 160px;
+  color: #39a9e8;
+  line-height: 1;
 }
 
 .user-info-right {
@@ -516,6 +457,160 @@ background: #e46a00;
   color: #ff7a00;
 }
 
+/* ================= EDIT USER MODAL ================= */
+
+.edit-user-modal {
+  width: 720px;
+  max-width: 92%;
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+}
+
+.edit-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.edit-user-header h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  color: #445b84;
+}
+
+.edit-user-close {
+  border: none;
+  background: transparent;
+  font-size: 34px;
+  line-height: 1;
+  color: #0d6efd;
+  cursor: pointer;
+}
+
+.edit-user-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 22px;
+  margin-top: 18px;
+}
+
+.edit-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.edit-form-group label {
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #3f3f3f;
+}
+
+.required-star {
+  color: #ff3b30;
+}
+
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap input {
+  padding-right: 42px;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #7a7a7a;
+  cursor: pointer;
+}
+
+.edit-user-form .form-control[readonly] {
+  background: #f7f7f7;
+  color: #888;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.edit-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.edit-update-btn {
+  min-width: 130px;
+  background: #ff7a00;
+  color: #fff;
+  border: 1px solid #ff7a00;
+  border-radius: 6px;
+  padding: 8px 20px;
+}
+
+.edit-update-btn:hover {
+  background: #e86f00;
+  color: #fff;
+}
+
+.edit-cancel-btn {
+  min-width: 90px;
+  background: #fff;
+  color: #ff7a00;
+  border: 1px solid #ff7a00;
+  border-radius: 6px;
+  padding: 8px 20px;
+}
+
+.edit-cancel-btn:hover {
+  background: #fff4eb;
+  color: #ff7a00;
+}
+
+.edit-confirm-modal {
+  width: 420px;
+  max-width: 90%;
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+}
+
+.edit-confirm-icon i {
+  font-size: 52px;
+  color: #ff7a00;
+}
+
+.edit-confirm-text {
+  margin: 16px 0 22px;
+  font-size: 22px;
+  color: #4c4c4c;
+  line-height: 1.4;
+}
+
+.edit-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* ================= RESPONSIVE ================= */
+
 @media (max-width: 768px) {
   .user-info-body {
     flex-direction: column;
@@ -526,12 +621,27 @@ background: #e46a00;
     width: 100%;
   }
 
-  .user-avatar-card img {
-    width: 130px;
-    height: 130px;
+  .user-avatar-icon {
+    font-size: 130px;
   }
 
-  .user-info-grid {
+  .user-info-grid,
+  .edit-user-form {
     grid-template-columns: 1fr;
   }
 }
+
+.assign-checker-modal select[multiple] {
+  min-height: 140px;
+  padding: 8px 10px;
+}
+
+.assign-checker-modal select[multiple] option {
+  padding: 6px 8px;
+}
+
+.assign-checker-modal select[multiple]:focus {
+  border-color: #ff7a00;
+  box-shadow: 0 0 0 0.2rem rgba(255, 122, 0, 0.15);
+}
+
