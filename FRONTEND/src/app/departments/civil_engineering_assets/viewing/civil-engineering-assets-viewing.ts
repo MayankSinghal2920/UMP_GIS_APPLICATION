@@ -1,4 +1,4 @@
-﻿import { GeoJsonObject } from 'geojson';
+import { GeoJsonObject } from 'geojson';
 import * as L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import { NgZone } from '@angular/core';
@@ -17,8 +17,8 @@ const STATION_LEGEND: LayerLegend = defineLegend({
   radius: 5,
   symbolKind: 'circle' as const,
   imageUrl: 'assets/images/download.png',
-  imageWidth: 26,
-  imageHeight: 26,
+  imageWidth: 22,
+  imageHeight: 22,
 });
 
 const LANDPLAN_ONTRACK_LEGEND = defineLegend({
@@ -121,6 +121,28 @@ export class StationViewingLayer implements MapLayer {
   private labelUpdateTimer: any = null;
   private requestSeq = 0;
 
+  protected getStationLabel(feature: any): string {
+    const p = feature?.properties || {};
+    const name = (p.sttnname || '').toString().trim();
+    const code = (p.sttncode || '').toString().trim();
+    return code && name ? code + ' : ' + name : (code || name);
+  }
+
+  protected bindStationTooltip(marker: L.Marker, label: string, permanent: boolean): void {
+    if (!label || !marker.bindTooltip) return;
+    const current = (marker as any).__stationTooltipState;
+    if (current?.label === label && current?.permanent === permanent) return;
+    if (marker.getTooltip?.()) marker.unbindTooltip();
+    marker.bindTooltip(label, {
+      permanent,
+      direction: 'top',
+      offset: L.point(0, -8),
+      opacity: 0.95,
+      className: 'station-label',
+    });
+    (marker as any).__stationTooltipState = { label, permanent };
+  }
+
   constructor(
     protected api: Api,
     protected zone: NgZone,
@@ -167,6 +189,9 @@ export class StationViewingLayer implements MapLayer {
 
   protected closeLabels() {
     this.layer.eachLayer((l: any) => {
+      const label = (l as any).__stationTooltipState?.label || '';
+      if (!label) return;
+      this.bindStationTooltip(l, label, false);
       if (l.getTooltip?.()) l.closeTooltip();
     });
   }
@@ -185,20 +210,33 @@ export class StationViewingLayer implements MapLayer {
     const maxLabels = 120;
 
     this.layer.eachLayer((l: any) => {
-      const tooltip = l.getTooltip?.();
-      if (!tooltip || !l.getLatLng) return;
-      if (!show) { l.closeTooltip(); return; }
+      const label = (l as any).__stationTooltipState?.label || '';
+      if (!label || !l.getLatLng) return;
+      if (!show) {
+        this.bindStationTooltip(l, label, false);
+        l.closeTooltip();
+        return;
+      }
       const latlng = l.getLatLng();
-      if (!bounds.contains(latlng)) { l.closeTooltip(); return; }
+      if (!bounds.contains(latlng)) {
+        this.bindStationTooltip(l, label, false);
+        l.closeTooltip();
+        return;
+      }
       const p = map.latLngToContainerPoint(latlng);
       const tooClose = occupied.some((q) => {
         const dx = q.x - p.x;
         const dy = q.y - p.y;
         return (dx * dx + dy * dy) < (minDistancePx * minDistancePx);
       });
-      if (tooClose || shownCount >= maxLabels) { l.closeTooltip(); return; }
+      if (tooClose || shownCount >= maxLabels) {
+        this.bindStationTooltip(l, label, false);
+        l.closeTooltip();
+        return;
+      }
       occupied.push({ x: p.x, y: p.y });
       shownCount++;
+      this.bindStationTooltip(l, label, true);
       l.openTooltip();
     });
   }
@@ -208,9 +246,7 @@ export class StationViewingLayer implements MapLayer {
 
   protected createStationMarker(feature: any, latlng: L.LatLng): L.Layer {
     const p = feature?.properties || {};
-    const name = (p.sttnname || '').toString().trim();
-    const code = (p.sttncode || '').toString().trim();
-    const stationLabel = code && name ? code + ' : ' + name : (code || name);
+    const stationLabel = this.getStationLabel(feature);
     const iconWidth = this.legend.imageWidth ?? 20;
     const iconHeight = this.legend.imageHeight ?? 20;
     const marker = L.marker(latlng, {
@@ -227,15 +263,7 @@ export class StationViewingLayer implements MapLayer {
     }) as any;
     this.onMarkerCreated(feature, marker as any);
 
-    if (stationLabel && marker.bindTooltip) {
-      marker.bindTooltip(stationLabel, {
-        permanent: false,
-        direction: 'top',
-        offset: L.point(0, -8),
-        opacity: 0.95,
-        className: 'station-label',
-      });
-    }
+    this.bindStationTooltip(marker as any, stationLabel, false);
 
     if (marker.bindPopup) {
       marker.bindPopup('<b>' + (p.sttnname || 'Station') + '</b><br>Code: ' + (p.sttncode || '-'));
@@ -264,7 +292,7 @@ export class StationViewingLayer implements MapLayer {
     this.addTo(map);
 
     const b = map.getBounds();
-    const bbox = b.getWest() + ',' + b.getSouth() + ',' + b.getEast() + ',' + b.getNorth();
+    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
@@ -357,10 +385,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
 
     const zActual = map.getZoom();
     const zForQuery = Math.max(zActual, this.minZoom);
-
-    const b = map.getBounds();
-    const bboxKey = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
-    const key = `${zForQuery}|${bboxKey}`;
+    const key = `${zForQuery}`;
 
     if (key === this.lastKey) return;
     this.lastKey = key;
@@ -499,9 +524,10 @@ export class LandOffsetLayer implements MapLayer {
 
     const b = map.getBounds();
     const z = map.getZoom();
-    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
+    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
-    const key = `${bbox}`;
+    const key = `${bboxKey}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
     const requestId = ++this.requestSeq;
@@ -632,8 +658,9 @@ export class LandBoundaryLayer implements MapLayer {
     const z = map.getZoom();
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
-    if (bbox === this.lastBbox) {
+    if (bboxKey === this.lastBbox) {
       if (z < this.minZoom) {
         this.layer.clearLayers();
       } else {
@@ -641,7 +668,7 @@ export class LandBoundaryLayer implements MapLayer {
       }
       return;
     }
-    this.lastBbox = bbox;
+    this.lastBbox = bboxKey;
     const requestId = ++this.requestSeq;
 
     this.api.getlandboundary(bbox).subscribe({
@@ -748,8 +775,9 @@ export class DynamicDepartmentLayer implements MapLayer {
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-    if (bbox === this.lastBbox) return;
-    this.lastBbox = bbox;
+    const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
+    if (bboxKey === this.lastBbox) return;
+    this.lastBbox = bboxKey;
     const requestId = ++this.requestSeq;
 
     this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox).subscribe({
@@ -768,6 +796,7 @@ export class DynamicDepartmentLayer implements MapLayer {
     });
   }
 }
+
 
 
 

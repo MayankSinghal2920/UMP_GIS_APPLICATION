@@ -1,4 +1,4 @@
-﻿import * as L from 'leaflet';
+import * as L from 'leaflet';
 import { Api } from '../../api/api';
 import { defineLegend, MapLayer, pointLayerFromLegend } from '../../services/interface';
 
@@ -13,7 +13,7 @@ const KM_POST_LEGEND = defineLegend({
   strokeColor: '#1d4ed8',
   strokeWidth: 1,
   radius: 6,
-  symbolKind: 'circle' as const,
+  symbolKind: 'diamond' as const,
 });
 
 function ensureKmPostPane(map: L.Map): void {
@@ -61,7 +61,7 @@ export class KmPostLayer implements MapLayer {
       interactive: true,
       icon: L.divIcon({
         className: 'map-symbol-icon km-post-symbol-icon',
-        html: '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + fill + ';border:1px solid ' + stroke + ';box-sizing:border-box;"></div>',
+        html: '<div style="width:' + size + 'px;height:' + size + 'px;transform:rotate(45deg);background:' + fill + ';border:1px solid ' + stroke + ';border-radius:2px;box-sizing:border-box;"></div>',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
       }),
@@ -166,7 +166,7 @@ export class KmPostLayer implements MapLayer {
 
     const z = map.getZoom();
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
 
     if (bbox === this.lastBbox || this.isLoading) {
       if (z < this.MIN_ZOOM) {
@@ -216,6 +216,7 @@ export class KmPostLayer implements MapLayer {
     });
   }
 }
+
 
 
 
