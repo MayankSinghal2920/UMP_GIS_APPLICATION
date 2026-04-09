@@ -1,5 +1,6 @@
 import { Component, AfterViewInit, OnDestroy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { StationSearchComponent } from '../station-search/station-search.component';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -30,6 +31,7 @@ import { AttributeTableService, LayerKey } from '../../services/attribute-table'
 import { UiState } from '../../services/ui-state';
 import { CurrentUserService } from '../../services/current-user';
 import { MapZoomService, ZoomTarget } from '../../services/map-zoom';
+import { Station } from '../../services/station.service';
 
 type EditableLayer = 'stations' | 'landplan';
 type DepartmentModuleKey = 'civil_engineering_assets' | 'civil_engineering_assets_offtrack' | 'unknown';
@@ -44,7 +46,7 @@ type DepartmentLayerMeta = {
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StationSearchComponent],
   templateUrl: './map.html',
   styleUrl: './map.css',
 })
@@ -70,6 +72,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private reloadTimer: any = null;
   private routeSub?: Subscription;
   private createStationDblClickHandler?: (e: L.LeafletMouseEvent) => void;
+  private selectedStationMarker?: L.Layer;
 
   private readonly departmentAliases: Record<string, DepartmentModuleKey> = {
     'civil engineering assets': 'civil_engineering_assets',
@@ -263,7 +266,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (this.map) return;
     const anyEl = el as any; if (anyEl._leaflet_id) { try { anyEl._leaflet_id = undefined; } catch {} }
     this.ui.activePanel = null; this.edit.disable();
-    this.map = L.map(el, { preferCanvas: false, zoomAnimation: true, fadeAnimation: true, markerZoomAnimation: false, zoomAnimationThreshold: 8, wheelDebounceTime: 60, wheelPxPerZoomLevel: 140 }).setView([22.5, 79], 5);
+    this.map = L.map(el, { preferCanvas: false, zoomControl: false, zoomAnimation: true, fadeAnimation: true, markerZoomAnimation: false, zoomAnimationThreshold: 8, wheelDebounceTime: 60, wheelPxPerZoomLevel: 140 }).setView([22.5, 79], 5);
+    L.control.zoom({ position: 'topleft' }).addTo(this.map);
     this.mapRegistry.setMap(this.map);
     this.createStationDblClickHandler = (e: L.LeafletMouseEvent) => this.handleStationCreateDoubleClick(e);
     this.map.on('dblclick', this.createStationDblClickHandler);
@@ -289,12 +293,81 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+
+  onStationSelected(station: Station): void {
+    const coordinates = station.geometry.coordinates;
+    const lng = coordinates[0];
+    const lat = coordinates[1];
+
+    if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) {
+      this.map.removeLayer(this.selectedStationMarker);
+      this.selectedStationMarker = undefined;
+    }
+
+    this.mapZoom.zoomTo({
+      type: 'latlng',
+      lat,
+      lng,
+      zoom: 17,
+      draggable: false
+    } as any);
+
+    if (this.map) {
+      this.selectedStationMarker = L.circleMarker([lat, lng], {
+        radius: 15,
+        weight: 5,
+        color: '#7c3aed',
+        fillColor: '#a78bfa',
+        fillOpacity: 0.6,
+      }).addTo(this.map);
+    }
+
+    this.showStationNotification(station);
+  }
+
+  onSearchCleared(): void {
+    if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) {
+      this.map.removeLayer(this.selectedStationMarker);
+      this.selectedStationMarker = undefined;
+    }
+    this.clearZoomArtifacts();
+    this.mapZoom.clearHighlight();
+    this.zoomToHome();
+  }
+
+  private showStationNotification(station: Station): void {
+    const notification = document.createElement('div');
+    notification.className = 'station-notification';
+    notification.innerHTML = '<div style="background: white; padding: 12px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border-left: 4px solid #4CAF50;">' +
+      '<strong>' + station.properties.sttnname + '</strong><br>' +
+      '<small>Code: ' + station.properties.sttncode + ' | District: ' + station.properties.district + '</small>' +
+      '</div>';
+    notification.style.position = 'absolute';
+    notification.style.bottom = '40px';
+    notification.style.left = '50%';
+    notification.style.transform = 'translateX(-50%)';
+    notification.style.zIndex = '1000';
+    notification.style.pointerEvents = 'none';
+
+    document.querySelector('.map-container')?.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+  }
+
   ngOnDestroy(): void {
     document.body.classList.remove(this.performanceBodyClass);
     this.zoomSub?.unsubscribe(); this.clearSelectionSub?.unsubscribe(); this.sidebarSub?.unsubscribe(); this.mapZoomSub?.unsubscribe(); this.lockDragSub?.unsubscribe(); this.editSuppressionSub?.unsubscribe(); this.routeSub?.unsubscribe(); this.zoomSub = undefined; this.clearSelectionSub = undefined; this.sidebarSub = undefined; this.mapZoomSub = undefined; this.lockDragSub = undefined; this.editSuppressionSub = undefined; this.routeSub = undefined; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = null; if (this.map) this.clearZoomArtifacts(); if (!this.map) return;
-    try { if (this.createStationDblClickHandler) this.map.off('dblclick', this.createStationDblClickHandler); if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom); else this.map.off(); this.layerManager.removeAll(this.map); this.map.remove(); } finally { this.map = undefined; this.onMoveOrZoom = undefined; this.highlightLayer = undefined; this.homeCenter = undefined; this.homeZoom = undefined; this.homeCaptured = false; this.dragMarker = undefined; this.zoomHighlight = undefined; this.suppressedVis.clear(); this.createStationDblClickHandler = undefined; }
+    try { if (this.createStationDblClickHandler) this.map.off('dblclick', this.createStationDblClickHandler); if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom); else this.map.off(); this.layerManager.removeAll(this.map); this.map.remove(); } finally { if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) { this.map.removeLayer(this.selectedStationMarker); } this.selectedStationMarker = undefined; this.map = undefined; this.onMoveOrZoom = undefined; this.highlightLayer = undefined; this.homeCenter = undefined; this.homeZoom = undefined; this.homeCaptured = false; this.dragMarker = undefined; this.zoomHighlight = undefined; this.suppressedVis.clear(); this.createStationDblClickHandler = undefined; }
   }
 }
+
+
+
+
+
+
+
+
+
 
 
 
