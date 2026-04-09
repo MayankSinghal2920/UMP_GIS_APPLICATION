@@ -12,6 +12,9 @@ router.put('/update-user', controller.updateUserDetails);
 router.get('/maker-layer-list', controller.getMakerLayerList);
 router.get('/department-layers', controller.getLayersByDepartment);
 router.post('/assign-layers', controller.assignLayersToMaker);
+router.get('/assigned-layers', controller.getAssignedLayerUsers);
+router.post("/update-assigned-layers", controller.updateAssignedLayers);
+router.post("/clear-assigned-layers", controller.clearAssignedLayers);
 
 
 
