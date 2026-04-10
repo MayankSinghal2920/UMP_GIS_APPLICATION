@@ -67,3 +67,61 @@
 :host ::ng-deep .leaflet-container {
   background: #e5e7eb;
 }
+
+:host ::ng-deep .leaflet-control-zoom {
+  margin: 0 !important;
+}
+
+
+
+.map-search-overlay {
+  position: absolute;
+  top: 12px;
+  left: 118px;
+  z-index: 5000;
+  width: min(320px, calc(100% - 202px));
+  pointer-events: auto;
+}
+
+.map-search-box {
+  display: block;
+  width: 100%;
+}
+
+:host ::ng-deep .map-search-box .search-shell {
+  gap: 0;
+}
+
+:host ::ng-deep .map-search-box .search-input {
+  height: 42px;
+  border-radius: 4px 0 0 4px;
+  border-color: #aeb7c2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+:host ::ng-deep .map-search-box .search-btn.icon-only {
+  width: 42px;
+  height: 42px;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+}
+
+:host ::ng-deep .leaflet-top.leaflet-left {
+  top: 12px;
+  left: 2px;
+}
+
+@media (max-width: 767.98px) {
+  .map-search-overlay {
+    left: 110px;
+    width: min(250px, calc(100% - 126px));
+  }
+}
+
+
+
+
+
+
+
+
