@@ -166,6 +166,62 @@ async function assignLayersToMaker(req, res, next) {
   }
 }
 
+async function getAssignedLayerUsers(req, res, next) {
+  try {
+    const { division } = req.query;
+    const users = await userModel.getAssignedLayerUsers(division);
+    res.json(users);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateAssignedLayers(req, res, next) {
+  try {
+    const { maker_id, layer_ids } = req.body || {};
+
+    if (!maker_id || !Array.isArray(layer_ids)) {
+      return res.status(400).json({
+        success: false,
+        message: "maker_id and layer_ids are required",
+      });
+    }
+
+    await userModel.updateAssignedLayers(maker_id, layer_ids);
+
+    res.json({
+      success: true,
+      message: "Assigned layers updated successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function clearAssignedLayers(req, res, next) {
+  try {
+    const { maker_id } = req.body || {};
+
+    if (!maker_id) {
+      return res.status(400).json({
+        success: false,
+        message: "maker_id is required",
+      });
+    }
+
+    await userModel.clearAssignedLayers(maker_id);
+
+    res.json({
+      success: true,
+      message: "Assigned layers cleared successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+
 
 
 
@@ -178,5 +234,8 @@ module.exports = {
   updateUserDetails,
   getMakerLayerList,
   getLayersByDepartment,
-  assignLayersToMaker
+  assignLayersToMaker,
+  getAssignedLayerUsers,
+  updateAssignedLayers,
+  clearAssignedLayers,
 };

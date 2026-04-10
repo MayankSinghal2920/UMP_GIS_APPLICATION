@@ -284,6 +284,43 @@
   border-radius: 4px;
 }
 
+/* ================= ASSIGN LAYER CHIPS ================= */
+
+.selected-layer-box {
+  margin-bottom: 10px;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fafafa;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-layer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff4eb;
+  color: #ff7a00;
+  border: 1px solid #ffb36b;
+  border-radius: 20px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chip-remove-btn {
+  border: none;
+  background: transparent;
+  color: #ff7a00;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* ================= DELETE CONFIRM MODAL ================= */
 
 .delete-confirm-modal {
@@ -630,18 +667,3 @@
     grid-template-columns: 1fr;
   }
 }
-
-.assign-checker-modal select[multiple] {
-  min-height: 140px;
-  padding: 8px 10px;
-}
-
-.assign-checker-modal select[multiple] option {
-  padding: 6px 8px;
-}
-
-.assign-checker-modal select[multiple]:focus {
-  border-color: #ff7a00;
-  box-shadow: 0 0 0 0.2rem rgba(255, 122, 0, 0.15);
-}
-

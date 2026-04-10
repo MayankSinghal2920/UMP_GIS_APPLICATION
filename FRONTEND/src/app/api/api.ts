@@ -18,7 +18,7 @@ export class Api {
     private ceaEditingApi: CivilEngineeringAssetsEditingApi,
     private feedbackApi: FeedbackApi,
     private ratingApi: RatingApi,
-    private userManagementApi: UserManagementApi
+    private userManagementApi: UserManagementApi,
   ) {}
 
   getStations(bbox: string) {
@@ -184,21 +184,31 @@ export class Api {
   }
 
   updateUserDetails(data: any) {
-  return this.userManagementApi.updateUserDetails(data);
-}
+    return this.userManagementApi.updateUserDetails(data);
+  }
 
-getMakerLayerList() {
-  return this.userManagementApi.getMakerLayerList();
-}
+  getMakerLayerList() {
+    return this.userManagementApi.getMakerLayerList();
+  }
 
-getDepartmentLayers(departmentId: string) {
-  return this.userManagementApi.getDepartmentLayers(departmentId);
-}
+  getDepartmentLayers(departmentId: string) {
+    return this.userManagementApi.getDepartmentLayers(departmentId);
+  }
 
-assignLayers(data: any) {
-  return this.userManagementApi.assignLayers(data);
-}
+  assignLayers(data: any) {
+    return this.userManagementApi.assignLayers(data);
+  }
 
+  getAssignedLayerUsers() {
+    return this.userManagementApi.getAssignedLayerUsers();
+  }
 
+  updateAssignedLayers(data: any) {
+    return this.userManagementApi.updateAssignedLayers(data);
+  }
+
+  clearAssignedLayers(data: any) {
+    return this.userManagementApi.clearAssignedLayers(data);
+  }
 }
 
