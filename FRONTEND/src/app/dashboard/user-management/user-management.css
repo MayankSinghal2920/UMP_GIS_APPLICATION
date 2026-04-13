@@ -2,10 +2,123 @@
   min-height: 100%;
 }
 
+.user-toast-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 96px 24px 24px;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(2px);
+}
+
+.user-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 24px 26px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+  animation: userToastSlideIn 0.25s ease;
+}
+
+.toast-success {
+  border-left: 5px solid #ff7a00;
+}
+
+.toast-error {
+  border-left: 5px solid #ef4444;
+}
+
+.toast-warning {
+  border-left: 5px solid #2563eb;
+}
+
+.user-toast-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.toast-success .user-toast-icon {
+  background: #fff4eb;
+  color: #ff7a00;
+}
+
+.toast-error .user-toast-icon {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.toast-warning .user-toast-icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.user-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-toast-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.user-toast-message {
+  font-size: 17px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.user-toast-close {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.user-toast-close:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+@keyframes userToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+  }
+}
+
 .left-panel-box {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   background: #fafafa;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   flex: 1;
@@ -33,7 +146,7 @@
 }
 
 .welcome-card h6 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   margin: 0;
 }
@@ -56,7 +169,7 @@
 }
 
 .role-text {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 500;
 }
 
@@ -76,17 +189,17 @@
 }
 
 .stats-body {
-  padding: 16px 18px;
+  padding: 12px 14px;
 }
 
 .stats-label {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   color: #444;
 }
 
 .stats-value {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: #2a3fbd;
   margin-top: 6px;
@@ -109,19 +222,19 @@
 
 .user-table {
   width: 100%;
-  font-size: 13px;
+  font-size: 12px;
   border-collapse: collapse;
 }
 
 .user-table thead th {
   background: #f3f6fb;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 15px;
   color: #3c4b64;
   border-bottom: 2px solid #d6dbe5;
   border-top: 1px solid #d6dbe5;
   white-space: nowrap;
-  padding: 10px 10px;
+  padding: 8px;
 }
 
 .sort-icons {
@@ -133,8 +246,8 @@
 .user-table td {
   border-top: 1px solid #e5e7eb;
   vertical-align: middle;
-  padding: 10px;
-  font-size: 18px;
+  padding: 8px;
+  font-size: 15px;
 }
 
 .user-table tbody tr:nth-child(even) {
@@ -153,15 +266,15 @@
 }
 
 .btn-action {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 18px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -186,12 +299,12 @@
 .action-btn {
   background: #fe8207;
   color: white;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 500;
   border-radius: 6px;
   border: none;
-  min-width: 300px;
-  height: 45px;
+  min-width: 220px;
+  height: 40px;
 }
 
 .action-btn:hover {
@@ -211,18 +324,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   z-index: 1050;
 }
 
 /* ================= ASSIGN / CHANGE CHECKER MODAL ================= */
 
 .assign-checker-modal {
-  width: 550px;
+  width: 800px;
   max-width: 92%;
   background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 32px 36px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 .modal-header {
@@ -233,7 +347,7 @@
 
 .modal-header h5 {
   margin: 0;
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 500;
   color: #445b84;
 }
@@ -241,24 +355,44 @@
 .close-btn {
   background: none;
   border: none;
-  font-size: 28px;
+  font-size: 34px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
 }
 
+.assign-checker-modal label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #3f4d63;
+}
+
+.assign-checker-modal .form-control {
+  min-height: 48px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+.assign-checker-modal select.form-control[multiple] {
+  min-height: 240px;
+  padding: 8px;
+  background: #fbfcfe;
+}
+
 .modal-actions {
-  margin-top: 20px;
+  margin-top: 28px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .btn-orange {
   background: #ff7a00;
   color: white;
   border: none;
-  padding: 8px 24px;
+  padding: 10px 28px;
   border-radius: 6px;
 }
 
@@ -288,10 +422,10 @@
 
 .selected-layer-box {
   margin-bottom: 10px;
-  min-height: 44px;
-  padding: 8px;
+  min-height: 52px;
+  padding: 10px;
   border: 1px solid #d9d9d9;
-  border-radius: 6px;
+  border-radius: 10px;
   background: #fafafa;
   display: flex;
   flex-wrap: wrap;
@@ -305,9 +439,9 @@
   background: #fff4eb;
   color: #ff7a00;
   border: 1px solid #ffb36b;
-  border-radius: 20px;
-  padding: 6px 10px;
-  font-size: 13px;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -321,14 +455,41 @@
   padding: 0;
 }
 
+.text-muted.mb-2 {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+option.layer-option-selected,
+option:disabled {
+  color: #64748b;
+  background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+  font-style: italic;
+}
+
+.assign-checker-modal select.form-control[multiple] option {
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 2px;
+  font-size: 15px;
+}
+
+.assign-checker-modal select.form-control[multiple] option.layer-option-selected {
+  font-weight: 600;
+}
+
 /* ================= DELETE CONFIRM MODAL ================= */
 
 .delete-confirm-modal {
-  width: 470px;
+  width: 560px;
   max-width: 90%;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 32px 24px 22px;
+  border-radius: 14px;
+  padding: 40px 30px 28px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   text-align: center;
 }
@@ -338,17 +499,17 @@
 }
 
 .delete-icon-wrap i {
-  font-size: 72px;
+  font-size: 84px;
   color: #e23b00;
   line-height: 1;
 }
 
 .delete-confirm-text {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 400;
   color: #4c4c4c;
   line-height: 1.45;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .delete-confirm-actions {
@@ -359,12 +520,12 @@
 }
 
 .delete-confirm-btn {
-  min-width: 130px;
+  min-width: 150px;
   background: #ff7a00;
   color: #ffffff;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .delete-confirm-btn:hover {
@@ -373,12 +534,12 @@
 }
 
 .delete-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #ffffff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .delete-cancel-btn:hover {
@@ -389,11 +550,11 @@
 /* ================= USER INFO MODAL ================= */
 
 .user-info-modal {
-  width: 720px;
+  width: 900px;
   max-width: 92%;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 22px 24px;
+  border-radius: 14px;
+  padding: 30px 34px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
@@ -401,14 +562,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
   border-bottom: 1px solid #d9d9d9;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
 }
 
 .user-info-header h3 {
   margin: 0;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 500;
   color: #4b6491;
 }
@@ -416,7 +577,7 @@
 .user-info-close {
   border: none;
   background: transparent;
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
@@ -424,24 +585,24 @@
 
 .user-info-body {
   display: flex;
-  gap: 28px;
+  gap: 36px;
   align-items: flex-start;
 }
 
 .user-info-left {
-  flex: 0 0 200px;
+  flex: 0 0 240px;
 }
 
 .user-avatar-card {
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(53, 181, 167, 0.18);
-  padding: 10px;
+  padding: 16px;
   text-align: center;
 }
 
 .user-avatar-icon {
-  font-size: 160px;
+  font-size: 190px;
   color: #39a9e8;
   line-height: 1;
 }
@@ -453,19 +614,19 @@
 .user-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 28px;
+  gap: 22px 36px;
 }
 
 .info-item label {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: #4c4c4c;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .info-item div {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
   color: #ff6a00;
 }
@@ -477,16 +638,16 @@
 .user-info-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 26px;
+  margin-top: 32px;
 }
 
 .user-info-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #ffffff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 18px;
+  padding: 10px 22px;
 }
 
 .user-info-cancel-btn:hover {
@@ -497,11 +658,11 @@
 /* ================= EDIT USER MODAL ================= */
 
 .edit-user-modal {
-  width: 720px;
+  width: 860px;
   max-width: 92%;
   background: #fff;
   border-radius: 14px;
-  padding: 24px;
+  padding: 30px 32px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
@@ -513,7 +674,7 @@
 
 .edit-user-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 500;
   color: #445b84;
 }
@@ -521,7 +682,7 @@
 .edit-user-close {
   border: none;
   background: transparent;
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
@@ -530,8 +691,8 @@
 .edit-user-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px 22px;
-  margin-top: 18px;
+  gap: 22px 28px;
+  margin-top: 24px;
 }
 
 .edit-form-group {
@@ -544,8 +705,8 @@
 }
 
 .edit-form-group label {
-  margin-bottom: 8px;
-  font-size: 15px;
+  margin-bottom: 10px;
+  font-size: 17px;
   font-weight: 500;
   color: #3f3f3f;
 }
@@ -580,23 +741,23 @@
 
 .field-error {
   color: #dc2626;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .edit-user-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 28px;
 }
 
 .edit-update-btn {
-  min-width: 130px;
+  min-width: 150px;
   background: #ff7a00;
   color: #fff;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .edit-update-btn:hover {
@@ -605,12 +766,12 @@
 }
 
 .edit-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #fff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .edit-cancel-btn:hover {
@@ -619,23 +780,23 @@
 }
 
 .edit-confirm-modal {
-  width: 420px;
+  width: 520px;
   max-width: 90%;
   background: #fff;
-  border-radius: 12px;
-  padding: 28px 24px;
+  border-radius: 14px;
+  padding: 34px 30px;
   text-align: center;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 .edit-confirm-icon i {
-  font-size: 52px;
+  font-size: 60px;
   color: #ff7a00;
 }
 
 .edit-confirm-text {
-  margin: 16px 0 22px;
-  font-size: 22px;
+  margin: 20px 0 26px;
+  font-size: 26px;
   color: #4c4c4c;
   line-height: 1.4;
 }
@@ -649,6 +810,41 @@
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 768px) {
+  .user-toast-overlay {
+    padding: 72px 16px 16px;
+  }
+
+  .modal-backdrop-custom {
+    padding: 16px;
+  }
+
+  .assign-checker-modal,
+  .delete-confirm-modal,
+  .user-info-modal,
+  .edit-user-modal,
+  .edit-confirm-modal {
+    width: 100%;
+    max-width: 100%;
+    padding: 22px 20px;
+  }
+
+  .assign-checker-modal select.form-control[multiple] {
+    min-height: 200px;
+  }
+
+  .user-toast {
+    padding: 20px 18px;
+    gap: 14px;
+  }
+
+  .user-toast-title {
+    font-size: 18px;
+  }
+
+  .user-toast-message {
+    font-size: 15px;
+  }
+
   .user-info-body {
     flex-direction: column;
   }
