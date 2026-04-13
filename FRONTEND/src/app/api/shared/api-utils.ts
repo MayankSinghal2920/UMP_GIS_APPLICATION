@@ -3,7 +3,7 @@ import { HttpParams } from '@angular/common/http';
 import { getCurrentUserSnapshot } from '../../services/current-user.store';
 
 
-export const BASE_URL = 'http://127.0.0.1:4000';
+export const BASE_URL = normalizeApiBase((environment as any).apiUrl || '');
 
 function normalizeApiBase(url: string): string {
   const raw = String(url || '').trim().replace(/\/$/, '');
@@ -11,11 +11,17 @@ function normalizeApiBase(url: string): string {
   return raw.endsWith('/api') ? raw.slice(0, -4) : raw;
 }
 
-// export const BASE_URL = normalizeApiBase((environment as any).apiUrl || '');
+function normalizeDivision(value: string): string {
+  const raw = String(value || '').trim();
+  if (raw.toLowerCase() === 'centre for railway information systems') {
+    return 'DLI';
+  }
+  return raw;
+}
 
 
 export function getDivision(): string {
-  return (getCurrentUserSnapshot()?.division || '').trim();
+  return normalizeDivision(getCurrentUserSnapshot()?.division || localStorage.getItem('asset_division') || '');
 }
 
 export function hasDivision(): boolean {
