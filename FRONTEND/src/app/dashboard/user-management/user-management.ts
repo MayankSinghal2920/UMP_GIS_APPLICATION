@@ -61,6 +61,8 @@ export class UserManagementComponent implements OnInit {
   selectedAssignedLayerUser: any = null;
   isAssignLayerEditMode = false;
 
+  noAssignableLayers = false;
+
   editUserForm: any = {
     objectid: null,
     user_name: '',
@@ -318,7 +320,7 @@ export class UserManagementComponent implements OnInit {
   }
 
   assignChecker() {
-    if (!this.selectedMaker || !this.selectedChecker) {
+    if (this.selectedMaker == null || this.selectedChecker == null) {
       alert('Please select Maker and Checker');
       return;
     }
@@ -357,6 +359,7 @@ export class UserManagementComponent implements OnInit {
     this.selectedLayerIds = [];
     this.selectedLayerObjects = [];
     this.availableLayers = [];
+    this.noAssignableLayers = false;
     this.isAssignLayerEditMode = !!user;
 
     this.api.getMakerLayerList().subscribe({
@@ -376,6 +379,23 @@ export class UserManagementComponent implements OnInit {
     });
   }
 
+  loadSelectedMakerAssignedLayers() {
+    const selectedMakerObj = this.layerMakers.find(
+      (maker) => String(maker.objectid) === String(this.selectedLayerMaker),
+    );
+
+    const existingAssignedIds = String(selectedMakerObj?.assigned_layers || '')
+      .split(',')
+      .map((id: string) => id.trim())
+      .filter((id: string) => id);
+
+    this.selectedLayerIds = [...existingAssignedIds];
+
+    this.selectedLayerObjects = this.availableLayers.filter((layer) =>
+      existingAssignedIds.includes(String(layer.layer_id)),
+    );
+  }
+
   closeAssignLayerModal() {
     this.showAssignLayerModal = false;
     this.selectedLayerMaker = null;
@@ -383,6 +403,7 @@ export class UserManagementComponent implements OnInit {
     this.selectedLayerIds = [];
     this.selectedLayerObjects = [];
     this.availableLayers = [];
+    this.noAssignableLayers = false;
     this.isAssignLayerEditMode = false;
     this.cdr.detectChanges();
   }
@@ -391,6 +412,7 @@ export class UserManagementComponent implements OnInit {
     this.selectedLayerIds = [];
     this.selectedLayerObjects = [];
     this.availableLayers = [];
+    this.noAssignableLayers = false;
 
     const selectedMakerObj = this.layerMakers.find(
       (maker) => String(maker.objectid) === String(this.selectedLayerMaker),
@@ -399,41 +421,51 @@ export class UserManagementComponent implements OnInit {
     this.selectedLayerDepartmentId = selectedMakerObj?.department_id || '';
 
     if (!this.selectedLayerDepartmentId) {
+      this.noAssignableLayers = true;
       return;
     }
 
     this.api.getDepartmentLayers(this.selectedLayerDepartmentId).subscribe({
       next: (res) => {
-        this.availableLayers = res || [];
-
-        const existingAssignedIds = String(selectedMakerObj?.assigned_layers || '')
-          .split(',')
-          .map((id: string) => id.trim())
-          .filter((id: string) => id);
-
-        this.selectedLayerIds = [...existingAssignedIds];
-
-        this.selectedLayerObjects = this.availableLayers.filter((layer) =>
-          existingAssignedIds.includes(String(layer.layer_id)),
+        this.availableLayers = (res || []).filter(
+          (layer: any) =>
+            layer.layer_id !== null &&
+            layer.layer_id !== undefined &&
+            String(layer.layer_id).trim() !== '',
         );
 
+        this.noAssignableLayers = this.availableLayers.length === 0;
+
+        this.loadSelectedMakerAssignedLayers();
         this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Failed to load department layers', err);
+        this.noAssignableLayers = true;
       },
     });
   }
 
   onLayerSelectionChange(event: Event) {
     const select = event.target as HTMLSelectElement;
-    const selectedIds = Array.from(select.selectedOptions).map((option) => option.value);
+    const selectedIds = Array.from(select.selectedOptions).map((option) => String(option.value));
 
-    this.selectedLayerIds = selectedIds;
+    if (!selectedIds.length) {
+      return;
+    }
+
+    const existingIds = this.selectedLayerIds.map((id) => String(id));
+    const mergedIds = [...new Set([...existingIds, ...selectedIds])];
+
+    this.selectedLayerIds = mergedIds;
 
     this.selectedLayerObjects = this.availableLayers.filter((layer) =>
-      selectedIds.includes(String(layer.layer_id)),
+      mergedIds.includes(String(layer.layer_id)),
     );
+
+    Array.from(select.options).forEach((option) => {
+      option.selected = false;
+    });
 
     this.cdr.detectChanges();
   }
@@ -451,6 +483,11 @@ export class UserManagementComponent implements OnInit {
   assignLayersToMaker() {
     if (!this.selectedLayerMaker) {
       alert('Please select Maker');
+      return;
+    }
+
+    if (this.noAssignableLayers) {
+      alert('No assignable layers are configured for this department');
       return;
     }
 
@@ -691,6 +728,11 @@ export class UserManagementComponent implements OnInit {
   updateAssignedLayersForMaker() {
     if (!this.selectedLayerMaker) {
       alert('Please select Maker');
+      return;
+    }
+
+    if (this.noAssignableLayers) {
+      alert('No assignable layers are configured for this department');
       return;
     }
 

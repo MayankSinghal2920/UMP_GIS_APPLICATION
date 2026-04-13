@@ -306,11 +306,15 @@
           </div>
         </div>
 
-        <select
+          <div class="text-muted mb-2" *ngIf="selectedLayerMaker && noAssignableLayers">
+    No assignable layers are configured for this department.
+  </div>
+
+       <select
   class="form-control"
   multiple
   size="6"
-  [disabled]="!selectedLayerMaker"
+  [disabled]="!selectedLayerMaker || noAssignableLayers"
   (change)="onLayerSelectionChange($event)"
 >
   <option
@@ -320,6 +324,7 @@
     {{ layer.layar_name }}
   </option>
 </select>
+
 
       </div>
     </div>
@@ -397,9 +402,11 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn btn-orange" (click)="assignChecker()">
-        Add
-      </button>
+     <button class="btn btn-orange" (click)="assignChecker()">
+  Add
+</button>
+
+
 
       <button
         class="btn btn-outline-secondary"

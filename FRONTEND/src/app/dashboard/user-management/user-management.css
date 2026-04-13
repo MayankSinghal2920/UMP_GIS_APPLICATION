@@ -211,18 +211,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   z-index: 1050;
 }
 
 /* ================= ASSIGN / CHANGE CHECKER MODAL ================= */
 
 .assign-checker-modal {
-  width: 550px;
+  width: 720px;
   max-width: 92%;
   background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 28px 30px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 .modal-header {
@@ -233,7 +234,7 @@
 
 .modal-header h5 {
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 500;
   color: #445b84;
 }
@@ -241,24 +242,24 @@
 .close-btn {
   background: none;
   border: none;
-  font-size: 28px;
+  font-size: 34px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
 }
 
 .modal-actions {
-  margin-top: 20px;
+  margin-top: 28px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .btn-orange {
   background: #ff7a00;
   color: white;
   border: none;
-  padding: 8px 24px;
+  padding: 10px 28px;
   border-radius: 6px;
 }
 
@@ -324,11 +325,11 @@
 /* ================= DELETE CONFIRM MODAL ================= */
 
 .delete-confirm-modal {
-  width: 470px;
+  width: 560px;
   max-width: 90%;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 32px 24px 22px;
+  border-radius: 14px;
+  padding: 40px 30px 28px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   text-align: center;
 }
@@ -338,17 +339,17 @@
 }
 
 .delete-icon-wrap i {
-  font-size: 72px;
+  font-size: 84px;
   color: #e23b00;
   line-height: 1;
 }
 
 .delete-confirm-text {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 400;
   color: #4c4c4c;
   line-height: 1.45;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .delete-confirm-actions {
@@ -359,12 +360,12 @@
 }
 
 .delete-confirm-btn {
-  min-width: 130px;
+  min-width: 150px;
   background: #ff7a00;
   color: #ffffff;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .delete-confirm-btn:hover {
@@ -373,12 +374,12 @@
 }
 
 .delete-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #ffffff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .delete-cancel-btn:hover {
@@ -389,11 +390,11 @@
 /* ================= USER INFO MODAL ================= */
 
 .user-info-modal {
-  width: 720px;
+  width: 900px;
   max-width: 92%;
   background: #ffffff;
-  border-radius: 12px;
-  padding: 22px 24px;
+  border-radius: 14px;
+  padding: 30px 34px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
@@ -401,14 +402,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
   border-bottom: 1px solid #d9d9d9;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
 }
 
 .user-info-header h3 {
   margin: 0;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 500;
   color: #4b6491;
 }
@@ -416,7 +417,7 @@
 .user-info-close {
   border: none;
   background: transparent;
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
@@ -424,24 +425,24 @@
 
 .user-info-body {
   display: flex;
-  gap: 28px;
+  gap: 36px;
   align-items: flex-start;
 }
 
 .user-info-left {
-  flex: 0 0 200px;
+  flex: 0 0 240px;
 }
 
 .user-avatar-card {
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(53, 181, 167, 0.18);
-  padding: 10px;
+  padding: 16px;
   text-align: center;
 }
 
 .user-avatar-icon {
-  font-size: 160px;
+  font-size: 190px;
   color: #39a9e8;
   line-height: 1;
 }
@@ -453,19 +454,19 @@
 .user-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 28px;
+  gap: 22px 36px;
 }
 
 .info-item label {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 500;
   color: #4c4c4c;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .info-item div {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 600;
   color: #ff6a00;
 }
@@ -477,16 +478,16 @@
 .user-info-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 26px;
+  margin-top: 32px;
 }
 
 .user-info-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #ffffff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 18px;
+  padding: 10px 22px;
 }
 
 .user-info-cancel-btn:hover {
@@ -497,11 +498,11 @@
 /* ================= EDIT USER MODAL ================= */
 
 .edit-user-modal {
-  width: 720px;
+  width: 860px;
   max-width: 92%;
   background: #fff;
   border-radius: 14px;
-  padding: 24px;
+  padding: 30px 32px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
@@ -513,7 +514,7 @@
 
 .edit-user-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 500;
   color: #445b84;
 }
@@ -521,7 +522,7 @@
 .edit-user-close {
   border: none;
   background: transparent;
-  font-size: 34px;
+  font-size: 38px;
   line-height: 1;
   color: #0d6efd;
   cursor: pointer;
@@ -530,8 +531,8 @@
 .edit-user-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px 22px;
-  margin-top: 18px;
+  gap: 22px 28px;
+  margin-top: 24px;
 }
 
 .edit-form-group {
@@ -544,8 +545,8 @@
 }
 
 .edit-form-group label {
-  margin-bottom: 8px;
-  font-size: 15px;
+  margin-bottom: 10px;
+  font-size: 17px;
   font-weight: 500;
   color: #3f3f3f;
 }
@@ -580,23 +581,23 @@
 
 .field-error {
   color: #dc2626;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .edit-user-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 22px;
+  gap: 12px;
+  margin-top: 28px;
 }
 
 .edit-update-btn {
-  min-width: 130px;
+  min-width: 150px;
   background: #ff7a00;
   color: #fff;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .edit-update-btn:hover {
@@ -605,12 +606,12 @@
 }
 
 .edit-cancel-btn {
-  min-width: 90px;
+  min-width: 110px;
   background: #fff;
   color: #ff7a00;
   border: 1px solid #ff7a00;
   border-radius: 6px;
-  padding: 8px 20px;
+  padding: 10px 22px;
 }
 
 .edit-cancel-btn:hover {
@@ -619,23 +620,23 @@
 }
 
 .edit-confirm-modal {
-  width: 420px;
+  width: 520px;
   max-width: 90%;
   background: #fff;
-  border-radius: 12px;
-  padding: 28px 24px;
+  border-radius: 14px;
+  padding: 34px 30px;
   text-align: center;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 .edit-confirm-icon i {
-  font-size: 52px;
+  font-size: 60px;
   color: #ff7a00;
 }
 
 .edit-confirm-text {
-  margin: 16px 0 22px;
-  font-size: 22px;
+  margin: 20px 0 26px;
+  font-size: 26px;
   color: #4c4c4c;
   line-height: 1.4;
 }
@@ -649,6 +650,20 @@
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 768px) {
+  .modal-backdrop-custom {
+    padding: 16px;
+  }
+
+  .assign-checker-modal,
+  .delete-confirm-modal,
+  .user-info-modal,
+  .edit-user-modal,
+  .edit-confirm-modal {
+    width: 100%;
+    max-width: 100%;
+    padding: 22px 20px;
+  }
+
   .user-info-body {
     flex-direction: column;
   }
