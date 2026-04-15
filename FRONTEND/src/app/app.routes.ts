@@ -7,6 +7,9 @@ import { GisDashboardComponent } from './dashboard/gis-dashboard/gis-dashboard';
 import { UserManagementComponent } from './dashboard/user-management/user-management';
 import { adminGuard } from './guards/admin-guard';
 import { Feedback } from './dashboard/feedback/feedback';
+import { superAdminGuard } from './guards/super-admin-guard';
+import { SuperAdminUserManagementComponent } from './dashboard/super-admin-user-management/super-admin-user-management';
+
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -32,6 +35,13 @@ export const routes: Routes = [
         canActivate: [adminGuard],
         data: { title: 'User Management' },
       },
+      {
+        path: 'super-admin/user-management',
+        component: SuperAdminUserManagementComponent,
+        canActivate: [superAdminGuard],
+        data: { title: 'User Management' },
+      },
+
       {
         path: 'feedback',
         component: Feedback,
