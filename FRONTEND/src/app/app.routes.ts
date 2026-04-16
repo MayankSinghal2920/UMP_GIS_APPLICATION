@@ -7,8 +7,12 @@ import { GisDashboardComponent } from './dashboard/gis-dashboard/gis-dashboard';
 import { UserManagementComponent } from './dashboard/user-management/user-management';
 import { adminGuard } from './guards/admin-guard';
 import { Feedback } from './dashboard/feedback/feedback';
+
 import { superAdminGuard } from './guards/super-admin-guard';
 import { SuperAdminUserManagementComponent } from './dashboard/super-admin-user-management/super-admin-user-management';
+
+
+import { ProfileComponent } from './dashboard/profile/profile';
 
 
 export const routes: Routes = [
@@ -46,6 +50,11 @@ export const routes: Routes = [
         path: 'feedback',
         component: Feedback,
         data: { title: 'Feedback' },
+      },
+      {
+        path: 'profile',
+        component: ProfileComponent,
+        data: { title: 'Profile' },
       },
     ],
   },

@@ -3,6 +3,7 @@ const cors = require("cors");
 const compression = require("compression");
 const morgan = require("morgan");
 
+
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 const authenticateToken = require("./middleware/auth");
@@ -15,6 +16,8 @@ const userManagementRoutes = require("./modules/user-management/view/users/users
 const ratingRoutes = require("./modules/rating/rating.routes");
 const feedbackRoutes = require("./modules/feedback/feedback.routes");
 const superAdminUsersRoutes = require("./modules/super-admin/super-admin-users.routes");
+const profileRoutes= require('./modules/profile/profile.routes');
+
 
 const app = express();
 
@@ -111,11 +114,15 @@ for (const prefix of apiPrefixes) {
     userManagementRoutes,
   );
   app.use(`${prefix}/feedback`, authenticateToken, feedbackRoutes);
+
   app.use(
     `${prefix}/super-admin/users`,
     authenticateToken,
     superAdminUsersRoutes,
   );
+
+  app.use(`${prefix}/update`, authenticateToken, profileRoutes);
+
 }
 
 /* ---------- 404 + Error ---------- */
