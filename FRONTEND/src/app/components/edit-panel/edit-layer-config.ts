@@ -218,7 +218,7 @@ const BRIDGE_TABLE_COLUMNS: TableColumnConfig[] = [
 ];
 
 const BRIDGE_FORM_FIELDS: EditFieldConfig[] = [
-  { key: 'asset_id', label: 'Asset ID', required: true, full: true },
+  { key: 'asset_id', label: 'Asset ID', required: true, full: true, validateButton: true },
   { key: 'distkm', label: 'Distance (km)', required: true, full: true },
   { key: 'distm', label: 'Distance (m)', required: true, full: true },
   { key: 'latitude', label: 'Latitude', required: true, full: true },

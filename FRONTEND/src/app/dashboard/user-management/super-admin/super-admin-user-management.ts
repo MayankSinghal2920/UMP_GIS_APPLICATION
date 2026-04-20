@@ -39,6 +39,8 @@ export class SuperAdminUserManagementComponent implements OnInit {
   error = '';
   searchText = '';
   activeTab: SuperAdminTab = 'all';
+  pageSize = 12;
+  currentPage = 1;
 
   readonly tabs: TabConfig[] = [
     { key: 'all', label: 'User List' },
@@ -98,6 +100,16 @@ export class SuperAdminUserManagementComponent implements OnInit {
     });
   }
 
+  get paginatedUsers(): any[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    return this.filteredUsers.slice(start, end);
+  }
+
+  get totalPages(): number {
+    return Math.ceil(this.filteredUsers.length / this.pageSize) || 1;
+  }
+
   get summaryCards(): SummaryCard[] {
     const unitTypes = ['Zonal', 'Divisional', 'Board', 'CRIS', 'PU', 'CTI'];
 
@@ -112,6 +124,29 @@ export class SuperAdminUserManagementComponent implements OnInit {
 
   setActiveTab(tab: SuperAdminTab): void {
     this.activeTab = tab;
+    this.currentPage = 1;
+  }
+
+  onSearchChange(): void {
+    this.currentPage = 1;
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+    }
   }
 
   loadUsers(): void {
@@ -121,6 +156,7 @@ export class SuperAdminUserManagementComponent implements OnInit {
     this.api.getSuperAdminUsers().subscribe({
       next: (res) => {
         this.users = res || [];
+        this.currentPage = 1;
         this.loading = false;
       },
       error: (err) => {

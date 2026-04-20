@@ -159,22 +159,17 @@ async function getMakerLayerList(divisionCode, currentUserId = '') {
       u.department_id,
       u.assigned_layers
     FROM user_master u
-    JOIN div_master d
+    LEFT JOIN div_master d
       ON u.division = d.div_name
-    WHERE (
-      d.divcode = $1
-      AND LOWER(TRIM(u.user_type)) = 'maker'
-    )
-      OR (
-        UPPER(TRIM($1)) = 'DLI'
-        AND NULLIF(TRIM($2), '') IS NOT NULL
-        AND UPPER(TRIM(u.user_id)) = UPPER(TRIM($2))
-        AND LOWER(TRIM(u.user_type)) = 'maker'
-        AND (
-          LOWER(TRIM(COALESCE(u.division, ''))) = 'centre for railway information systems'
-          OR LOWER(TRIM(COALESCE(u.division, ''))) = 'cris'
-          OR LOWER(TRIM(COALESCE(u.unit_type, ''))) LIKE '%cris%'
-          OR LOWER(TRIM(COALESCE(u.unit_type, ''))) LIKE '%railway information systems%'
+    WHERE LOWER(TRIM(u.user_type)) = 'maker'
+      AND (
+        (
+          NULLIF(TRIM($2), '') IS NOT NULL
+          AND UPPER(TRIM(u.user_id)) = UPPER(TRIM($2))
+        )
+        OR (
+          NULLIF(TRIM($2), '') IS NULL
+          AND d.divcode = $1
         )
       )
     ORDER BY u.user_name
