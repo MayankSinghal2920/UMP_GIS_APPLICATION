@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -56,6 +56,7 @@ export class SuperAdminUserManagementComponent implements OnInit {
   constructor(
     private api: Api,
     private currentUser: CurrentUserService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -152,17 +153,20 @@ export class SuperAdminUserManagementComponent implements OnInit {
   loadUsers(): void {
     this.loading = true;
     this.error = '';
+    this.cdr.detectChanges();
 
     this.api.getSuperAdminUsers().subscribe({
       next: (res) => {
         this.users = res || [];
         this.currentPage = 1;
         this.loading = false;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Failed to load super admin users', err);
         this.error = 'Failed to load users';
         this.loading = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -210,7 +214,8 @@ export class SuperAdminUserManagementComponent implements OnInit {
   }
 
   private countRole(users: any[], role: string): number {
-    return users.filter((user) => this.normalizeText(user.user_type) === this.normalizeText(role)).length;
+    return users.filter((user) => this.normalizeText(user.user_type) === this.normalizeText(role))
+      .length;
   }
 
   private getSummaryLabel(unitType: string): string {
@@ -218,7 +223,9 @@ export class SuperAdminUserManagementComponent implements OnInit {
   }
 
   private normalizeText(value: any): string {
-    return String(value || '').trim().toLowerCase();
+    return String(value || '')
+      .trim()
+      .toLowerCase();
   }
 
   private normalizeUnitType(value: any): string {

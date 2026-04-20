@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
 import { filter, Observable } from 'rxjs';
 import { Auth } from 'src/app/services/auth';
+import { CurrentUserService } from 'src/app/services/current-user';
 
 import { SidebarState } from 'src/app/services/sidebar-state';
 import { UiState } from 'src/app/services/ui-state';
@@ -27,22 +28,22 @@ export class Sidebar implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private auth: Auth,
+    private currentUser: CurrentUserService,
   ) {
     this.collapsed$ = this.sidebarState.collapsed$;
   }
 
   ngOnInit(): void {
-    this.isAdmin = this.auth.isAdmin();
-    this.isSuperAdmin = this.auth.isSuperAdmin();
-    this.setUserManagementRoute();
+    this.currentUser.user$.subscribe((user) => {
+      this.isAdmin = user?.user_type === 'Admin';
+      this.isSuperAdmin = user?.user_type === 'Super Admin';
+      this.setUserManagementRoute();
+    });
 
     this.sidebarTitle = this.resolveTitle(this.route);
 
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe(() => {
       this.sidebarTitle = this.resolveTitle(this.route);
-      this.isAdmin = this.auth.isAdmin();
-      this.isSuperAdmin = this.auth.isSuperAdmin();
-      this.setUserManagementRoute();
     });
   }
 
@@ -60,12 +61,12 @@ export class Sidebar implements OnInit {
   }
 
   private setUserManagementRoute(): void {
-    if (this.auth.isSuperAdmin()) {
+    if (this.isSuperAdmin) {
       this.userManagementRoute = '/dashboard/super-admin/user-management';
       return;
     }
 
-    if (this.auth.isAdmin()) {
+    if (this.isAdmin) {
       this.userManagementRoute = '/dashboard/user-management';
       return;
     }

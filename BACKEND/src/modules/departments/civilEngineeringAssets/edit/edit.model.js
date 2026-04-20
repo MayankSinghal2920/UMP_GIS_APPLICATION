@@ -1,6 +1,10 @@
 const pool = require('../../../../config/postgres');
 const { irAssetDbPool } = require('../../../../config/postgres');
 const generateGUID = require('../../../../utils/guid');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+
+const execFileAsync = promisify(execFile);
 
 function splitQualifiedName(name) {
   const raw = String(name || '').trim();
@@ -1091,6 +1095,217 @@ async function validateStation(config, stationCode) {
   return rows[0];
 }
 
+function parseValidationPayload(payload) {
+  if (payload == null || payload === '') return null;
+  if (typeof payload !== 'string') return payload;
+
+  const trimmed = payload.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed === 'string') {
+      const nested = parsed.trim();
+      if (!nested) return null;
+      try {
+        return JSON.parse(nested);
+      } catch {
+        return parsed;
+      }
+    }
+    return parsed;
+  } catch {
+    return payload;
+  }
+}
+
+async function requestTmsValidationViaFetch(url, basicAuth) {
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: basicAuth,
+    },
+  });
+
+  if (!response.ok) {
+    const err = new Error('Asset ID validation service is unavailable');
+    err.status = 502;
+    throw err;
+  }
+
+  const rawText = await response.text();
+  return parseValidationPayload(rawText);
+}
+
+async function requestTmsValidationViaPowerShell(url, basicAuth) {
+  const script = `
+$ProgressPreference = 'SilentlyContinue'
+try {
+  $headers = @{ Authorization = $env:TMS_VALIDATION_AUTH }
+  $response = Invoke-RestMethod -Uri $env:TMS_VALIDATION_URL -Method Get -Headers $headers
+  $response | ConvertTo-Json -Depth 20 -Compress
+} catch {
+  Write-Error $_
+  exit 1
+}
+`.trim();
+
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', script],
+    {
+      env: {
+        ...process.env,
+        TMS_VALIDATION_URL: url,
+        TMS_VALIDATION_AUTH: basicAuth,
+      },
+      timeout: 30000,
+      maxBuffer: 1024 * 1024,
+    }
+  );
+
+  return parseValidationPayload(stdout);
+}
+
+async function requestTmsValidation(url, basicAuth) {
+  try {
+    return await requestTmsValidationViaFetch(url, basicAuth);
+  } catch (error) {
+    if (process.platform !== 'win32') throw error;
+    try {
+      return await requestTmsValidationViaPowerShell(url, basicAuth);
+    } catch (fallbackError) {
+      const err = new Error('Asset ID validation service is unavailable');
+      err.status = 502;
+      err.cause = fallbackError;
+      throw err;
+    }
+  }
+}
+
+function getAssetValidationParam(layer) {
+  const normalizedLayer = String(layer || '').trim().toLowerCase();
+  const bridgeLayers = new Set([
+    'bridge_minor',
+    'bridge_end',
+    'bridge_start',
+    'road_over_bridge',
+    'road_under_bridge',
+    'foot_over_bridge',
+    'rail_over_rail',
+  ]);
+
+  if (bridgeLayers.has(normalizedLayer)) return 'BRIDGE';
+  if (normalizedLayer === 'switch_expansion_joint') return 'SEJ';
+  if (normalizedLayer === 'buffer_rails') return 'BUFFERRAIL';
+  if (normalizedLayer === 'curve_start' || normalizedLayer === 'curve_end') return 'CURVE';
+  if (normalizedLayer === 'pointxing') return 'PXING';
+  if (normalizedLayer === 'levelxing') return 'LC';
+  if (normalizedLayer === 'tunnel_start' || normalizedLayer === 'tunnel_end') return 'TUNNEL';
+
+  const err = new Error('Asset ID validation is not configured for this layer');
+  err.status = 400;
+  throw err;
+}
+
+function pickResultValue(result, keys) {
+  if (!result || typeof result !== 'object') return undefined;
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(result, key) && result[key] != null && String(result[key]).trim() !== '') {
+      return result[key];
+    }
+  }
+
+  const lowered = Object.entries(result).reduce((acc, [key, value]) => {
+    acc[String(key).toLowerCase()] = value;
+    return acc;
+  }, {});
+
+  for (const key of keys) {
+    const value = lowered[String(key).toLowerCase()];
+    if (value != null && String(value).trim() !== '') return value;
+  }
+
+  return undefined;
+}
+
+function normalizeValidatedAssetResult(result) {
+  return {
+    asset_id: pickResultValue(result, ['asset_id', 'assetid']),
+    distkm: pickResultValue(result, ['distkm', 'dist_km', 'km']),
+    distm: pickResultValue(result, ['distm', 'dist_m', 'm']),
+    latitude: pickResultValue(result, ['latitude', 'lat', 'ycoord']),
+    longitude: pickResultValue(result, ['longitude', 'lng', 'lon', 'xcoord']),
+    xcoord: pickResultValue(result, ['xcoord', 'longitude', 'lng', 'lon']),
+    ycoord: pickResultValue(result, ['ycoord', 'latitude', 'lat']),
+    railway: pickResultValue(result, ['railway', 'zone_name', 'fname']),
+    division: pickResultValue(result, ['division', 'div_name']),
+    tmssection: pickResultValue(result, ['tmssection', 'tms_section']),
+    state: pickResultValue(result, ['state']),
+    district: pickResultValue(result, ['district']),
+    bridgeno: pickResultValue(result, ['bridgeno', 'bridge_no', 'bridgeid']),
+    constituncy: pickResultValue(result, ['constituncy', 'constituency']),
+    bridgetype: pickResultValue(result, ['bridgetype', 'bridge_type']),
+    spanconf: pickResultValue(result, ['spanconf', 'span_configuration']),
+    raw: result,
+  };
+}
+
+async function validateAssetId(config, layer, division, assetId, objectId = null) {
+  const trimmedAssetId = String(assetId || '').trim();
+  if (!trimmedAssetId) {
+    const err = new Error('asset_id is required');
+    err.status = 400;
+    throw err;
+  }
+
+  const duplicateParams = [trimmedAssetId];
+  let duplicateSql = `
+    SELECT ${config.idColumn}
+    FROM ${config.table}
+    WHERE TRIM(COALESCE(asset_id::text, '')) = TRIM($1)
+  `;
+
+  if (Number.isFinite(Number(objectId))) {
+    duplicateParams.push(Number(objectId));
+    duplicateSql += ` AND ${config.idColumn} <> $2`;
+  }
+
+  duplicateSql += ' LIMIT 1';
+
+  const { rows: existingRows } = await pool.query(duplicateSql, duplicateParams);
+  if (existingRows.length > 0) {
+    const err = new Error('Asset ID already exists. Please enter a different Asset ID.');
+    err.status = 409;
+    throw err;
+  }
+
+  const validationParam = getAssetValidationParam(layer);
+  const username = String(process.env.TMS_GIS_USERNAME || '').trim();
+  const password = String(process.env.TMS_GIS_PASSWORD || '').trim();
+  const endpoint = String(process.env.TMS_GIS_DETAILS_URL || 'https://ircep.gov.in/TMSREST/GetGISDetails').trim();
+
+  if (!username || !password) {
+    const err = new Error('TMS asset validation credentials are not configured');
+    err.status = 500;
+    throw err;
+  }
+
+  const basicAuth = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+  const url = `${endpoint}?param=${encodeURIComponent(validationParam)}&assetid=${encodeURIComponent(trimmedAssetId)}`;
+
+  const parsed = await requestTmsValidation(url, basicAuth);
+
+  if (!parsed || (Array.isArray(parsed) && parsed.length === 0)) {
+    const err = new Error('Asset ID not validated. Please enter a valid Asset ID.');
+    err.status = 404;
+    throw err;
+  }
+
+  return normalizeValidatedAssetResult(Array.isArray(parsed) ? parsed[0] : parsed);
+}
+
 function buildStationDraftInsert(draftTableColumns, config, record) {
   const insertColumns = [];
   const placeholders = [];
@@ -1298,6 +1513,7 @@ module.exports = {
   getTable,
   getDraftTable,
   validateStation,
+  validateAssetId,
   sendStationEdit,
   sendNewStationEdit,
 };

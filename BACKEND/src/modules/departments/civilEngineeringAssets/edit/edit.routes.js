@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('./edit.controller');
 
 router.post('/station/validate', controller.validateStation);
+router.post('/:layer/asset-id/validate', controller.validateAssetId);
 router.post('/station/send-new', controller.sendNewStationEdit);
 router.post('/station/:id/send', controller.sendStationEdit);
 router.post('/station/:id/request-deletion', controller.requestStationDeletion);
