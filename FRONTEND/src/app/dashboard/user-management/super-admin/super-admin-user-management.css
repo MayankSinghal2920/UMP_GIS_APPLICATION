@@ -339,6 +339,29 @@
   padding: 24px 16px !important;
 }
 
+.table-pager {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #64748b;
+}
+
+.pager-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pager-status {
+  margin: 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
 .state-card {
   min-height: 280px;
   border-radius: 14px;
@@ -412,5 +435,10 @@
 
   .summary-group-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-pager {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

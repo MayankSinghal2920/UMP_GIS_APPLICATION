@@ -73,6 +73,7 @@
             type="text"
             class="form-control"
             [(ngModel)]="searchText"
+            (input)="onSearchChange()"
             placeholder="Search by user, type, zone, division, HRMS ID..."
           />
         </div>
@@ -128,8 +129,8 @@
               </thead>
 
               <tbody>
-                <tr *ngFor="let user of filteredUsers; let i = index; trackBy: trackByUser">
-                  <td>{{ i + 1 }}</td>
+                <tr *ngFor="let user of paginatedUsers; let i = index; trackBy: trackByUser">
+                  <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
                   <td>{{ user.user_name || '--' }}</td>
                   <td>{{ user.user_type || '--' }}</td>
                   <td>{{ user.unit_type || '--' }}</td>
@@ -154,13 +155,33 @@
                   </td>
                 </tr>
 
-                <tr *ngIf="filteredUsers.length === 0">
+                <tr *ngIf="paginatedUsers.length === 0">
                   <td colspan="11" class="empty-row">
                     No users found for the selected filter.
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div class="table-pager">
+            <small>
+              Showing
+              {{ filteredUsers.length === 0 ? 0 : ((currentPage - 1) * pageSize + 1) }}
+              -
+              {{ (currentPage - 1) * pageSize + paginatedUsers.length }}
+              of {{ filteredUsers.length }} entries
+            </small>
+
+            <div class="pager-actions">
+              <button class="btn btn-light btn-sm" (click)="goToPage(1)">«</button>
+              <button class="btn btn-light btn-sm" (click)="prevPage()">‹</button>
+
+              <span class="pager-status">Page {{ currentPage }} / {{ totalPages }}</span>
+
+              <button class="btn btn-light btn-sm" (click)="nextPage()">›</button>
+              <button class="btn btn-light btn-sm" (click)="goToPage(totalPages)">»</button>
+            </div>
           </div>
         </div>
 

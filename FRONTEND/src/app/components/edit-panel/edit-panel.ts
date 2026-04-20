@@ -347,7 +347,10 @@ export class EditPanel implements OnInit, OnDestroy {
     this.api.getMakerLayerList(currentUserId).subscribe({
       next: (res: any) => {
         const makers = Array.isArray(res?.makers) ? res.makers : [];
-        const maker = makers.find((item: any) => String(item?.user_id || '').trim() === currentUserId);
+        const normalizedCurrentUserId = currentUserId.toLowerCase();
+        const maker = makers.find(
+          (item: any) => String(item?.user_id || '').trim().toLowerCase() === normalizedCurrentUserId,
+        );
 
         if (!maker?.department_id) {
           this.makerLayerOptions = [];
@@ -923,10 +926,24 @@ export class EditPanel implements OnInit, OnDestroy {
   showValidateButton(field: EditFieldConfig): boolean {
     return Boolean(
       field.validateButton &&
-      this.currentTableLayer === 'stations' &&
+      (
+        this.currentTableLayer === 'stations' ||
+        (this.isBridgeLayer() && field.key === 'asset_id')
+      ) &&
       !this.isReviewer() &&
       !this.isMakerSentForDeletionView()
     );
+  }
+
+  onValidateField(field: EditFieldConfig): void {
+    if (field.key === 'sttncode') {
+      this.validateStationCode();
+      return;
+    }
+
+    if (field.key === 'asset_id' && this.isBridgeLayer()) {
+      alert('Asset ID validate button is added. Validation workflow is not wired yet.');
+    }
   }
 
   cancelEdit() {

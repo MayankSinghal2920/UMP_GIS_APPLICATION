@@ -398,6 +398,64 @@ export const EDIT_LAYER_OPTIONS = Object.values(EDIT_LAYER_CONFIG).map((config) 
   label: config.label,
 }));
 
+
+const BRIDGE_TABLE_COLUMNS: TableColumnConfig[] = [
+  { key: 'asset_id', label: 'Asset ID', stationLink: true },
+  { key: 'bridgeno', label: 'Bridge No' },
+  { key: 'distkm', label: 'Distance (KM)' },
+  { key: 'distm', label: 'Distance (M)' },
+  { key: 'state', label: 'State' },
+  { key: 'district', label: 'District' },
+];
+
+const BRIDGE_FORM_FIELDS: EditFieldConfig[] = [
+  { key: 'asset_id', label: 'Asset ID', required: true, full: true, validateButton: true },
+  { key: 'distkm', label: 'Distance (km)', required: true, full: true },
+  { key: 'distm', label: 'Distance (m)', required: true, full: true },
+  { key: 'latitude', label: 'Latitude', required: true, full: true },
+  { key: 'longitude', label: 'Longitude', required: true, full: true },
+  { key: 'line', label: 'Line', required: true, full: true },
+  { key: 'railway', label: 'Railway', required: true, full: true },
+  { key: 'division', label: 'Division', required: true, full: true },
+  { key: 'tmssection', label: 'TMS Section', required: true, full: true },
+  { key: 'state', label: 'State', required: true, full: true },
+  { key: 'district', label: 'District', required: true, full: true },
+  { key: 'xcoord', label: 'X Coordinate', required: true, full: true },
+  { key: 'ycoord', label: 'Y Coordinate', required: true, full: true },
+  { key: 'bridgeno', label: 'Bridge No', required: true, full: true },
+  { key: 'constituncy', label: 'Constituency', required: true, full: true },
+  { key: 'bridgetype', label: 'Bridge Type', required: true, full: true },
+  { key: 'spanconf', label: 'Span Configuration', required: true, full: true },
+];
+
+EDIT_LAYER_CONFIG.bridge_start = {
+  id: 'bridge_start',
+  label: 'Bridge Start',
+  formTitle: 'Bridge Details',
+  note: '* Fill all mandatory bridge fields before sending the record to checker.',
+  tableColumns: BRIDGE_TABLE_COLUMNS,
+  formFields: BRIDGE_FORM_FIELDS,
+};
+
+EDIT_LAYER_CONFIG.bridge_end = {
+  id: 'bridge_end',
+  label: 'Bridge End',
+  formTitle: 'Bridge Details',
+  note: '* Fill all mandatory bridge fields before sending the record to checker.',
+  tableColumns: BRIDGE_TABLE_COLUMNS,
+  formFields: BRIDGE_FORM_FIELDS,
+};
+
+EDIT_LAYER_CONFIG.bridge_minor = {
+  id: 'bridge_minor',
+  label: 'Bridge Minor',
+  formTitle: 'Bridge Details',
+  note: '* Fill all mandatory bridge fields before sending the record to checker.',
+  tableColumns: BRIDGE_TABLE_COLUMNS,
+  formFields: BRIDGE_FORM_FIELDS,
+};
+
+
 export function getEditLayerConfig(layerId: string | null | undefined): LayerFormConfig | null {
   const normalized = String(layerId || '').trim().toLowerCase();
   if (!normalized) return null;

@@ -285,7 +285,7 @@
         <button
           class="btn secondary"
           type="button"
-          (click)="validateStationCode()"
+          (click)="onValidateField(field)"
           [disabled]="validating"
         >
           {{ validating ? 'Validating...' : 'Validate' }}
