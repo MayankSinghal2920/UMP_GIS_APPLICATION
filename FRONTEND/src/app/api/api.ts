@@ -172,6 +172,9 @@ export class Api {
   validateStationCode(code: string) {
     return this.ceaEditingApi.validateStationCode(code);
   }
+  validateAssetId(layer: string, assetId: string, objectId?: number | null) {
+    return this.ceaEditingApi.validateAssetId(layer, assetId, objectId);
+  }
 
   requestOtp(username: string, password: string) {
     return this.authApi.requestOtp(username, password);

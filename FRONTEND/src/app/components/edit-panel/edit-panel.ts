@@ -57,6 +57,16 @@ const RAILWAY_CODE_MAP: Record<string, string> = {
   styleUrl: './edit-panel.css',
 })
 export class EditPanel implements OnInit, OnDestroy {
+  private static readonly POINT_LAYER_ZOOM = 19;
+  private static readonly DEFAULT_LAYER_ZOOM = 17;
+  private static readonly NON_POINT_LAYERS = new Set([
+    'landplan',
+    'landplan_ontrack',
+    'landplan_offtrack',
+    'land_offset',
+    'land_boundary',
+  ]);
+
   private allRows: any[] = [];
   private filteredRows: any[] = [];
   private makerLayerOptions: MakerLayerOption[] = EDIT_LAYER_OPTIONS.map((option) => ({
@@ -85,6 +95,7 @@ export class EditPanel implements OnInit, OnDestroy {
   deleting = false;
   validating = false;
   stationValidated = false;
+  private validatedBridgeAssetId: string | null = null;
   error: string | null = null;
   makerTab: MakerTabKey = 'edit';
   checkerTab: CheckerTabKey = 'pending';
@@ -269,6 +280,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.draft = null;
     this.originalDraft = null;
     this.stationValidated = false;
+    this.validatedBridgeAssetId = null;
 
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
@@ -291,6 +303,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.mode = 'edit';
     this.error = null;
     this.stationValidated = false;
+    this.validatedBridgeAssetId = null;
     this.validating = false;
     this.saving = false;
     this.deleting = false;
@@ -313,6 +326,69 @@ export class EditPanel implements OnInit, OnDestroy {
     if (!layer) return null;
     if (layer === 'stations') return 'station';
     return layer;
+  }
+
+  private getNormalizedBridgeAssetId(value: any = this.draft?.asset_id): string {
+    return String(value || '').trim().toUpperCase();
+  }
+
+  private requiresBridgeAssetValidationBeforeSend(): boolean {
+    if (!this.isBridgeLayer() || !this.isMaker()) return false;
+    const assetId = this.getNormalizedBridgeAssetId();
+    if (!assetId) return false;
+    return assetId !== this.validatedBridgeAssetId;
+  }
+
+  private applyValidatedBridgeAsset(row: any): void {
+    if (!this.draft || !row) return;
+    const source = row?.raw && typeof row.raw === 'object' ? row.raw : row;
+    const currentLayer = String(this.currentTableLayer || '').trim().toLowerCase();
+
+    const pick = (...values: any[]) => {
+      for (const value of values) {
+        if (value != null && String(value).trim() !== '') return value;
+      }
+      return undefined;
+    };
+
+    this.draft.asset_id = pick(row.asset_id, this.draft.asset_id);
+    this.draft.distkm = currentLayer === 'bridge_end'
+      ? pick(source?.kmto, row.distkm, this.draft.distkm)
+      : pick(source?.kmfrom, row.distkm, this.draft.distkm);
+    this.draft.distm = currentLayer === 'bridge_end'
+      ? pick(source?.metto, row.distm, this.draft.distm)
+      : pick(source?.metfrom, row.distm, this.draft.distm);
+    this.draft.railway = pick(row.railway, this.draft.railway);
+    this.draft.division = pick(row.division, this.draft.division);
+    this.draft.tmssection = pick(source?.stationsection, source?.tmssection, row.tmssection, this.draft.tmssection);
+    this.draft.state = pick(row.state, this.draft.state);
+    this.draft.district = pick(row.district, this.draft.district);
+    this.draft.bridgeno = pick(source?.bridgeno, row.bridgeno, this.draft.bridgeno);
+    this.draft.constituncy = pick(source?.constituncy, source?.constituency, row.constituncy, this.draft.constituncy);
+    this.draft.bridgetype = pick(source?.bridgetype, row.bridgetype, this.draft.bridgetype);
+    this.draft.spanconf = pick(source?.spanconf, row.spanconf, this.draft.spanconf);
+
+    const latitude = Number(row?.latitude ?? row?.ycoord);
+    const longitude = Number(row?.longitude ?? row?.xcoord);
+    if (Number.isFinite(latitude)) {
+      this.draft.latitude = latitude;
+      this.draft.ycoord = latitude;
+      this.draft.lat = latitude;
+    }
+    if (Number.isFinite(longitude)) {
+      this.draft.longitude = longitude;
+      this.draft.xcoord = longitude;
+      this.draft.lng = longitude;
+      this.draft.lon = longitude;
+    }
+  }
+
+  private getEditFocusZoom(): number {
+    const layer = String(this.currentTableLayer || '').trim().toLowerCase();
+    if (!layer) return EditPanel.DEFAULT_LAYER_ZOOM;
+    return EditPanel.NON_POINT_LAYERS.has(layer)
+      ? EditPanel.DEFAULT_LAYER_ZOOM
+      : EditPanel.POINT_LAYER_ZOOM;
   }
 
   private normalizeLayerValue(value: any): string {
@@ -732,14 +808,14 @@ export class EditPanel implements OnInit, OnDestroy {
       department,
     };
     this.originalDraft = { ...this.draft };
-    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: 17, draggable: false } as any);
+    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
     this.cdr.detectChanges();
   }
 
   editRow(row: any) {
     const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
-    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false;
+    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null;
     this.validating = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
 
     const id = Number(row?.objectid); if (!Number.isFinite(id)) return;
@@ -762,7 +838,7 @@ export class EditPanel implements OnInit, OnDestroy {
         this.draft = { ...this.draft, ...n };
         this.draft.lat = n.lat; this.draft.lng = n.lng; this.originalDraft = { ...this.draft };
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
-          this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: 17, draggable: false } as any);
+          this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
         }
         this.cdr.detectChanges();
       },
@@ -836,7 +912,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
     alert('Edit Geometry Mode is ON. You can now move the station point.');
     this.geomEditing = true;
-    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: 17, draggable: true });
+    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: true });
     this.dragSub?.unsubscribe();
     this.dragSub = this.edit.dragEnd$.subscribe(({ lat: newLat, lng: newLng }) => { if (!this.draft) return; this.draft.lat = newLat; this.draft.lng = newLng; this.cdr.detectChanges(); });
   }
@@ -849,7 +925,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.edit.lockDrag();
     const lat = Number(this.draft?.lat); const lng = Number(this.draft?.lng);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: 17, draggable: false } as any);
+      this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
     }
     this.cdr.detectChanges();
   }
@@ -916,6 +992,8 @@ export class EditPanel implements OnInit, OnDestroy {
         'approved_at',
         'modified_by',
         'comments',
+        'railway',
+        'division',
       ]);
       if (readonlyKeys.has(field.key)) return true;
       return this.isReviewer() || this.isMakerSentForDeletionView();
@@ -942,13 +1020,13 @@ export class EditPanel implements OnInit, OnDestroy {
     }
 
     if (field.key === 'asset_id' && this.isBridgeLayer()) {
-      alert('Asset ID validate button is added. Validation workflow is not wired yet.');
+      this.validateBridgeAssetId();
     }
   }
 
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
-    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
+    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
   send() {
@@ -959,6 +1037,10 @@ export class EditPanel implements OnInit, OnDestroy {
     }
     if (this.requiresStationValidationBeforeSend()) {
       alert('Please validate the station before sending the record to checker');
+      return;
+    }
+    if (this.requiresBridgeAssetValidationBeforeSend()) {
+      alert('Please validate the Asset ID before sending the record to checker');
       return;
     }
     if (this.hasMissingMandatoryFields()) {
@@ -1017,6 +1099,7 @@ export class EditPanel implements OnInit, OnDestroy {
         this.draft = null;
         this.originalDraft = null;
         this.stationValidated = false;
+        this.validatedBridgeAssetId = null;
         this.geomEditing = false;
         this.dragSub?.unsubscribe();
         this.dragSub = undefined;
@@ -1058,6 +1141,38 @@ export class EditPanel implements OnInit, OnDestroy {
     });
   }
 
+  validateBridgeAssetId() {
+    if (this.isReviewer()) return;
+    if (!this.isBridgeLayer()) return;
+
+    const layerKey = this.getPersistenceLayerKey();
+    const assetId = this.getNormalizedBridgeAssetId();
+    const objectId = Number(this.draft?.objectid);
+
+    if (!layerKey) return;
+    if (!assetId) {
+      alert('Please enter Asset ID');
+      return;
+    }
+
+    this.validating = true;
+    this.api.validateAssetId(layerKey, assetId, Number.isFinite(objectId) ? objectId : null).subscribe({
+      next: (res: any) => {
+        this.validating = false;
+        this.applyValidatedBridgeAsset(res?.row || {});
+        this.validatedBridgeAssetId = this.getNormalizedBridgeAssetId();
+        alert(res?.message || 'Asset ID is validated. Please fill the rest of the details.');
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.validating = false;
+        this.validatedBridgeAssetId = null;
+        alert(err?.error?.message || err?.error?.error || 'Asset ID not validated. Please enter a valid Asset ID.');
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   private completeDeleteRequestSuccess() {
     this.deleting = false;
     if (this.draft) {
@@ -1065,6 +1180,7 @@ export class EditPanel implements OnInit, OnDestroy {
       this.draft = null;
       this.originalDraft = null;
       this.stationValidated = false;
+      this.validatedBridgeAssetId = null;
       this.error = null;
       this.geomEditing = false;
       this.dragSub?.unsubscribe();
@@ -1145,7 +1261,7 @@ export class EditPanel implements OnInit, OnDestroy {
   rejectDeletionDraft() { if (!this.draft) return; this.rejectDeletionRow(this.draft); }
 
   private resetPanelState() {
-    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
+    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
   }
 
   close() {

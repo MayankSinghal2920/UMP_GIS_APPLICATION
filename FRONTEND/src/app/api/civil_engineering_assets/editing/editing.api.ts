@@ -110,6 +110,19 @@ export class CivilEngineeringAssetsEditingApi {
     });
   }
 
+  validateAssetId(layer: string, assetId: string, objectId?: number | null): Observable<any> {
+    return this.http.post<any>(
+      `${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/asset-id/validate`,
+      {
+        asset_id: String(assetId || '').trim(),
+        objectid: Number.isFinite(Number(objectId)) ? Number(objectId) : null,
+      },
+      {
+        params: { division: getDivision() },
+      }
+    );
+  }
+
   getStationTable(page: number, pageSize: number, search: string) {
     return this.getLayerTable('station', page, pageSize, search);
   }

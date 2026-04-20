@@ -86,7 +86,7 @@ const FIELD_LIBRARY: Record<string, EditFieldConfig> = {
   agency_name: { key: 'agency_name', label: 'Agency Name' },
   land_plot: { key: 'land_plot', label: 'Land Plot' },
 
-  asset_id: { key: 'asset_id', label: 'Asset ID', required: true, full: true },
+  asset_id: { key: 'asset_id', label: 'Asset ID', required: true, full: true, validateButton: true },
   latitude: { key: 'latitude', label: 'Latitude', required: true, full: true },
   longitude: { key: 'longitude', label: 'Longitude', required: true, full: true },
   line: { key: 'line', label: 'Line', required: true, full: true },
@@ -113,6 +113,35 @@ const GENERIC_STATUS_FIELD_KEYS = [
   'approved_at',
   'modified_by',
 ];
+
+const BRIDGE_TABLE_COLUMN_KEYS = ['asset_id', 'bridgeno', 'distkm', 'distm', 'state', 'district'];
+const BRIDGE_FORM_FIELD_KEYS = [
+  'asset_id',
+  'distkm',
+  'distm',
+  'railway',
+  'division',
+  'tmssection',
+  'state',
+  'district',
+  'bridgeno',
+  'constituncy',
+  'bridgetype',
+  'spanconf',
+];
+
+function buildBridgeLayerConfig(id: string, label: string): LayerFormConfig {
+  return buildLayerConfig({
+    id,
+    label,
+    formTitle: 'Bridge Details',
+    note: '* Fill all mandatory bridge fields before sending the record to checker.',
+    includeGenericStatusColumns: false,
+    includeGenericStatusFields: false,
+    tableColumnKeys: BRIDGE_TABLE_COLUMN_KEYS,
+    formFieldKeys: BRIDGE_FORM_FIELD_KEYS,
+  });
+}
 
 function resolveColumn(key: string): TableColumnConfig {
   const column = COLUMN_LIBRARY[key];
@@ -211,74 +240,11 @@ export const EDIT_LAYER_CONFIG: Record<string, LayerFormConfig> = {
     formFieldKeys: ['distfromkm', 'distfromm', 'disttokm', 'disttom'],
   }),
 
-  bridge_start: buildLayerConfig({
-    id: 'bridge_start',
-    label: 'Bridge Start',
-    formTitle: 'Bridge Details',
-    note: '* Fill all mandatory bridge fields before sending the record to checker.',
-    includeGenericStatusColumns: false,
-    includeGenericStatusFields: false,
-    tableColumnKeys: ['asset_id', 'bridgeno', 'distkm', 'distm', 'state', 'district'],
-    formFieldKeys: [
-      'asset_id',
-      'distkm',
-      'distm',
-      'railway',
-      'division',
-      'state',
-      'district',
-      'bridgeno',
-      'constituncy',
-      'bridgetype',
-      'spanconf',
-    ],
-  }),
+  bridge_start: buildBridgeLayerConfig('bridge_start', 'Bridge Start'),
 
-  bridge_end: buildLayerConfig({
-    id: 'bridge_end',
-    label: 'Bridge End',
-    formTitle: 'Bridge Details',
-    note: '* Fill all mandatory bridge fields before sending the record to checker.',
-    includeGenericStatusColumns: false,
-    includeGenericStatusFields: false,
-    tableColumnKeys: ['asset_id', 'bridgeno', 'distkm', 'distm', 'state', 'district'],
-    formFieldKeys: [
-      'asset_id',
-      'distkm',
-      'distm',
-      'railway',
-      'division',
-      'state',
-      'district',
-      'bridgeno',
-      'constituncy',
-      'bridgetype',
-      'spanconf',
-    ],
-  }),
+  bridge_end: buildBridgeLayerConfig('bridge_end', 'Bridge End'),
 
-  bridge_minor: buildLayerConfig({
-    id: 'bridge_minor',
-    label: 'Bridge Minor',
-    formTitle: 'Bridge Details',
-    note: '* Fill all mandatory bridge fields before sending the record to checker.',
-    includeGenericStatusColumns: false,
-    includeGenericStatusFields: false,
-    tableColumnKeys: ['asset_id', 'bridgeno', 'distkm', 'distm', 'state', 'district'],
-    formFieldKeys: [
-      'asset_id',
-      'distkm',
-      'distm',
-      'railway',
-      'division',
-      'state',
-      'district',
-      'bridgeno',
-      'constituncy',
-      'bridgetype',
-      'spanconf',
-    ],
-  }),
+  bridge_minor: buildBridgeLayerConfig('bridge_minor', 'Bridge Minor'),
 
   levelxing: buildLayerConfig({
     id: 'levelxing',
@@ -397,64 +363,6 @@ export const EDIT_LAYER_OPTIONS = Object.values(EDIT_LAYER_CONFIG).map((config) 
   value: config.id,
   label: config.label,
 }));
-
-
-const BRIDGE_TABLE_COLUMNS: TableColumnConfig[] = [
-  { key: 'asset_id', label: 'Asset ID', stationLink: true },
-  { key: 'bridgeno', label: 'Bridge No' },
-  { key: 'distkm', label: 'Distance (KM)' },
-  { key: 'distm', label: 'Distance (M)' },
-  { key: 'state', label: 'State' },
-  { key: 'district', label: 'District' },
-];
-
-const BRIDGE_FORM_FIELDS: EditFieldConfig[] = [
-  { key: 'asset_id', label: 'Asset ID', required: true, full: true, validateButton: true },
-  { key: 'distkm', label: 'Distance (km)', required: true, full: true },
-  { key: 'distm', label: 'Distance (m)', required: true, full: true },
-  { key: 'latitude', label: 'Latitude', required: true, full: true },
-  { key: 'longitude', label: 'Longitude', required: true, full: true },
-  { key: 'line', label: 'Line', required: true, full: true },
-  { key: 'railway', label: 'Railway', required: true, full: true },
-  { key: 'division', label: 'Division', required: true, full: true },
-  { key: 'tmssection', label: 'TMS Section', required: true, full: true },
-  { key: 'state', label: 'State', required: true, full: true },
-  { key: 'district', label: 'District', required: true, full: true },
-  { key: 'xcoord', label: 'X Coordinate', required: true, full: true },
-  { key: 'ycoord', label: 'Y Coordinate', required: true, full: true },
-  { key: 'bridgeno', label: 'Bridge No', required: true, full: true },
-  { key: 'constituncy', label: 'Constituency', required: true, full: true },
-  { key: 'bridgetype', label: 'Bridge Type', required: true, full: true },
-  { key: 'spanconf', label: 'Span Configuration', required: true, full: true },
-];
-
-EDIT_LAYER_CONFIG.bridge_start = {
-  id: 'bridge_start',
-  label: 'Bridge Start',
-  formTitle: 'Bridge Details',
-  note: '* Fill all mandatory bridge fields before sending the record to checker.',
-  tableColumns: BRIDGE_TABLE_COLUMNS,
-  formFields: BRIDGE_FORM_FIELDS,
-};
-
-EDIT_LAYER_CONFIG.bridge_end = {
-  id: 'bridge_end',
-  label: 'Bridge End',
-  formTitle: 'Bridge Details',
-  note: '* Fill all mandatory bridge fields before sending the record to checker.',
-  tableColumns: BRIDGE_TABLE_COLUMNS,
-  formFields: BRIDGE_FORM_FIELDS,
-};
-
-EDIT_LAYER_CONFIG.bridge_minor = {
-  id: 'bridge_minor',
-  label: 'Bridge Minor',
-  formTitle: 'Bridge Details',
-  note: '* Fill all mandatory bridge fields before sending the record to checker.',
-  tableColumns: BRIDGE_TABLE_COLUMNS,
-  formFields: BRIDGE_FORM_FIELDS,
-};
-
 
 export function getEditLayerConfig(layerId: string | null | undefined): LayerFormConfig | null {
   const normalized = String(layerId || '').trim().toLowerCase();

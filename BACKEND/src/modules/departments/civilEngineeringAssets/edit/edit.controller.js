@@ -215,6 +215,44 @@ async function validateStation(req, res, next) {
   }
 }
 
+async function validateAssetId(req, res, next) {
+  try {
+    const { layer } = req.params;
+    const division = String(req.query.division || '').trim();
+    const assetId = String(req.body?.asset_id || '').trim();
+    const objectId = Number(req.body?.objectid);
+
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+
+    if (!assetId) {
+      const err = new Error('asset_id is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const config = resolveConfig(layer);
+    const row = await model.validateAssetId(
+      config,
+      layer,
+      division,
+      assetId,
+      Number.isFinite(objectId) ? objectId : null
+    );
+
+    res.json({
+      success: true,
+      message: 'Asset ID validated successfully',
+      row,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function sendNewStationEdit(req, res, next) {
   try {
     const config = resolveConfig('station');
@@ -752,6 +790,7 @@ module.exports = {
   getTable,
   getDraftTable,
   validateStation,
+  validateAssetId,
   sendStationEdit,
   sendNewStationEdit,
   updateStationDraftStatus,
