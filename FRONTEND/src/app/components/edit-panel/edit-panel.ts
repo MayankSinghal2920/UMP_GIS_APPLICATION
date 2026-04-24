@@ -104,8 +104,9 @@ export class EditPanel implements OnInit, OnDestroy {
   geomEditing = false;
   selectedAttachmentFile: File | null = null;
   selectedAttachmentName = '';
-  selectedAttachmentKind: 'shp' | 'other' | null = null;
-  showAttachmentModal = false;
+  selectedAttachmentKind: 'other' | null = null;
+  showAddRecordModal = false;
+  addRecordShapefileName = '';
   private dragSub?: Subscription;
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
@@ -288,7 +289,6 @@ export class EditPanel implements OnInit, OnDestroy {
     this.selectedAttachmentFile = null;
     this.selectedAttachmentName = '';
     this.selectedAttachmentKind = null;
-    this.showAttachmentModal = false;
 
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
@@ -315,10 +315,11 @@ export class EditPanel implements OnInit, OnDestroy {
     this.validating = false;
     this.saving = false;
     this.deleting = false;
+    this.showAddRecordModal = false;
+    this.addRecordShapefileName = '';
     this.selectedAttachmentFile = null;
     this.selectedAttachmentName = this.getExistingAttachmentName(this.edit.draft);
-    this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
-    this.showAttachmentModal = false;
+    this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
@@ -548,7 +549,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   onRejectedLayerChange() {
     this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.search = ''; this.error = null; this.draft = null;
-    this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false;
+    this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null;
     this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
     this.edit.setLayer((this.rejectedLayer as any) ?? null);
     if (this.rejectedLayer) setTimeout(() => this.load(true), 0);
@@ -767,21 +768,55 @@ export class EditPanel implements OnInit, OnDestroy {
   nextPage() { if (this.page >= this.totalPages) return; this.page++; this.applyPagination(); this.cdr.detectChanges(); }
   prevPage() { if (this.page <= 1) return; this.page--; this.applyPagination(); this.cdr.detectChanges(); }
 
-  startAddStation() {
-    if (this.currentTableLayer !== 'stations') return;
+  startAddRecord() {
+    if (!this.currentTableLayer) return;
+    this.showAddRecordModal = true;
+    this.addRecordShapefileName = '';
+    this.cdr.detectChanges();
+  }
+
+  closeAddRecordModal(): void {
+    this.showAddRecordModal = false;
+  }
+
+  startAddRecordWithDrawingTool(): void {
+    if (!this.currentTableLayer) return;
+    this.showAddRecordModal = false;
     this.error = null;
     this.mode = 'table';
     this.draft = null;
     this.originalDraft = null;
     this.stationValidated = false;
+    this.validatedBridgeAssetId = null;
     this.validating = false;
     this.saving = false;
+    this.deleting = false;
+    this.selectedAttachmentFile = null;
+    this.selectedAttachmentName = '';
+    this.selectedAttachmentKind = null;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
     this.mapZoom.clearHighlight();
-    this.edit.startCreateStation();
-    alert('Point drawing mode is on. Double-click inside the division buffer to place the new station.');
+
+    if (this.currentTableLayer === 'stations') {
+      this.edit.startCreateStation();
+      alert('Point drawing mode is on. Double-click inside the division buffer to place the new station.');
+    } else {
+      this.edit.cancelCreateStation();
+      this.beginGenericCreationDraft();
+    }
+
+    this.cdr.detectChanges();
+  }
+
+  onAddRecordShapefileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] || null;
+    this.addRecordShapefileName = file?.name || '';
+    if (!file) return;
+    this.showAddRecordModal = false;
+    alert(`Selected shapefile: ${file.name}. Shapefile-based record creation UI is ready, but backend upload handling is not wired yet.`);
     this.cdr.detectChanges();
   }
 
@@ -825,10 +860,42 @@ export class EditPanel implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private beginGenericCreationDraft() {
+    const layer = this.currentTableLayer;
+    if (!layer || !this.currentLayerSchema) return;
+
+    const division = String(this.currentUser.getSnapshot()?.division || localStorage.getItem('division') || '').trim();
+    const department = String(localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '').trim();
+    const railwayName = this.getRailwayName();
+    const railwayCode = this.getRailwayCode();
+
+    const draft: Record<string, any> = {
+      objectid: null,
+      status: '',
+      railway: railwayCode,
+      division,
+      department,
+      zone_name: railwayName,
+      fname: railwayName,
+      div_name: division,
+    };
+
+    this.formFields.forEach((field) => {
+      if (field.key === 'objectid' || field.key === 'status') return;
+      if (draft[field.key] !== undefined) return;
+      draft[field.key] = field.type === 'number' ? null : '';
+    });
+
+    this.mode = 'edit';
+    this.draft = draft;
+    this.originalDraft = { ...draft };
+    this.cdr.detectChanges();
+  }
+
   editRow(row: any) {
     const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
-    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = this.getExistingAttachmentName(row); this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null; this.showAttachmentModal = false;
+    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = this.getExistingAttachmentName(row); this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
     this.validating = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
 
     const id = Number(row?.objectid); if (!Number.isFinite(id)) return;
@@ -851,7 +918,7 @@ export class EditPanel implements OnInit, OnDestroy {
         this.draft = { ...this.draft, ...n };
         this.draft.lat = n.lat; this.draft.lng = n.lng; this.originalDraft = { ...this.draft };
         this.selectedAttachmentName = this.getExistingAttachmentName(this.draft);
-        this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
+        this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
           this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
         }
@@ -979,7 +1046,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   supportsCurrentLayerPersistence(): boolean {
-    return ['stations', 'bridge_start', 'bridge_end', 'bridge_minor'].includes(String(this.currentTableLayer || '').trim().toLowerCase());
+    return !!this.currentLayerSchema;
   }
 
   supportsCurrentLayerListing(): boolean {
@@ -1013,7 +1080,20 @@ export class EditPanel implements OnInit, OnDestroy {
       if (readonlyKeys.has(field.key)) return true;
       return this.isReviewer() || this.isMakerSentForDeletionView();
     }
-    return true;
+    const genericReadonlyKeys = new Set([
+      'objectid',
+      'status',
+      'edited_by',
+      'edited_at',
+      'checked_by',
+      'checked_at',
+      'approved_by',
+      'approved_at',
+      'modified_by',
+      'comments',
+    ]);
+    if (genericReadonlyKeys.has(field.key)) return true;
+    return this.isReviewer() || this.isMakerSentForDeletionView();
   }
 
   showValidateButton(field: EditFieldConfig): boolean {
@@ -1043,28 +1123,18 @@ export class EditPanel implements OnInit, OnDestroy {
     return this.mode === 'edit' && !!this.draft;
   }
 
-  openAttachmentModal(): void {
-    if (this.isReviewer() || this.isMakerSentForDeletionView()) return;
-    this.showAttachmentModal = true;
-  }
-
-  closeAttachmentModal(): void {
-    this.showAttachmentModal = false;
-  }
-
-  onAttachmentSelected(event: Event, kind: 'shp' | 'other'): void {
+  onAttachmentSelected(event: Event, kind: 'other'): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] || null;
     this.selectedAttachmentFile = file;
     this.selectedAttachmentName = file?.name || this.getExistingAttachmentName(this.draft);
-    this.selectedAttachmentKind = file ? kind : (this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null);
-    if (file) this.showAttachmentModal = false;
+    this.selectedAttachmentKind = file ? kind : (this.selectedAttachmentName ? 'other' : null);
   }
 
   clearAttachmentSelection(input?: HTMLInputElement | null): void {
     this.selectedAttachmentFile = null;
     this.selectedAttachmentName = this.getExistingAttachmentName(this.draft);
-    this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
+    this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
     if (input) input.value = '';
   }
 
@@ -1080,7 +1150,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
-    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
+    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
   send() {
@@ -1105,28 +1175,30 @@ export class EditPanel implements OnInit, OnDestroy {
     const hasExistingId = draftObjectId !== null && draftObjectId !== undefined && String(draftObjectId).trim() !== '' && Number.isFinite(Number(draftObjectId));
     const isCreate = !hasExistingId;
     const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
-    const payload = {
+    if (this.requiresGeometryForSave() && (!Number.isFinite(lat) || !Number.isFinite(lng))) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
+    const payload: any = {
       ...this.draft,
-      lat,
-      lng,
-      lon: lng,
-      longitude: lng,
-      latitude: lat,
-      xcoord: lng,
-      ycoord: lat,
       railway: this.draft?.railway ?? this.getRailwayCode(),
       zone_name: this.draft?.zone_name ?? this.getRailwayName(),
       fname: this.draft?.fname ?? this.getRailwayName(),
       div_name: this.draft?.div_name ?? (localStorage.getItem('division') || this.currentUser.getSnapshot()?.division || ''),
       department: this.draft?.department ?? (localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || ''),
     };
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      payload.lat = lat;
+      payload.lng = lng;
+      payload.lon = lng;
+      payload.longitude = lng;
+      payload.latitude = lat;
+      payload.xcoord = lng;
+      payload.ycoord = lat;
+    }
     this.saving = true;
     const rawStatus = this.originalDraft?.status == null ? '' : String(this.originalDraft.status).trim().toLowerCase();
     const isMakerRejectedResend = !isCreate && this.isMaker() && rawStatus === 'sent back to maker';
     const isMakerSend = !isCreate && this.isMaker() && !rawStatus;
     if (isCreate) {
-      alert('Station creation sent successfully to checker');
+      alert(`${this.currentLayerSchema?.label || 'Asset'} creation sent successfully to checker`);
     } else if (isMakerRejectedResend || isMakerSend) {
       alert('Message sent successfully to checker');
     }
@@ -1154,10 +1226,11 @@ export class EditPanel implements OnInit, OnDestroy {
         this.originalDraft = null;
         this.stationValidated = false;
         this.validatedBridgeAssetId = null;
+        this.showAddRecordModal = false;
+        this.addRecordShapefileName = '';
         this.selectedAttachmentFile = null;
         this.selectedAttachmentName = '';
         this.selectedAttachmentKind = null;
-        this.showAttachmentModal = false;
         this.geomEditing = false;
         this.dragSub?.unsubscribe();
         this.dragSub = undefined;
@@ -1239,10 +1312,11 @@ export class EditPanel implements OnInit, OnDestroy {
       this.originalDraft = null;
       this.stationValidated = false;
       this.validatedBridgeAssetId = null;
+      this.showAddRecordModal = false;
+      this.addRecordShapefileName = '';
       this.selectedAttachmentFile = null;
       this.selectedAttachmentName = '';
       this.selectedAttachmentKind = null;
-      this.showAttachmentModal = false;
       this.error = null;
       this.geomEditing = false;
       this.dragSub?.unsubscribe();
@@ -1323,11 +1397,16 @@ export class EditPanel implements OnInit, OnDestroy {
   rejectDeletionDraft() { if (!this.draft) return; this.rejectDeletionRow(this.draft); }
 
   private resetPanelState() {
-    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
+    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
   }
 
   close() {
     this.mapZoom.zoomHome(); this.mapZoom.clearHighlight(); this.ui.activePanel = null; this.resetPanelState(); this.edit.disable();
+  }
+
+  private requiresGeometryForSave(): boolean {
+    if (this.currentTableLayer === 'stations' || this.isBridgeLayer()) return true;
+    return this.formFields.some((field) => ['latitude', 'longitude', 'xcoord', 'ycoord'].includes(field.key));
   }
 }
 
