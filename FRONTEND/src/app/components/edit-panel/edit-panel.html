@@ -312,6 +312,77 @@
     </div>
   </div>
 
+  <div class="attachment-field" *ngIf="shouldShowAttachmentField()">
+    <div class="attachment-head">
+      <div class="attachment-head-copy">
+        <label class="field-label attachment-label">Attachment</label>
+        <span class="attachment-help">Upload supporting files before sending the record.</span>
+      </div>
+      <span class="attachment-types">Accepted: .jpg / .pdf / .shp</span>
+    </div>
+    <div class="attachment-row">
+      <button
+        class="btn secondary attachment-launch-btn"
+        type="button"
+        (click)="openAttachmentModal()"
+        [disabled]="isReviewer() || isMakerSentForDeletionView()"
+      >
+        Attach File
+      </button>
+      <button
+        *ngIf="selectedAttachmentFile"
+        class="btn ghost attachment-clear-btn"
+        type="button"
+        (click)="clearAttachmentSelection()"
+      >
+        Clear
+      </button>
+    </div>
+    <div class="attachment-name" *ngIf="selectedAttachmentName">
+      Attached file: {{ selectedAttachmentName }}
+    </div>
+    <div class="attachment-selected-type" *ngIf="selectedAttachmentKind === 'shp'">Type: Shape file upload</div>
+    <div class="attachment-selected-type" *ngIf="selectedAttachmentKind === 'other'">Type: Document / image upload</div>
+  </div>
+
+  <div class="attachment-modal-backdrop" *ngIf="showAttachmentModal" (click)="closeAttachmentModal()">
+    <div class="attachment-modal" (click)="$event.stopPropagation()">
+      <div class="attachment-modal-header">
+        <div>
+          <h4>Select Attachment Type</h4>
+          <p>Choose the appropriate upload option for this record.</p>
+        </div>
+        <button class="attachment-modal-close" type="button" (click)="closeAttachmentModal()" aria-label="Close">×</button>
+      </div>
+
+      <div class="attachment-modal-grid">
+        <div class="attachment-modal-card">
+          <div class="attachment-modal-card-title">Attach `.shp` File</div>
+          <div class="attachment-modal-card-text">Use this section for shapefile uploads only.</div>
+          <input
+            id="edit-attachment-shp"
+            type="file"
+            class="attachment-input modal-attachment-input"
+            accept=".shp"
+            (change)="onAttachmentSelected($event, 'shp')"
+          />
+        </div>
+
+        <div class="attachment-modal-card">
+          <div class="attachment-modal-card-title">Attach `.pdf` / `.jpg`</div>
+          <div class="attachment-modal-card-text">Use this section for documents and image attachments.</div>
+          <input
+            id="edit-attachment-other"
+            type="file"
+            class="attachment-input modal-attachment-input"
+            accept=".pdf,.jpg,.jpeg"
+            (change)="onAttachmentSelected($event, 'other')"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div class="form-actions" *ngIf="!isMakerSentForDeletionView()">
 
   <ng-container *ngIf="mode === 'edit' && isCheckerDeletionProposedView()">

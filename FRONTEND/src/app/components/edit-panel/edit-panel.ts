@@ -102,6 +102,10 @@ export class EditPanel implements OnInit, OnDestroy {
   rejectedLayer: EditLayerKey | null = null;
 
   geomEditing = false;
+  selectedAttachmentFile: File | null = null;
+  selectedAttachmentName = '';
+  selectedAttachmentKind: 'shp' | 'other' | null = null;
+  showAttachmentModal = false;
   private dragSub?: Subscription;
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
@@ -281,6 +285,10 @@ export class EditPanel implements OnInit, OnDestroy {
     this.originalDraft = null;
     this.stationValidated = false;
     this.validatedBridgeAssetId = null;
+    this.selectedAttachmentFile = null;
+    this.selectedAttachmentName = '';
+    this.selectedAttachmentKind = null;
+    this.showAttachmentModal = false;
 
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
@@ -307,6 +315,10 @@ export class EditPanel implements OnInit, OnDestroy {
     this.validating = false;
     this.saving = false;
     this.deleting = false;
+    this.selectedAttachmentFile = null;
+    this.selectedAttachmentName = this.getExistingAttachmentName(this.edit.draft);
+    this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
+    this.showAttachmentModal = false;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
@@ -536,6 +548,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   onRejectedLayerChange() {
     this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.search = ''; this.error = null; this.draft = null;
+    this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false;
     this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
     this.edit.setLayer((this.rejectedLayer as any) ?? null);
     if (this.rejectedLayer) setTimeout(() => this.load(true), 0);
@@ -815,7 +828,7 @@ export class EditPanel implements OnInit, OnDestroy {
   editRow(row: any) {
     const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
-    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null;
+    this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = this.getExistingAttachmentName(row); this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null; this.showAttachmentModal = false;
     this.validating = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
 
     const id = Number(row?.objectid); if (!Number.isFinite(id)) return;
@@ -837,6 +850,8 @@ export class EditPanel implements OnInit, OnDestroy {
         const n = this.normalizeCurrentLayerDraft(full);
         this.draft = { ...this.draft, ...n };
         this.draft.lat = n.lat; this.draft.lng = n.lng; this.originalDraft = { ...this.draft };
+        this.selectedAttachmentName = this.getExistingAttachmentName(this.draft);
+        this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
         if (Number.isFinite(n.lat) && Number.isFinite(n.lng)) {
           this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
         }
@@ -1024,9 +1039,48 @@ export class EditPanel implements OnInit, OnDestroy {
     }
   }
 
+  shouldShowAttachmentField(): boolean {
+    return this.mode === 'edit' && !!this.draft;
+  }
+
+  openAttachmentModal(): void {
+    if (this.isReviewer() || this.isMakerSentForDeletionView()) return;
+    this.showAttachmentModal = true;
+  }
+
+  closeAttachmentModal(): void {
+    this.showAttachmentModal = false;
+  }
+
+  onAttachmentSelected(event: Event, kind: 'shp' | 'other'): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] || null;
+    this.selectedAttachmentFile = file;
+    this.selectedAttachmentName = file?.name || this.getExistingAttachmentName(this.draft);
+    this.selectedAttachmentKind = file ? kind : (this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null);
+    if (file) this.showAttachmentModal = false;
+  }
+
+  clearAttachmentSelection(input?: HTMLInputElement | null): void {
+    this.selectedAttachmentFile = null;
+    this.selectedAttachmentName = this.getExistingAttachmentName(this.draft);
+    this.selectedAttachmentKind = this.selectedAttachmentName.toLowerCase().endsWith('.shp') ? 'shp' : null;
+    if (input) input.value = '';
+  }
+
+  private getExistingAttachmentName(source: any): string {
+    return String(
+      source?.attachment_name ??
+      source?.attachment ??
+      source?.file_name ??
+      source?.filename ??
+      ''
+    ).trim();
+  }
+
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
-    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
+    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
   send() {
@@ -1100,6 +1154,10 @@ export class EditPanel implements OnInit, OnDestroy {
         this.originalDraft = null;
         this.stationValidated = false;
         this.validatedBridgeAssetId = null;
+        this.selectedAttachmentFile = null;
+        this.selectedAttachmentName = '';
+        this.selectedAttachmentKind = null;
+        this.showAttachmentModal = false;
         this.geomEditing = false;
         this.dragSub?.unsubscribe();
         this.dragSub = undefined;
@@ -1181,6 +1239,10 @@ export class EditPanel implements OnInit, OnDestroy {
       this.originalDraft = null;
       this.stationValidated = false;
       this.validatedBridgeAssetId = null;
+      this.selectedAttachmentFile = null;
+      this.selectedAttachmentName = '';
+      this.selectedAttachmentKind = null;
+      this.showAttachmentModal = false;
       this.error = null;
       this.geomEditing = false;
       this.dragSub?.unsubscribe();
@@ -1261,7 +1323,7 @@ export class EditPanel implements OnInit, OnDestroy {
   rejectDeletionDraft() { if (!this.draft) return; this.rejectDeletionRow(this.draft); }
 
   private resetPanelState() {
-    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
+    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = ''; this.selectedAttachmentKind = null; this.showAttachmentModal = false; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
   }
 
   close() {

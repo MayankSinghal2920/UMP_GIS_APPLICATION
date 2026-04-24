@@ -6,7 +6,7 @@ function getJwtSecret() {
 }
 
 function getIdleTimeoutMs() {
-  const minutes = Number(process.env.IDLE_TIMEOUT_MINUTES || 30);
+  const minutes = Number(process.env.IDLE_TIMEOUT_MINUTES || 180);
   return Number.isFinite(minutes) && minutes > 0 ? minutes * 60 * 1000 : 30 * 60 * 1000;
 }
 
