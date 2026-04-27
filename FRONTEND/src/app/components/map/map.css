@@ -127,6 +127,24 @@
   pointer-events: none;
 }
 
+:host ::ng-deep .create-point-hint-marker {
+  pointer-events: none;
+}
+
+:host ::ng-deep .create-point-hint-label {
+  min-width: 190px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+
 @media (max-width: 767.98px) {
   .map-search-overlay {
     left: 108px;

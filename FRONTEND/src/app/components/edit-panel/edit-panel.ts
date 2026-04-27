@@ -29,6 +29,12 @@ type MakerLayerOption = {
   label: string;
   supported: boolean;
 };
+type LocationOption = {
+  value: string;
+  label: string;
+  stateLgd?: number | null;
+  state?: string;
+};
 const RAILWAY_CODE_MAP: Record<string, string> = {
   'Central Railway': 'CR',
   'Eastern Railway': 'ER',
@@ -59,6 +65,7 @@ const RAILWAY_CODE_MAP: Record<string, string> = {
 })
 export class EditPanel implements OnInit, OnDestroy {
   private static readonly POINT_LAYER_ZOOM = 19;
+  private static readonly NEW_ASSET_ZOOM = 10;
   private static readonly DEFAULT_LAYER_ZOOM = 17;
   private static readonly NON_POINT_LAYERS = new Set([
     'landplan',
@@ -112,6 +119,11 @@ export class EditPanel implements OnInit, OnDestroy {
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
   private loadSeq = 0;
+  stateOptions: LocationOption[] = [];
+  districtOptions: LocationOption[] = [];
+  constituencyOptions: LocationOption[] = [];
+  private allDistrictOptions: Array<LocationOption & { state?: string }> = [];
+  private allConstituencyOptions: Array<LocationOption & { state?: string }> = [];
 
   constructor(
     public ui: UiState,
@@ -124,6 +136,8 @@ export class EditPanel implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.loadLocationOptions();
+
     if (this.isMaker()) {
       this.loadAssignedMakerLayers();
     }
@@ -138,7 +152,11 @@ export class EditPanel implements OnInit, OnDestroy {
     });
 
     this.createPointSub = this.edit.createStationPoint$.subscribe(({ lat, lng }) => {
-      this.beginStationCreationDraft(lat, lng);
+      if (this.currentTableLayer === 'stations') {
+        this.beginStationCreationDraft(lat, lng);
+      } else {
+        this.beginGenericCreationDraft(lat, lng);
+      }
     });
 
     if (this.edit.enabled && this.supportsCurrentLayerListing()) this.load(true);
@@ -311,6 +329,7 @@ export class EditPanel implements OnInit, OnDestroy {
     if (layer === 'stations') return;
 
     this.mode = 'edit';
+    this.ensureLocationOptionsLoaded();
     this.error = null;
     this.stationValidated = false;
     this.validatedBridgeAssetId = null;
@@ -329,6 +348,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const normalized = this.normalizeCurrentLayerDraft(this.edit.draft);
     this.draft = { ...normalized };
     this.originalDraft = { ...normalized };
+    this.prepareLocationDropdownsForDraft(false);
     const bestRenderedLayer = this.getBestRenderedLayer(this.edit.draft);
     const selectedFeatureLatLng = this.getSelectedFeatureLatLng(this.edit.draft);
     if (selectedFeatureLatLng) {
@@ -344,6 +364,60 @@ export class EditPanel implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  isLocationSelectField(field: EditFieldConfig): boolean {
+    return ['state', 'district', 'constituency', 'constituncy'].includes(field.key);
+  }
+
+  getLocationOptions(field: EditFieldConfig): LocationOption[] {
+    const options = field.key === 'state'
+      ? this.stateOptions
+      : field.key === 'district'
+        ? this.districtOptions
+        : field.key === 'constituency' || field.key === 'constituncy'
+          ? this.constituencyOptions
+          : [];
+    const current = field.key === 'constituency' || field.key === 'constituncy'
+      ? this.getDraftConstituencyValue()
+      : this.normalizeLocationValue(this.draft?.[field.key]);
+    if (!current || options.some((option) => option.value === current)) return options;
+    return [{ value: current, label: current }, ...options];
+  }
+
+  getLocationPlaceholder(field: EditFieldConfig): string {
+    if (field.key === 'state') return 'Select State';
+    if (field.key === 'district') return 'Select District';
+    if (field.key === 'constituency' || field.key === 'constituncy') return 'Select Constituency';
+    return `Select ${field.label}`;
+  }
+
+  getLocationFieldValue(field: EditFieldConfig): string {
+    if (field.key === 'constituency' || field.key === 'constituncy') {
+      return this.getDraftConstituencyValue(field.key);
+    }
+    return this.normalizeLocationValue(this.draft?.[field.key]);
+  }
+
+  onLocationFieldValueChange(field: EditFieldConfig, value: any): void {
+    if (!this.draft) return;
+    this.draft[field.key] = this.normalizeLocationValue(value);
+
+    if (field.key === 'state') {
+      this.draft.state = this.normalizeLocationValue(this.draft.state);
+      this.filterDistrictOptionsForDraftState(true);
+      this.filterConstituencyOptionsForDraftState(true);
+      return;
+    }
+
+    if (field.key === 'district') {
+      this.draft.district = this.normalizeLocationValue(this.draft.district);
+      return;
+    }
+
+    if (field.key === 'constituency' || field.key === 'constituncy') {
+      this.setDraftConstituency(this.normalizeLocationValue(value));
+    }
+  }
+
   private getUserType(): string {
     return (this.currentUser.getSnapshot()?.user_type || '').trim().toLowerCase();
   }
@@ -357,6 +431,214 @@ export class EditPanel implements OnInit, OnDestroy {
 
   private getNormalizedBridgeAssetId(value: any = this.draft?.asset_id): string {
     return String(value || '').trim().toUpperCase();
+  }
+
+  private normalizeLocationValue(value: any): string {
+    return String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+  }
+
+  private getValueByNormalizedKey(source: any, aliases: string[]): any {
+    if (!source || typeof source !== 'object') return undefined;
+    const aliasSet = new Set(aliases.map((alias) => alias.toLowerCase().replace(/[^a-z0-9]/g, '')));
+    for (const [key, value] of Object.entries(source)) {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (aliasSet.has(normalizedKey) && value != null && String(value).trim() !== '') {
+        return value;
+      }
+    }
+    return undefined;
+  }
+
+  private uniqueLocationOptions(values: Array<{ value: any; label?: any; stateLgd?: any; state?: any }>): LocationOption[] {
+    const seen = new Set<string>();
+    const options: LocationOption[] = [];
+    values.forEach((item) => {
+      const value = this.normalizeLocationValue(item.value);
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      const stateLgd = Number(item.stateLgd);
+      options.push({
+        value,
+        label: this.normalizeLocationValue(item.label ?? item.value),
+        stateLgd: Number.isFinite(stateLgd) ? stateLgd : null,
+        state: this.normalizeLocationValue(item.state),
+      });
+    });
+    return options.sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  private uniqueConstituencyOptions(values: Array<{ value: any; label?: any; state?: any }>): LocationOption[] {
+    const seen = new Set<string>();
+    const options: LocationOption[] = [];
+    values.forEach((item) => {
+      const value = this.normalizeLocationValue(item.value);
+      const state = this.normalizeLocationValue(item.state);
+      const key = `${state}::${value}`;
+      if (!value || seen.has(key)) return;
+      seen.add(key);
+      options.push({
+        value,
+        label: this.normalizeLocationValue(item.label ?? item.value),
+        state,
+      });
+    });
+    return options.sort((a, b) => {
+      const stateCompare = this.normalizeLocationValue(a.state).localeCompare(this.normalizeLocationValue(b.state));
+      return stateCompare || a.label.localeCompare(b.label);
+    });
+  }
+
+  private uniqueStateScopedOptions(values: Array<{ value: any; label?: any; state?: any }>): LocationOption[] {
+    const seen = new Set<string>();
+    const options: LocationOption[] = [];
+    values.forEach((item) => {
+      const value = this.normalizeLocationValue(item.value);
+      const state = this.normalizeLocationValue(item.state);
+      const key = `${state}::${value}`;
+      if (!value || seen.has(key)) return;
+      seen.add(key);
+      options.push({
+        value,
+        label: this.normalizeLocationValue(item.label ?? item.value),
+        state,
+      });
+    });
+    return options.sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  private matchLocationOption(options: LocationOption[], value: any): string {
+    const normalized = this.normalizeLocationValue(value);
+    if (!normalized) return '';
+    return options.find((option) => this.normalizeLocationValue(option.value) === normalized)?.value || normalized;
+  }
+
+  private setDraftConstituency(value: any): void {
+    if (!this.draft) return;
+    const normalized = this.normalizeLocationValue(value);
+    this.draft.constituency = normalized;
+    if (Object.prototype.hasOwnProperty.call(this.draft, 'constituncy')) this.draft.constituncy = normalized;
+    if (this.formFields.some((field) => field.key === 'constituncy')) this.draft.constituncy = normalized;
+  }
+
+  private getDraftConstituencyValue(preferredKey?: string): string {
+    const preferred = this.normalizeLocationValue(preferredKey ? this.draft?.[preferredKey] : '');
+    if (preferred) return preferred;
+    const constituncy = this.normalizeLocationValue(this.draft?.constituncy);
+    if (constituncy) return constituncy;
+    const constituency = this.normalizeLocationValue(this.draft?.constituency);
+    if (constituency) return constituency;
+    return this.normalizeLocationValue(this.getValueByNormalizedKey(this.draft, [
+      'constituncy',
+      'constituency',
+      'constituen',
+      'constituency_name',
+      'parliamentary_constituency',
+      'pc_name',
+      'pc',
+    ]));
+  }
+
+  private loadLocationOptions(): void {
+    this.api.getStates().subscribe({
+      next: (res: any) => {
+        const rows = this.extractLookupRows(res);
+        this.stateOptions = this.uniqueLocationOptions(rows.map((row: any) => ({
+          value: row?.state,
+          label: row?.state,
+          stateLgd: row?.state_lgd,
+        })));
+        this.prepareLocationDropdownsForDraft(false);
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => console.error('State lookup failed:', err),
+    });
+
+    this.api.getDistricts().subscribe({
+      next: (res: any) => {
+        const rows = this.extractLookupRows(res);
+        this.allDistrictOptions = this.uniqueStateScopedOptions(rows.map((row: any) => ({
+          value: row?.district,
+          label: row?.district,
+          state: row?.state,
+        })));
+        this.filterDistrictOptionsForDraftState();
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => console.error('District lookup failed:', err),
+    });
+
+    this.api.getParliamentaryConstituencies().subscribe({
+      next: (res: any) => {
+        const rows = this.extractLookupRows(res);
+        this.allConstituencyOptions = this.uniqueConstituencyOptions(rows.map((row: any) => ({
+          value: row?.constituen ?? row?.constituency_name,
+          label: row?.constituen ?? row?.constituency_name,
+          state: row?.state,
+        })));
+        this.filterConstituencyOptionsForDraftState();
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => console.error('Parliamentary constituency lookup failed:', err),
+    });
+  }
+
+  private extractLookupRows(res: any): any[] {
+    if (Array.isArray(res?.data)) return res.data;
+    if (Array.isArray(res?.rows)) return res.rows;
+    if (Array.isArray(res)) return res;
+    return [];
+  }
+
+  private ensureLocationOptionsLoaded(): void {
+    if (this.stateOptions.length && this.districtOptions.length && this.constituencyOptions.length) return;
+    this.loadLocationOptions();
+  }
+
+  private prepareLocationDropdownsForDraft(resetDependents: boolean): void {
+    if (!this.draft) return;
+    const matchedState = this.matchLocationOption(this.stateOptions, this.draft.state);
+    this.draft.state = matchedState || this.normalizeLocationValue(this.draft.state);
+    const constituency = this.getDraftConstituencyValue();
+    if (constituency) this.setDraftConstituency(constituency);
+    if (resetDependents) {
+      this.draft.district = '';
+      this.setDraftConstituency('');
+    }
+    this.filterDistrictOptionsForDraftState();
+    this.draft.district = this.matchLocationOption(this.districtOptions, this.draft.district);
+    this.filterConstituencyOptionsForDraftState();
+  }
+
+  private filterDistrictOptionsForDraftState(clearInvalid = false): void {
+    const state = this.normalizeLocationValue(this.draft?.state);
+    this.districtOptions = state
+      ? this.allDistrictOptions.filter((option) => this.normalizeLocationValue(option.state) === state)
+      : [...this.allDistrictOptions];
+
+    const current = this.normalizeLocationValue(this.draft?.district);
+    if (!current) return;
+    const matched = this.districtOptions.find((option) => this.normalizeLocationValue(option.value) === current)?.value;
+    if (matched) {
+      this.draft.district = matched;
+    } else if (clearInvalid) {
+      this.draft.district = '';
+    }
+  }
+
+  private filterConstituencyOptionsForDraftState(clearInvalid = false): void {
+    const state = this.normalizeLocationValue(this.draft?.state);
+    this.constituencyOptions = state
+      ? this.allConstituencyOptions.filter((option) => this.normalizeLocationValue(option.state) === state)
+      : [...this.allConstituencyOptions];
+
+    const current = this.getDraftConstituencyValue();
+    if (!current) return;
+    const matched = this.constituencyOptions.find((option) => this.normalizeLocationValue(option.value) === current)?.value;
+    if (matched) {
+      this.setDraftConstituency(matched);
+    } else if (clearInvalid) {
+      this.setDraftConstituency('');
+    }
   }
 
   private requiresBridgeAssetValidationBeforeSend(): boolean {
@@ -391,7 +673,8 @@ export class EditPanel implements OnInit, OnDestroy {
     this.draft.state = pick(row.state, this.draft.state);
     this.draft.district = pick(row.district, this.draft.district);
     this.draft.bridgeno = pick(source?.bridgeno, row.bridgeno, this.draft.bridgeno);
-    this.draft.constituncy = pick(source?.constituncy, source?.constituency, row.constituncy, this.draft.constituncy);
+    this.draft.constituency = pick(source?.constituency, source?.constituncy, row.constituency, row.constituncy, this.draft.constituency, this.draft.constituncy);
+    if (Object.prototype.hasOwnProperty.call(this.draft, 'constituncy')) this.draft.constituncy = this.draft.constituency;
     this.draft.bridgetype = pick(source?.bridgetype, row.bridgetype, this.draft.bridgetype);
     this.draft.spanconf = pick(source?.spanconf, row.spanconf, this.draft.spanconf);
 
@@ -408,6 +691,7 @@ export class EditPanel implements OnInit, OnDestroy {
       this.draft.lng = longitude;
       this.draft.lon = longitude;
     }
+    this.prepareLocationDropdownsForDraft(false);
   }
 
   private getEditFocusZoom(): number {
@@ -793,6 +1077,13 @@ export class EditPanel implements OnInit, OnDestroy {
     this.showAddRecordModal = false;
   }
 
+  cancelAddNewRecordDrawing(): void {
+    this.edit.cancelCreateStation();
+    this.mapZoom.clearHighlight();
+    this.error = null;
+    this.cdr.detectChanges();
+  }
+
   startAddRecordWithDrawingTool(): void {
     if (!this.currentTableLayer) return;
     this.showAddRecordModal = false;
@@ -813,13 +1104,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.dragSub = undefined;
     this.mapZoom.clearHighlight();
 
-    if (this.currentTableLayer === 'stations') {
-      this.edit.startCreateStation();
-      alert('Point drawing mode is on. Double-click inside the division buffer to place the new station.');
-    } else {
-      this.edit.cancelCreateStation();
-      this.beginGenericCreationDraft();
-    }
+    this.edit.startCreateStation();
 
     this.cdr.detectChanges();
   }
@@ -839,6 +1124,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const department = localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
 
     this.mode = 'edit';
+    this.ensureLocationOptionsLoaded();
     this.error = null;
     this.stationValidated = false;
     this.validating = false;
@@ -870,11 +1156,12 @@ export class EditPanel implements OnInit, OnDestroy {
       department,
     };
     this.originalDraft = { ...this.draft };
-    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
+    this.prepareLocationDropdownsForDraft(false);
+    this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: EditPanel.NEW_ASSET_ZOOM, draggable: false } as any);
     this.cdr.detectChanges();
   }
 
-  private beginGenericCreationDraft() {
+  private beginGenericCreationDraft(lat?: number, lng?: number) {
     const layer = this.currentTableLayer;
     if (!layer || !this.currentLayerSchema) return;
 
@@ -894,6 +1181,15 @@ export class EditPanel implements OnInit, OnDestroy {
       div_name: division,
     };
 
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      draft.lat = lat;
+      draft.lng = lng;
+      draft.latitude = lat;
+      draft.longitude = lng;
+      draft.ycoord = lat;
+      draft.xcoord = lng;
+    }
+
     this.formFields.forEach((field) => {
       if (field.key === 'objectid' || field.key === 'status') return;
       if (draft[field.key] !== undefined) return;
@@ -901,8 +1197,13 @@ export class EditPanel implements OnInit, OnDestroy {
     });
 
     this.mode = 'edit';
+    this.ensureLocationOptionsLoaded();
     this.draft = draft;
     this.originalDraft = { ...draft };
+    this.prepareLocationDropdownsForDraft(false);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      this.mapZoom.zoomTo({ type: 'latlng', lat: lat!, lng: lng!, zoom: EditPanel.NEW_ASSET_ZOOM, draggable: false } as any);
+    }
     this.cdr.detectChanges();
   }
 
@@ -910,6 +1211,8 @@ export class EditPanel implements OnInit, OnDestroy {
     const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
     this.mode = 'edit'; this.error = null; this.draft = { ...row }; this.originalDraft = { ...row }; this.stationValidated = false; this.validatedBridgeAssetId = null; this.selectedAttachmentFile = null; this.selectedAttachmentName = this.getExistingAttachmentName(row); this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
+    this.ensureLocationOptionsLoaded();
+    this.prepareLocationDropdownsForDraft(false);
     this.validating = false; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.clearHighlight();
 
     const id = Number(row?.objectid); if (!Number.isFinite(id)) return;
@@ -918,6 +1221,7 @@ export class EditPanel implements OnInit, OnDestroy {
       const normalized = this.normalizeCurrentLayerDraft(row);
       this.draft = { ...normalized };
       this.originalDraft = { ...normalized };
+      this.prepareLocationDropdownsForDraft(false);
       this.cdr.detectChanges();
       return;
     }
@@ -945,6 +1249,7 @@ export class EditPanel implements OnInit, OnDestroy {
         const n = this.normalizeCurrentLayerDraft(full);
         this.draft = { ...this.draft, ...n };
         this.draft.lat = n.lat; this.draft.lng = n.lng; this.originalDraft = { ...this.draft };
+        this.prepareLocationDropdownsForDraft(false);
         this.selectedAttachmentName = this.getExistingAttachmentName(this.draft);
         this.selectedAttachmentKind = this.selectedAttachmentName ? 'other' : null;
         const detailLat = Number.isFinite(n.lat) ? n.lat : null;
@@ -972,6 +1277,7 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   private normalizeStation(s: any) {
+    const constituency = this.normalizeLocationValue(s?.constituncy) || this.normalizeLocationValue(s?.constituency);
     return {
       objectid: s?.objectid ?? s?.OBJECTID,
       sttncode: s?.sttncode ?? s?.station_code,
@@ -982,7 +1288,8 @@ export class EditPanel implements OnInit, OnDestroy {
       distm: s?.distm,
       state: s?.state,
       district: s?.district,
-      constituency: s?.constituncy ?? s?.constituency,
+      constituncy: constituency,
+      constituency,
       status: s?.status ?? s?.asset_status ?? s?.workflow_status ?? '',
       lat: Number(s?.lat ?? s?.ycoord ?? s?.latitude),
       lng: Number(s?.lon ?? s?.lng ?? s?.xcoord ?? s?.longitude),
@@ -1014,10 +1321,23 @@ export class EditPanel implements OnInit, OnDestroy {
     Object.keys(props).forEach((key) => {
       normalized[key] = props[key];
     });
+    const constituency = this.normalizeLocationValue(this.getValueByNormalizedKey(normalized, [
+      'constituncy',
+      'constituency',
+      'constituen',
+      'constituency_name',
+      'parliamentary_constituency',
+      'pc_name',
+      'pc',
+    ]));
+    if (constituency) {
+      normalized.constituncy = constituency;
+      normalized.constituency = constituency;
+    }
     normalized.objectid = props?.objectid ?? row?.id ?? row?.objectid ?? null;
     normalized.status = props?.status ?? row?.status ?? '';
-    normalized.lat = Number.isFinite(geometryLat) ? geometryLat : Number(props?.lat ?? props?.ycoord ?? props?.latitude);
-    normalized.lng = Number.isFinite(geometryLng) ? geometryLng : Number(props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude);
+    normalized.lat = Number.isFinite(geometryLat) ? geometryLat : Number(props?.geom_lat ?? props?.lat ?? props?.ycoord ?? props?.latitude);
+    normalized.lng = Number.isFinite(geometryLng) ? geometryLng : Number(props?.geom_lng ?? props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude);
     return normalized;
   }
 
@@ -1058,7 +1378,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private getRenderedLayerLatLng(row: any): { lat: number; lng: number } | null {
     const layerId = String(this.currentTableLayer || '').trim();
     if (!layerId) return null;
-    const layer = this.layerManager.findById(layerId) as any;
+    const layer = this.findMapLayerForCurrentEditLayer();
     const bestLatLng = layer?.getBestRenderedLatLng?.(row);
     if (bestLatLng) {
       const bestLat = Number(bestLatLng.lat);
@@ -1082,8 +1402,18 @@ export class EditPanel implements OnInit, OnDestroy {
   private getBestRenderedLayer(row: any): any | null {
     const layerId = String(this.currentTableLayer || '').trim();
     if (!layerId) return null;
-    const layer = this.layerManager.findById(layerId) as any;
+    const layer = this.findMapLayerForCurrentEditLayer();
     return layer?.getBestRenderedLayer?.(row) || null;
+  }
+
+  private findMapLayerForCurrentEditLayer(): any | null {
+    const layerId = String(this.currentTableLayer || '').trim();
+    if (!layerId) return null;
+    return (
+      (this.layerManager.findById(layerId) as any) ||
+      (this.layerManager.findById(`department_${layerId}`) as any) ||
+      null
+    );
   }
 
   startGeometryEdit() {
@@ -1192,6 +1522,23 @@ export class EditPanel implements OnInit, OnDestroy {
     ]);
     if (genericReadonlyKeys.has(field.key)) return true;
     return this.isReviewer() || this.isMakerSentForDeletionView();
+  }
+
+  isFieldDisabled(field: EditFieldConfig): boolean {
+    if (!this.isBridgeLayer()) return false;
+    if (this.isReviewer() || this.isMakerSentForDeletionView()) return false;
+
+    const lockedAfterValidation = new Set([
+      'tmssection',
+      'bridgeno',
+      'bridgetype',
+      'bridge_type',
+      'spanconf',
+    ]);
+    if (!lockedAfterValidation.has(field.key)) return false;
+
+    const assetId = this.getNormalizedBridgeAssetId();
+    return !!assetId && assetId === this.validatedBridgeAssetId;
   }
 
   showValidateButton(field: EditFieldConfig): boolean {
@@ -1360,7 +1707,7 @@ export class EditPanel implements OnInit, OnDestroy {
         this.draft.sttnname = validatedName;
         this.draft.category = validatedCategory;
         if (this.draft?.objectid && (nameChanged || categoryChanged) && !(this.isMaker() && String(this.originalDraft?.status || '').trim().toLowerCase() === 'sent back to maker')) {
-          const payload = { distkm: this.draft.distkm, distm: this.draft.distm, state: this.draft.state, district: this.draft.district, constituncy: this.draft.constituency, sttnname: this.draft.sttnname, category: this.draft.category, sttntype: this.draft.stationtype };
+          const payload = { distkm: this.draft.distkm, distm: this.draft.distm, state: this.draft.state, district: this.draft.district, constituncy: this.draft.constituncy, sttnname: this.draft.sttnname, category: this.draft.category, sttntype: this.draft.stationtype };
           this.api.updateStation(this.draft.objectid, payload).subscribe({ next: () => { this.validating = false; this.stationValidated = true; alert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges(); }, error: (err: any) => { this.validating = false; alert(err?.error?.message || 'Station code validated but failed to update station details'); this.cdr.detectChanges(); } });
           return;
         }

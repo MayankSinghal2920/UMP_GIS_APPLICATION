@@ -115,6 +115,14 @@
         >
           Add New Record
         </button>
+        <button
+          class="btn danger"
+          *ngIf="isMaker() && makerTab === 'edit' && currentTableLayer && edit.creatingStation"
+          type="button"
+          (click)="cancelAddNewRecordDrawing()"
+        >
+          Cancel Add New Record
+        </button>
         <div class="spacer"></div>
         <label class="search">Search:</label>
         <input
@@ -372,6 +380,7 @@
               [type]="field.type || 'text'"
               [(ngModel)]="draft[field.key]"
               [readonly]="isFieldReadonly(field)"
+              [disabled]="isFieldDisabled(field)"
             />
             <button
               class="btn secondary"
@@ -384,12 +393,27 @@
           </div>
 
           <ng-template #standardField>
-            <ng-container [ngSwitch]="field.control || 'input'">
+            <select
+              *ngIf="isLocationSelectField(field); else freeformField"
+              class="field-input"
+              [ngModel]="getLocationFieldValue(field)"
+              [disabled]="isFieldDisabled(field) || isFieldReadonly(field)"
+              (ngModelChange)="onLocationFieldValueChange(field, $event)"
+            >
+              <option value="">{{ getLocationPlaceholder(field) }}</option>
+              <option *ngFor="let option of getLocationOptions(field)" [value]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+
+            <ng-template #freeformField>
+              <ng-container [ngSwitch]="field.control || 'input'">
               <textarea
                 *ngSwitchCase="'textarea'"
                 class="field-input"
                 [(ngModel)]="draft[field.key]"
                 [readonly]="isFieldReadonly(field)"
+                [disabled]="isFieldDisabled(field)"
               ></textarea>
               <input
                 *ngSwitchDefault
@@ -397,8 +421,10 @@
                 [type]="field.type || 'text'"
                 [(ngModel)]="draft[field.key]"
                 [readonly]="isFieldReadonly(field)"
+                [disabled]="isFieldDisabled(field)"
               />
-            </ng-container>
+              </ng-container>
+            </ng-template>
           </ng-template>
         </div>
       </div>
