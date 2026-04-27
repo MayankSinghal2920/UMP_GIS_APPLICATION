@@ -65,7 +65,7 @@
       style="margin-bottom: 8px;"
     >
       <label>
-        Select Assigned Layer
+        {{ layerPickerLabel }}
         <select [(ngModel)]="edit.editLayer" (change)="onLayerChange()">
           <option [ngValue]="null">Select Layer</option>
           <option *ngFor="let option of layerOptions" [value]="option.value">
@@ -86,7 +86,7 @@
       style="margin-bottom: 8px;"
     >
       <label>
-        Select Assigned Layer (Rejected Records)
+        {{ rejectedLayerPickerLabel }}
         <select [(ngModel)]="rejectedLayer" (change)="onRejectedLayerChange()">
           <option [ngValue]="null">Select Layer</option>
           <option *ngFor="let option of layerOptions" [value]="option.value">

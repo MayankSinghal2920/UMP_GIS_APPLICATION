@@ -453,7 +453,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.edit.enabled) {
       this.suppressedVis.clear();
       this.layerManager.getLayers().forEach((layer) => {
-        this.layerManager.setVisible(layer.id, true, this.map!);
+        this.layerManager.setVisible(layer.id, layer.id !== this.LAND_OFFSET_ID, this.map!);
       });
       return;
     }

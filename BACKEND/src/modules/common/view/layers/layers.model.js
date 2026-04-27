@@ -165,8 +165,9 @@ async function resolveDepartmentLayerConfig(departmentRef, layerKey) {
   };
 }
 
-async function getLayerGeoJSON(layerConfig, whereSql, params, division) {
+async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 20000) {
   let divisionSql = '';
+  const rowLimit = Math.min(20000, Math.max(1, Number(limit) || 20000));
 
   if (division && layerConfig.hasDivision !== false) {
     params.push(division);
@@ -192,7 +193,7 @@ async function getLayerGeoJSON(layerConfig, whereSql, params, division) {
       SELECT *
       FROM ${layerConfig.table}
       WHERE ${whereSql} ${divisionSql}
-      LIMIT 20000
+      LIMIT ${rowLimit}
     ) t;
   `;
 

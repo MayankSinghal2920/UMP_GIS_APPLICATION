@@ -22,7 +22,7 @@ async function getDepartmentLayer(req, res, next) {
   try {
     const departmentRef = String(req.params.departmentRef || '').trim();
     const layerKey = String(req.params.layerKey || '').trim();
-    const { bbox, division } = req.query;
+    const { bbox, division, limit } = req.query;
 
     if (!departmentRef || !layerKey) {
       const err = new Error('Department and layer are required');
@@ -33,7 +33,7 @@ async function getDepartmentLayer(req, res, next) {
     const effectiveDivision = String(division || req?.user?.division || '').trim();
     const { meta, layerConfig } = await model.resolveDepartmentLayerConfig(departmentRef, layerKey);
     const { where, params } = parseBbox(bbox, layerConfig.geometryColumn);
-    const geojson = await model.getLayerGeoJSON(layerConfig, where, params, effectiveDivision);
+    const geojson = await model.getLayerGeoJSON(layerConfig, where, params, effectiveDivision, limit);
 
     res.json(geojson || { type: 'FeatureCollection', features: [], meta });
   } catch (err) {
@@ -44,7 +44,7 @@ async function getDepartmentLayer(req, res, next) {
 async function getLayer(req, res, next) {
   try {
     const { layer } = req.params;
-    const { bbox, division } = req.query;
+    const { bbox, division, limit } = req.query;
 
     const effectiveDivision = String(division || req?.user?.division || '').trim();
     const layerConfig = config[layer];
@@ -61,7 +61,8 @@ async function getLayer(req, res, next) {
       layerConfig,
       where,
       params,
-      effectiveDivision
+      effectiveDivision,
+      limit
     );
 
     res.json(
