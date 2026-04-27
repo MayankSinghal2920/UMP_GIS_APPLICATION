@@ -786,13 +786,28 @@ export class DynamicDepartmentLayer implements MapLayer {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         pointLayerFromLegend(this.legend, latlng, paneNameForLegend(this.legend)),
       onEachFeature: (feature: any, layer: any) => {
-        const props = feature?.properties || {};
-        const html = buildDynamicLayerPopupHtml(props);
-        if (html) {
-          layer.bindPopup(html);
-        }
+        this.bindLazyPopup(feature, layer);
         this.onFeatureReady(feature, layer);
       },
+    });
+  }
+
+  private isBridgeMinorLayer(): boolean {
+    return String(this.layerKey || this.id || '').toLowerCase().includes('bridge_minor');
+  }
+
+  private getRequestLimit(): number | undefined {
+    return this.isBridgeMinorLayer() ? 3000 : undefined;
+  }
+
+  private bindLazyPopup(feature: any, layer: any): void {
+    layer.on?.('click', () => {
+      if (layer.getPopup?.()) return;
+      const html = buildDynamicLayerPopupHtml(feature?.properties || {});
+      if (html) {
+        layer.bindPopup(html);
+        layer.openPopup?.();
+      }
     });
   }
 
@@ -996,7 +1011,7 @@ export class DynamicDepartmentLayer implements MapLayer {
     this.lastBbox = bboxKey;
     const requestId = ++this.requestSeq;
 
-    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox).subscribe({
+    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox, this.getRequestLimit()).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
         this.legend = inferCivilLegendFromFeatureCollection(this.title, this.layerKey, geojson);

@@ -62,8 +62,8 @@ export class Api {
   getDepartmentLayerCatalog(departmentRef: string) {
     return this.commonViewingApi.getDepartmentLayerCatalog(departmentRef);
   }
-  getDepartmentLayerData(departmentRef: string, layerKey: string, bbox: string) {
-    return this.commonViewingApi.getDepartmentLayerData(departmentRef, layerKey, bbox);
+  getDepartmentLayerData(departmentRef: string, layerKey: string, bbox: string, limit?: number) {
+    return this.commonViewingApi.getDepartmentLayerData(departmentRef, layerKey, bbox, limit);
   }
   getlandboundary(bbox: string) {
     return this.ceaViewingApi.getLandBoundary(bbox);

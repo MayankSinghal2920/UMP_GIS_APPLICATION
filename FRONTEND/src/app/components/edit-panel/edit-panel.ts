@@ -193,13 +193,29 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   get layerOptions() {
-    return this.isMaker()
+    return this.isMakerEditLayerPicker()
       ? this.makerLayerOptions
-      : CIVIL_ENGINEERING_ASSET_LAYER_OPTIONS.map((option) => ({
-          value: option.value,
-          label: option.label,
-          supported: !!getEditLayerConfig(option.value),
-        }));
+      : this.allCivilLayerOptions();
+  }
+
+  private isMakerEditLayerPicker(): boolean {
+    return this.isMaker() && this.makerTab === 'edit';
+  }
+
+  private allCivilLayerOptions(): MakerLayerOption[] {
+    return CIVIL_ENGINEERING_ASSET_LAYER_OPTIONS.map((option) => ({
+      value: option.value,
+      label: option.label,
+      supported: !!getEditLayerConfig(option.value),
+    }));
+  }
+
+  get layerPickerLabel(): string {
+    return this.isMakerEditLayerPicker() ? 'Select Assigned Layer' : 'Select Layer';
+  }
+
+  get rejectedLayerPickerLabel(): string {
+    return 'Select Layer (Rejected Records)';
   }
 
   get currentLayerSchema() {
@@ -794,13 +810,11 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   private ensureSelectedLayerStillAllowed(): void {
+    if (!this.isMakerEditLayerPicker()) return;
     const allowed = new Set(this.makerLayerOptions.map((option) => option.value));
     if (this.edit.editLayer && !allowed.has(this.edit.editLayer)) {
       this.edit.editLayer = null as any;
       this.edit.resetSelection();
-    }
-    if (this.rejectedLayer && !allowed.has(this.rejectedLayer)) {
-      this.rejectedLayer = null;
     }
   }
 

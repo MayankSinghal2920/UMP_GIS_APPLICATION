@@ -62,14 +62,14 @@ export class CommonViewingApi {
     });
   }
 
-  getDepartmentLayerData(departmentRef: string, layerKey: string, bbox: string) {
+  getDepartmentLayerData(departmentRef: string, layerKey: string, bbox: string, limit?: number) {
     if (!hasDivision() || !departmentRef?.trim() || !layerKey?.trim()) {
       return of(emptyFeatureCollection());
     }
 
     return this.http.get<any>(
       `${BASE_URL}/api/common/view/layers/department/${encodeURIComponent(departmentRef)}/layers/${encodeURIComponent(layerKey)}`,
-      { params: withDivision({ bbox }) }
+      { params: withDivision(limit ? { bbox, limit } : { bbox }) }
     );
   }
 }
