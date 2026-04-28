@@ -13,7 +13,11 @@
           <h2 class="status-heading">Layer Wise Status Count</h2>
         </div>
         <p class="status-subheading">
-          Track asset counts by workflow stage across the assigned railway layers.
+          {{
+            isSuperAdminDashboard
+              ? 'Track all-India asset counts by workflow stage across railway layers.'
+              : 'Track asset counts by workflow stage across the assigned railway layers.'
+          }}
         </p>
       </div>
     </div>
