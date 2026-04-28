@@ -195,35 +195,35 @@ export class Api {
     return this.authApi.login(username, password);
   }
 
-  getStationCount(type: string) {
-    return this.commonDashboardApi.getStationCount(type);
+  getStationCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getStationCount(type, allIndia);
   }
-  getBridgeStartCount(type: string) {
-    return this.commonDashboardApi.getBridgeStartCount(type);
+  getBridgeStartCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getBridgeStartCount(type, allIndia);
   }
-  getBridgeStopCount(type: string) {
-    return this.commonDashboardApi.getBridgeStopCount(type);
+  getBridgeStopCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getBridgeStopCount(type, allIndia);
   }
-  getBridgeMinorCount(type: string) {
-    return this.commonDashboardApi.getBridgeMinorCount(type);
+  getBridgeMinorCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getBridgeMinorCount(type, allIndia);
   }
-  getLevelXingCount(type: string) {
-    return this.commonDashboardApi.getLevelXingCount(type);
+  getLevelXingCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getLevelXingCount(type, allIndia);
   }
-  getRoadOverBridgeCount(type: string) {
-    return this.commonDashboardApi.getRoadOverBridgeCount(type);
+  getRoadOverBridgeCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getRoadOverBridgeCount(type, allIndia);
   }
-  getRubLhsCount(type: string) {
-    return this.commonDashboardApi.getRubLhsCount(type);
+  getRubLhsCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getRubLhsCount(type, allIndia);
   }
-  getRorCount(type: string) {
-    return this.commonDashboardApi.getRorCount(type);
+  getRorCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getRorCount(type, allIndia);
   }
-  getKmPostCount(type: string) {
-    return this.commonDashboardApi.getKmPostCount(type);
+  getKmPostCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getKmPostCount(type, allIndia);
   }
-  getLandPlanCount(type: string) {
-    return this.commonDashboardApi.getLandPlanCount(type);
+  getLandPlanCount(type: string, allIndia = false) {
+    return this.commonDashboardApi.getLandPlanCount(type, allIndia);
   }
 
   rating(obj: any) {
@@ -295,6 +295,22 @@ export class Api {
 
   getSuperAdminUsers() {
     return this.superAdminUserManagementApi.getAllUsers();
+  }
+
+  getSuperAdminUserDetails(objectid: number | string) {
+    return this.superAdminUserManagementApi.getUser(objectid);
+  }
+
+  createSuperAdminUser(data: any) {
+    return this.superAdminUserManagementApi.createUser(data);
+  }
+
+  updateSuperAdminUser(objectid: number | string, data: any) {
+    return this.superAdminUserManagementApi.updateUser(objectid, data);
+  }
+
+  deleteSuperAdminUser(objectid: number | string) {
+    return this.superAdminUserManagementApi.deleteUser(objectid);
   }
 }
 
