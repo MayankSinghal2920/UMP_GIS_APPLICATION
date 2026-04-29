@@ -5,7 +5,7 @@ import { NgZone } from '@angular/core';
 import { Api } from '../../../api/api';
 import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend } from '../../../services/interface';
 import { inferCivilLegendFromFeatureCollection } from '../../../components/legend-panel/legend-panel';
-import { buildAssetPopupHtml } from '../../../components/asset-popup/asset-popup';
+import { bindAssetDetailsPopup } from '../../../components/asset-popup/asset-popup';
 
 const STATION_LEGEND: LayerLegend = defineLegend({
   type: 'point' as const,
@@ -96,11 +96,8 @@ function orderLayerInPane(layer: L.GeoJSON, legend: LayerLegend): void {
   else layer.bringToFront();
 }
 
-function bindAssetPopup(feature: any, layer: any, title: string): void {
-  if (!layer?.bindPopup) return;
-  layer.bindPopup(buildAssetPopupHtml(title, feature?.properties || {}), {
-    maxWidth: 380,
-  });
+function bindAssetPopup(feature: any, layer: any, title: string, layerKey?: string): void {
+  bindAssetDetailsPopup(layer, title, feature?.properties || {}, { layerKey });
 }
 
 function inferMinZoomFromTitle(title: string): number {
@@ -286,7 +283,7 @@ export class StationViewingLayer implements MapLayer {
         html: '<img src="' + (this.legend.imageUrl || 'assets/images/download.png') + '" style="display:block;width:' + iconWidth + 'px;height:' + iconHeight + 'px;object-fit:contain;" alt="Station">',
         iconSize: [iconWidth, iconHeight],
         iconAnchor: [iconWidth / 2, iconHeight / 2],
-        popupAnchor: [0, -Math.round(iconHeight / 2)],
+        popupAnchor: [0, Math.round(iconHeight / 2) + 12],
       }),
     }) as any;
     this.onMarkerCreated(feature, marker as any);
@@ -294,9 +291,7 @@ export class StationViewingLayer implements MapLayer {
     this.bindStationTooltip(marker as any, stationLabel, false);
 
     if (marker.bindPopup) {
-      marker.bindPopup(buildAssetPopupHtml('Station Details', p), {
-        maxWidth: 380,
-      });
+      bindAssetDetailsPopup(marker, 'Station Details', p);
     }
 
     this.onFeatureReady(feature, marker);
@@ -767,7 +762,7 @@ export class DynamicDepartmentLayer implements MapLayer {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         pointLayerFromLegend(this.legend, latlng, paneNameForLegend(this.legend)),
       onEachFeature: (feature: any, layer: any) => {
-        bindAssetPopup(feature, layer, this.title);
+        bindAssetPopup(feature, layer, this.title, this.layerKey);
         this.onFeatureReady(feature, layer);
       },
     });
