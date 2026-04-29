@@ -193,7 +193,7 @@ export class SuperAdminUserManagementComponent implements OnInit {
       case 'approver':
         return ['Divisional', 'PUs', 'Metro Kolkata'];
       case 'admin':
-        return ['Divisional', 'CRIS', 'PUs', 'Metro Kolkata'];
+        return ['Divisional', 'Board', 'CRIS', 'PUs', 'Metro Kolkata'];
       case 'super admin':
         return ['CRIS'];
       default:
@@ -621,6 +621,8 @@ export class SuperAdminUserManagementComponent implements OnInit {
     switch (normalized) {
       case 'divisional':
         return 'Divisional';
+      case 'board':
+        return 'Board';
       case 'pu':
         return 'PUs';
       case 'cris':
@@ -658,11 +660,17 @@ export class SuperAdminUserManagementComponent implements OnInit {
     return this.normalizeText(user?.user_id) === this.normalizeText(currentUserId);
   }
 
+  isSuperAdminUser(user: any): boolean {
+    return this.normalizeText(user?.user_type) === 'super admin';
+  }
+
   openDeleteConfirmModal(user: any): void {
     this.selectedDeleteUser = user;
     this.deleteError = this.isCurrentUser(user)
       ? 'You cannot delete your own logged-in user.'
-      : '';
+      : this.isSuperAdminUser(user)
+        ? 'Super Admin users cannot be deleted.'
+        : '';
     this.showDeleteConfirmModal = true;
     this.cdr.detectChanges();
   }
@@ -677,7 +685,11 @@ export class SuperAdminUserManagementComponent implements OnInit {
   }
 
   deleteSelectedUser(): void {
-    if (!this.selectedDeleteUser || this.isCurrentUser(this.selectedDeleteUser)) {
+    if (
+      !this.selectedDeleteUser ||
+      this.isCurrentUser(this.selectedDeleteUser) ||
+      this.isSuperAdminUser(this.selectedDeleteUser)
+    ) {
       this.deleteError = 'This user cannot be deleted.';
       return;
     }

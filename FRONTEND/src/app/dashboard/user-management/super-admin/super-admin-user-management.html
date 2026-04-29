@@ -198,7 +198,7 @@
                         type="button"
                         class="btn-action btn-delete"
                         title="Delete User"
-                        [disabled]="isCurrentUser(user)"
+                        [disabled]="isCurrentUser(user) || isSuperAdminUser(user)"
                         (click)="openDeleteConfirmModal(user)"
                       >
                         <i class="bi bi-trash-fill"></i>
@@ -437,7 +437,7 @@
 
           <div class="info-item">
             <label>Password :</label>
-            <div>{{ selectedUser?.password || '--' }}</div>
+            <div>*****</div>
           </div>
         </div>
       </div>
@@ -469,7 +469,7 @@
     <div class="delete-confirm-actions">
       <button
         class="btn delete-confirm-btn"
-        [disabled]="deletingUser || !selectedDeleteUser || isCurrentUser(selectedDeleteUser)"
+        [disabled]="deletingUser || !selectedDeleteUser || isCurrentUser(selectedDeleteUser) || isSuperAdminUser(selectedDeleteUser)"
         (click)="deleteSelectedUser()"
       >
         {{ deletingUser ? 'Deleting...' : 'Delete' }}

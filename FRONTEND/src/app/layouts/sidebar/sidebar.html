@@ -51,7 +51,7 @@
     <li routerLink="/dashboard/railway-assets">
       <i class="bi bi-map"></i>
       <span *ngIf="!(collapsed$ | async)">
-        {{ isAdmin ? 'GIS Map View' : 'Railway Asset Editing' }}
+        {{ isAdmin || isSuperAdmin ? 'GIS Map View' : 'Railway Asset Editing' }}
       </span>
     </li>
 
