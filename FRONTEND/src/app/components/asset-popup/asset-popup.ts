@@ -1,18 +1,55 @@
+import * as L from 'leaflet';
+import { BASE_URL } from '../../api/shared/api-utils';
+
 type PopupProperties = Record<string, any>;
+type PopupEntry = {
+  layer: any;
+  layerTitle: string;
+  properties: PopupProperties;
+};
+
+const popupEntries: PopupEntry[] = [];
+const layerEntries = new WeakMap<object, PopupEntry>();
+const NEARBY_PIXEL_TOLERANCE = 28;
+const POPUP_GAP_PX = 8;
+const SYMBOL_CLEARANCE_PX = 12;
+const POPUP_CONTROL_STOP_EVENTS = 'click dblclick mousedown mouseup pointerdown pointerup contextmenu';
+let highlightedElement: Element | null = null;
+let highlightLayer: L.Layer | null = null;
 
 const HIDDEN_KEYS = new Set([
   'shape',
   'geom',
   'geometry',
   'wkb_geometry',
+  'the_geom',
+  'fid',
+  'objectid',
+  'gid',
+  'xcoord',
+  'ycoord',
+  'globalid',
+  'makerdet',
+  'checkerdet',
+  'approverdet',
+  'obj_old',
+  'objold',
+  'remark',
+  'remarks',
+  'modified_by',
+  'modifiedby',
+  'modified_date',
+  'modifieddate',
+  'mapped_flag',
+  'mappedflag',
 ]);
 
 const PRIORITY_KEYS = [
+  'kmpostno',
   'asset_id',
   'assetid',
   'sttnname',
   'sttncode',
-  'kmpostno',
   'bridgeno',
   'rorno',
   'line',
@@ -23,6 +60,30 @@ const PRIORITY_KEYS = [
   'constituency',
   'constituncy',
   'status',
+];
+
+const TITLE_KEYS = [
+  'asset_id',
+  'assetid',
+  'sttnname',
+  'sttncode',
+  'tmssection',
+  'tms_section',
+  'bridgeno',
+  'rorno',
+  'kmpostno',
+  'name',
+  'id',
+];
+
+const LAND_POPUP_FIELDS = [
+  { label: 'Dist From KM', keys: ['distfromkm', 'distfrom_km', 'dist_from_km', 'fromkm', 'from_km'] },
+  { label: 'Dist From M', keys: ['distfromm', 'distfrom_m', 'dist_from_m', 'fromm', 'from_m'] },
+  { label: 'Dist To KM', keys: ['disttokm', 'distto_km', 'dist_to_km', 'tokm', 'to_km'] },
+  { label: 'Dist To M', keys: ['disttom', 'distto_m', 'dist_to_m', 'tom', 'to_m'] },
+  { label: 'State', keys: ['state', 'name_of_st', 'state_name'] },
+  { label: 'District', keys: ['district', 'district_name', 'distname'] },
+  { label: 'TMS Section', keys: ['tmssection', 'tms_section', 'section'] },
 ];
 
 function escapeHtml(value: any): string {
@@ -44,43 +105,617 @@ function toLabel(key: string): string {
 }
 
 function hasValue(value: any): boolean {
-  return value !== undefined && value !== null && String(value).trim() !== '';
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return String(value).trim() !== '';
 }
 
-function orderedKeys(props: PopupProperties): string[] {
+function isDateLike(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}(T|\s|$)/.test(value);
+}
+
+function formatValue(value: any): string {
+  if (!hasValue(value)) return '-';
+  if (Array.isArray(value)) return value.map((item) => formatValue(item)).join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '');
+
+  const raw = String(value).trim();
+  if (isDateLike(raw)) {
+    const date = new Date(raw);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleString('en-IN');
+  }
+  return raw;
+}
+
+function normalizeKey(key: string): string {
+  return String(key || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isPopupLinkField(key: string): boolean {
+  const normalized = normalizeKey(key);
+  return normalized === 'imageno'
+    || normalized === 'imagenumber'
+    || normalized === 'mapsheetno'
+    || normalized === 'mapsheetnumber';
+}
+
+function isPopupImageField(key: string): boolean {
+  const normalized = normalizeKey(key);
+  return normalized === 'imageno' || normalized === 'imagenumber';
+}
+
+function toPopupHref(value: string): string | null {
+  const raw = value.trim();
+  if (/^(https?:|mailto:|data:image\/)/i.test(raw)) return raw;
+  if (/^\/(?!\/)/.test(raw) || /^assets\//i.test(raw)) return raw;
+  return null;
+}
+
+function formatPopupValue(key: string, value: any): string {
+  const formatted = formatValue(value);
+  if (!isPopupLinkField(key) || formatted === '-') return escapeHtml(formatted);
+
+  const href = toPopupHref(formatted);
+  if (!href) {
+    return `<span class="asset-popup-link asset-popup-link-disabled">${escapeHtml(formatted)}</span>`;
+  }
+
+  return `<a class="asset-popup-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(formatted)}</a>`;
+}
+
+function splitImageValues(value: any): string[] {
+  if (Array.isArray(value)) return value.flatMap((item) => splitImageValues(item));
+  return String(value ?? '')
+    .split(/[;,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function uniqueValues(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function getImageSourceCandidates(value: string): string[] {
+  const raw = value.trim();
+  const href = toPopupHref(raw);
+  const normalized = raw.replace(/^\/+/, '');
+  const filename = normalized.split(/[\\/]/).pop() || normalized;
+  const hasExtension = /\.[a-z0-9]{2,5}$/i.test(filename);
+
+  if (href) {
+    return uniqueValues([href]);
+  }
+
+  const candidates = [
+    raw,
+    `assets/images/${filename}`,
+  ];
+
+  if (!hasExtension) {
+    candidates.push(
+      `assets/images/${filename}.jpg`,
+      `assets/images/${filename}.jpeg`,
+      `assets/images/${filename}.png`,
+      `assets/images/${filename}.webp`,
+      `assets/images/${filename}.pdf`
+    );
+  }
+
+  return uniqueValues(candidates);
+}
+
+function getUploadedLandPlanImages(props: PopupProperties): string[][] {
+  const imageKeys = Object.keys(props || {}).filter(isPopupImageField);
+  return imageKeys
+    .flatMap((key) => splitImageValues(props[key]).map(getImageSourceCandidates))
+    .filter((sources) => sources.length > 0);
+}
+
+function imageFallbackAttributes(sources: string[]): string {
+  return `data-fallback-index="0" data-fallback-srcs="${escapeHtml(JSON.stringify(sources))}" onerror="this.dataset.fallbackIndex=String(Number(this.dataset.fallbackIndex||0)+1);const s=JSON.parse(this.dataset.fallbackSrcs||'[]');if(s[Number(this.dataset.fallbackIndex)]){this.src=s[Number(this.dataset.fallbackIndex)];}else{this.style.display='none';}"`;
+}
+
+function isPdfSource(src: string): boolean {
+  return /\.pdf(?:[?#].*)?$/i.test(src);
+}
+
+function toPreviewSource(src: string): string {
+  try {
+    const url = new URL(src, window.location.origin);
+    const host = url.hostname.toLowerCase();
+    if ((host === 'irgeoportal.gov.in' || host === 'www.irgeoportal.gov.in')
+      && url.pathname.toLowerCase().startsWith('/offtrack/landplans/')) {
+      return `${BASE_URL}/api/common/view/preview/land-plan?url=${encodeURIComponent(url.toString())}`;
+    }
+  } catch {
+    return src;
+  }
+  return src;
+}
+
+function buildUploadedPlanPreview(sources: string[]): string {
+  const pdfSource = sources.find(isPdfSource);
+  const imageSources = sources.filter((src) => !isPdfSource(src));
+  const primary = pdfSource || imageSources[0] || sources[0];
+  const previewPrimary = toPreviewSource(primary);
+
+  if (pdfSource) {
+    return `
+      <a class="asset-popup-plan-link" href="${escapeHtml(primary)}" target="_blank" rel="noopener noreferrer">
+        <iframe class="asset-popup-plan-pdf" src="${escapeHtml(previewPrimary)}" title="Uploaded Land Plan PDF"></iframe>
+      </a>
+    `;
+  }
+
+  const previewImageSources = (imageSources.length ? imageSources : sources).map(toPreviewSource);
+  return `
+    <a class="asset-popup-plan-link" href="${escapeHtml(primary)}" target="_blank" rel="noopener noreferrer">
+      <img class="asset-popup-plan-image" src="${escapeHtml(previewPrimary)}" alt="Uploaded Land Plan" ${imageFallbackAttributes(previewImageSources)}>
+    </a>
+  `;
+}
+
+function isFocusedLandPopup(title: string): boolean {
+  const normalized = normalizeKey(title);
+  return normalized.includes('landplan')
+    || normalized.includes('landparcel')
+    || normalized.includes('landplot')
+    || normalized.includes('landboundary');
+}
+
+function isLandPlanUploadPopup(title: string): boolean {
+  const normalized = normalizeKey(title);
+  return normalized.includes('landplan')
+    || normalized.includes('landparcel')
+    || normalized.includes('landplot');
+}
+
+function findPropKey(props: PopupProperties, candidates: string[]): string | null {
+  const keyByNormalized = new Map(Object.keys(props || {}).map((key) => [normalizeKey(key), key]));
+  for (const candidate of candidates) {
+    const key = keyByNormalized.get(normalizeKey(candidate));
+    if (key) return key;
+  }
+  return null;
+}
+
+function fieldSortBucket(key: string): number {
+  return isPopupLinkField(key) ? 2 : 1;
+}
+
+function orderedLandPopupKeys(props: PopupProperties, visibleKeys: string[]): string[] {
+  const landKeys = LAND_POPUP_FIELDS.map((field) => findPropKey(props, field.keys) || field.keys[0]);
+  const remainingKeys = visibleKeys
+    .filter((key) => !landKeys.some((landKey) => normalizeKey(landKey) === normalizeKey(key)))
+    .sort((a, b) => fieldSortBucket(a) - fieldSortBucket(b));
+
+  return [...landKeys, ...remainingKeys];
+}
+
+function orderedKeys(props: PopupProperties, title = ''): string[] {
   const keys = Object.keys(props || {}).filter((key) => {
     const normalized = key.toLowerCase();
     return !HIDDEN_KEYS.has(normalized) && hasValue(props[key]);
   });
 
+  if (isFocusedLandPopup(title)) {
+    return orderedLandPopupKeys(props, keys);
+  }
+
   const priority = PRIORITY_KEYS.filter((key) => keys.includes(key));
   const remaining = keys
     .filter((key) => !priority.includes(key))
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => {
+      const bucketDiff = fieldSortBucket(a) - fieldSortBucket(b);
+      return bucketDiff || a.localeCompare(b);
+    });
 
   return [...priority, ...remaining];
 }
 
-export function buildAssetPopupHtml(title: string, properties: PopupProperties, maxRows = 18): string {
+function resolveFieldLabel(key: string, title: string): string {
+  if (isFocusedLandPopup(title)) {
+    const normalized = normalizeKey(key);
+    const landField = LAND_POPUP_FIELDS.find((field) =>
+      field.keys.some((candidate) => normalizeKey(candidate) === normalized)
+    );
+    if (landField) return landField.label;
+  }
+  return toLabel(key);
+}
+
+function resolveTitle(fallbackTitle: string, props: PopupProperties): string {
+  const normalizedTitle = String(fallbackTitle || '').trim().toLowerCase();
+  if (normalizedTitle.includes('railway track')) {
+    for (const key of ['tmssection', 'tms_section']) {
+      if (hasValue(props?.[key])) return `${toLabel(key)}: ${formatValue(props[key])}`;
+    }
+  }
+  if (normalizedTitle.includes('km post') && hasValue(props?.['kmpostno'])) {
+    return `${toLabel('kmpostno')}: ${formatValue(props['kmpostno'])}`;
+  }
+  for (const key of TITLE_KEYS) {
+    if (hasValue(props?.[key])) {
+      return `${toLabel(key)}: ${formatValue(props[key])}`;
+    }
+  }
+  return fallbackTitle || 'Asset Details';
+}
+
+function getEntryTitle(entry: PopupEntry): string {
+  return resolveTitle(entry.layerTitle, entry.properties);
+}
+
+function clearAssetHighlight(): void {
+  highlightedElement?.classList.remove('asset-popup-highlighted');
+  highlightedElement = null;
+
+  const map = (highlightLayer as any)?._map as L.Map | undefined;
+  if (highlightLayer && map) {
+    map.removeLayer(highlightLayer);
+  }
+  highlightLayer = null;
+}
+
+function getEntryLatLng(entry: PopupEntry): L.LatLng | null {
+  try {
+    if (entry.layer?.getLatLng) return entry.layer.getLatLng();
+    if (entry.layer?.getBounds) {
+      const bounds = entry.layer.getBounds();
+      if (bounds?.isValid?.()) return bounds.getCenter();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function highlightPopupEntry(popup: L.Popup, entry: PopupEntry): void {
+  const map = (popup as any)._map as L.Map | undefined;
+  if (!map) return;
+
+  clearAssetHighlight();
+
+  const element = entry.layer?.getElement?.();
+  if (element?.classList) {
+    element.classList.add('asset-popup-highlighted');
+    highlightedElement = element;
+  }
+
+  const latLng = getEntryLatLng(entry) || popup.getLatLng?.();
+  if (!latLng) return;
+
+  highlightLayer = L.circleMarker(latLng, {
+    radius: 14,
+    color: '#f59e0b',
+    weight: 2,
+    opacity: 0.95,
+    fillColor: '#fbbf24',
+    fillOpacity: 0.16,
+    interactive: false,
+    pane: 'markerPane',
+  }).addTo(map);
+}
+
+export function buildAssetPopupHtml(
+  title: string,
+  properties: PopupProperties,
+  options: { index?: number; total?: number } = {}
+): string {
   const props = properties || {};
-  const rows = orderedKeys(props)
-    .slice(0, maxRows)
+  const keys = orderedKeys(props, title);
+  const popupTitle = resolveTitle(title, props);
+  const total = options.total || 1;
+  const index = options.index || 0;
+  const shellClass = isLandPlanUploadPopup(title) ? 'asset-popup-shell asset-popup-shell-wide' : 'asset-popup-shell';
+  const uploadedPlanImages = getUploadedLandPlanImages(props);
+  const uploadedPlanHtml = uploadedPlanImages.length
+    ? `
+      <div class="asset-popup-uploaded-plans">
+        <div class="asset-popup-section-heading">Uploaded Land Plans</div>
+        <div class="asset-popup-plan-list">
+          ${uploadedPlanImages.map(buildUploadedPlanPreview).join('')}
+        </div>
+      </div>
+    `
+    : '';
+  const rows = keys
     .map((key) => `
       <tr>
-        <th style="padding:4px 10px 4px 0;text-align:left;vertical-align:top;color:#374151;font-weight:700;white-space:nowrap;">${escapeHtml(toLabel(key))}</th>
-        <td style="padding:4px 0;vertical-align:top;color:#111827;">${escapeHtml(props[key])}</td>
+        <th class="asset-popup-field">${escapeHtml(resolveFieldLabel(key, title))}</th>
+        <td class="asset-popup-value">${formatPopupValue(key, props[key])}</td>
       </tr>
     `)
     .join('');
 
   return `
-    <div style="min-width:240px;max-width:360px;font-family:Segoe UI,Arial,sans-serif;">
-      <div style="margin:0 0 8px;color:#111827;font-size:15px;font-weight:800;">${escapeHtml(title || 'Asset Details')}</div>
+    <div class="${shellClass}">
+      <div class="asset-popup-header">
+        <div class="asset-popup-title">${escapeHtml(popupTitle)}</div>
+        <div class="asset-popup-subtitle">
+          <span>${escapeHtml(title || 'Layer')}</span>
+          ${total > 1 ? `<span>${index + 1} of ${total}</span>` : ''}
+        </div>
+      </div>
+      ${
+        total > 1
+          ? `
+            <div class="asset-popup-switcher">
+              <button type="button" class="asset-popup-nav" data-asset-popup-action="prev" title="Previous asset">&lt;</button>
+              <select class="asset-popup-select" data-asset-popup-action="select">
+                ${Array.from({ length: total }, (_unused, i) => `<option value="${i}" ${i === index ? 'selected' : ''}>Asset ${i + 1}</option>`).join('')}
+              </select>
+              <button type="button" class="asset-popup-nav" data-asset-popup-action="next" title="Next asset">&gt;</button>
+            </div>
+          `
+          : ''
+      }
+      <div class="asset-popup-actions">
+        <button type="button" class="asset-popup-zoom" data-asset-popup-action="zoom">Zoom to</button>
+      </div>
       ${
         rows
-          ? `<table style="border-collapse:collapse;width:100%;font-size:12px;line-height:1.35;">${rows}</table>`
-          : '<div style="color:#6b7280;font-size:12px;">No details available</div>'
+          ? `<div class="asset-popup-table-wrap"><table class="asset-popup-table">${rows}</table></div>`
+          : '<div class="asset-popup-empty">No details available</div>'
       }
+      ${uploadedPlanHtml}
+      <div class="asset-popup-count">${keys.length} field${keys.length === 1 ? '' : 's'}</div>
     </div>
   `;
+}
+
+function positionPopupSmartly(popup: L.Popup): void {
+  requestAnimationFrame(() => {
+    const element = popup.getElement();
+    const map = (popup as any)._map as L.Map | undefined;
+    const anchor = popup.getLatLng?.();
+    if (!element || !map || !anchor) return;
+
+    const height = element.offsetHeight || 0;
+    const width = element.offsetWidth || 360;
+    const gap = POPUP_GAP_PX;
+    const clearance = SYMBOL_CLEARANCE_PX;
+    const edgePad = 28;
+    const mapSize = map.getSize();
+    const anchorPoint = map.latLngToContainerPoint(anchor);
+    const spaceTop = anchorPoint.y;
+    const spaceBottom = mapSize.y - anchorPoint.y;
+    const spaceLeft = anchorPoint.x;
+    const spaceRight = mapSize.x - anchorPoint.x;
+
+    element.classList.remove('asset-popup-place-above', 'asset-popup-place-below', 'asset-popup-place-side');
+
+    const baseTransform = (element.style.transform || '')
+      .replace(/\s*translateX\([^)]*\)/g, '')
+      .replace(/\s*translateY\([^)]*\)/g, '');
+
+    let translateX = 0;
+    let translateY = 0;
+    let placement: 'above' | 'below' | 'side' = 'above';
+
+    if (spaceBottom < height + gap + edgePad) {
+      placement = 'above';
+      translateY = -clearance;
+    } else if (spaceTop < height + gap + edgePad) {
+      placement = 'below';
+      translateY = height + gap + clearance;
+    } else {
+      placement = 'side';
+      translateX = spaceRight >= spaceLeft
+        ? (width / 2) + gap + clearance
+        : -((width / 2) + gap + clearance);
+      translateY = height + gap + Math.round(clearance / 2);
+    }
+
+    element.classList.add(`asset-popup-place-${placement}`);
+    element.style.transform = `${baseTransform} translateX(${translateX}px) translateY(${translateY}px)`;
+    protectPopupElement(element);
+  });
+}
+
+function protectPopupElement(element: HTMLElement): void {
+  if (element.dataset['assetPopupProtected'] === 'true') return;
+  element.dataset['assetPopupProtected'] = 'true';
+
+  L.DomEvent.disableClickPropagation(element);
+  L.DomEvent.disableScrollPropagation(element);
+  L.DomEvent.on(element, POPUP_CONTROL_STOP_EVENTS, L.DomEvent.stopPropagation);
+}
+
+function getLayerPoint(map: L.Map, layer: any, fallbackLatLng: L.LatLng): L.Point | null {
+  try {
+    if (layer?.getLatLng) return map.latLngToContainerPoint(layer.getLatLng());
+    if (layer?.getBounds) {
+      const bounds = layer.getBounds();
+      if (bounds?.isValid?.()) {
+        const boundsOnScreen = L.bounds(
+          map.latLngToContainerPoint(bounds.getSouthWest()),
+          map.latLngToContainerPoint(bounds.getNorthEast())
+        );
+        const clickPoint = map.latLngToContainerPoint(fallbackLatLng);
+        if (boundsOnScreen.pad(0.05).contains(clickPoint)) return clickPoint;
+        return boundsOnScreen.getCenter();
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function findNearbyEntries(map: L.Map, current: PopupEntry, anchor: L.LatLng): PopupEntry[] {
+  const anchorPoint = map.latLngToContainerPoint(anchor);
+  const candidates = popupEntries
+    .map((entry) => {
+      const point = getLayerPoint(map, entry.layer, anchor);
+      if (!point) return null;
+      const distance = point.distanceTo(anchorPoint);
+      return { entry, distance };
+    })
+    .filter((item): item is { entry: PopupEntry; distance: number } => !!item && item.distance <= NEARBY_PIXEL_TOLERANCE)
+    .sort((a, b) => a.distance - b.distance);
+
+  const nearby = candidates.map((candidate) => candidate.entry);
+  if (!nearby.includes(current)) nearby.unshift(current);
+  return nearby;
+}
+
+function renderPopupEntry(popup: L.Popup, entries: PopupEntry[], index: number): void {
+  const safeIndex = ((index % entries.length) + entries.length) % entries.length;
+  const entry = entries[safeIndex];
+  popup.setContent(buildAssetPopupHtml(entry.layerTitle, entry.properties, {
+    index: safeIndex,
+    total: entries.length,
+  }));
+  highlightPopupEntry(popup, entry);
+  wirePopupSwitcher(popup, entries, safeIndex);
+  positionPopupSmartly(popup);
+}
+
+function zoomToEntry(popup: L.Popup, entries: PopupEntry[], index: number): void {
+  const map = (popup as any)._map as L.Map | undefined;
+  if (!map) return;
+  const entry = entries[index];
+
+  keepPopupOpenAfterZoom(popup, entries, index);
+
+  const layer = entry.layer;
+  if (layer?.getBounds) {
+    const bounds = layer.getBounds();
+    if (bounds?.isValid?.()) {
+      map.fitBounds(bounds.pad(0.25), { animate: false });
+      return;
+    }
+  }
+
+  if (layer?.getLatLng) {
+    const latLng = layer.getLatLng();
+    map.setView(latLng, Math.max(map.getZoom(), 17), { animate: false });
+    return;
+  }
+
+  const anchor = popup.getLatLng?.();
+  if (anchor) map.setView(anchor, Math.max(map.getZoom(), 17), { animate: false });
+}
+
+function keepPopupOpenAfterZoom(popup: L.Popup, entries: PopupEntry[], index: number): void {
+  const map = (popup as any)._map as L.Map | undefined;
+  const entry = entries[index];
+  const latLng = getEntryLatLng(entry) || popup.getLatLng?.();
+  if (!map || !latLng) return;
+
+  const reopen = () => {
+    popup.setLatLng(latLng);
+    if (!map.hasLayer(popup as any)) {
+      popup.openOn(map);
+    }
+    popup.setContent(buildAssetPopupHtml(entry.layerTitle, entry.properties, {
+      index,
+      total: entries.length,
+    }));
+    highlightPopupEntry(popup, entry);
+    wirePopupSwitcher(popup, entries, index);
+    positionPopupSmartly(popup);
+  };
+
+  map.once('zoomend moveend', reopen);
+  [80, 240, 700, 1050, 1400, 1800].forEach((delay) => {
+    window.setTimeout(reopen, delay);
+  });
+}
+
+function wirePopupSwitcher(popup: L.Popup, entries: PopupEntry[], index: number): void {
+  requestAnimationFrame(() => {
+    const element = popup.getElement();
+    if (!element) return;
+
+    protectPopupElement(element);
+
+    element.querySelectorAll<HTMLElement>('[data-asset-popup-action]').forEach((control) => {
+      L.DomEvent.disableClickPropagation(control);
+      L.DomEvent.disableScrollPropagation(control);
+      L.DomEvent.on(control, POPUP_CONTROL_STOP_EVENTS, L.DomEvent.stopPropagation);
+      const action = control.dataset['assetPopupAction'];
+      if (action === 'prev') {
+        control.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          renderPopupEntry(popup, entries, index - 1);
+        }, { once: true });
+      } else if (action === 'next') {
+        control.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          renderPopupEntry(popup, entries, index + 1);
+        }, { once: true });
+      } else if (action === 'select') {
+        control.addEventListener('change', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const value = Number((event.target as HTMLSelectElement).value);
+          if (Number.isFinite(value)) renderPopupEntry(popup, entries, value);
+        }, { once: true });
+      } else if (action === 'zoom') {
+        control.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          zoomToEntry(popup, entries, index);
+        }, { once: true });
+      }
+    });
+  });
+}
+
+function registerPopupEntry(layer: any, title: string, properties: PopupProperties): PopupEntry {
+  const existing = layerEntries.get(layer);
+  if (existing) {
+    existing.layerTitle = title;
+    existing.properties = properties;
+    return existing;
+  }
+
+  const entry = { layer, layerTitle: title, properties };
+  layerEntries.set(layer, entry);
+  popupEntries.push(entry);
+  layer.on?.('remove', () => {
+    const index = popupEntries.indexOf(entry);
+    if (index >= 0) popupEntries.splice(index, 1);
+  });
+  return entry;
+}
+
+export function bindAssetDetailsPopup(layer: any, title: string, properties: PopupProperties): void {
+  if (!layer?.bindPopup) return;
+  const entry = registerPopupEntry(layer, title, properties);
+
+  layer.bindPopup(buildAssetPopupHtml(title, properties, { index: 0, total: 1 }), {
+    className: 'asset-below-popup',
+    maxWidth: isLandPlanUploadPopup(title) ? 660 : 420,
+    minWidth: isLandPlanUploadPopup(title) ? 460 : 300,
+    offset: L.point(0, 0),
+    closeOnClick: false,
+    closeOnEscapeKey: false,
+    autoClose: false,
+    autoPan: false,
+    keepInView: false,
+  });
+
+  layer.on?.('popupopen', (event: any) => {
+    const popup = event?.popup || layer.getPopup?.();
+    const map = popup?._map;
+    const anchor = popup?.getLatLng?.();
+    if (!popup || !map || !anchor) return;
+
+    const mapOptions = map.options as any;
+    const previousClosePopupOnClick = mapOptions.closePopupOnClick;
+    mapOptions.closePopupOnClick = false;
+    popup.once?.('remove', () => {
+      mapOptions.closePopupOnClick = previousClosePopupOnClick;
+      clearAssetHighlight();
+    });
+
+    const nearby = findNearbyEntries(map, entry, anchor);
+    renderPopupEntry(popup, nearby, Math.max(0, nearby.indexOf(entry)));
+  });
 }
