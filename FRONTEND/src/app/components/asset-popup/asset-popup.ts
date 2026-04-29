@@ -19,6 +19,7 @@ const layerEntries = new WeakMap<object, PopupEntry>();
 const NEARBY_PIXEL_TOLERANCE = 28;
 const POPUP_GAP_PX = 8;
 const SYMBOL_CLEARANCE_PX = 12;
+const POPUP_VIEW_PADDING_PX = 18;
 const POPUP_CONTROL_STOP_EVENTS = 'click dblclick mousedown mouseup pointerdown pointerup contextmenu';
 let highlightedElement: Element | null = null;
 let highlightLayer: L.Layer | null = null;
@@ -339,6 +340,13 @@ function isLandPlanUploadPopup(title: string): boolean {
     || normalized.includes('landplot');
 }
 
+function isLandPlanOntrackPopup(title: string, layerKey?: string): boolean {
+  const normalizedTitle = normalizeKey(title);
+  const normalizedLayerKey = normalizeKey(layerKey || '');
+  return normalizedLayerKey === 'landplanontrack'
+    || normalizedTitle.includes('landplanontrack');
+}
+
 function findPropKey(props: PopupProperties, candidates: string[]): string | null {
   const keyByNormalized = new Map(Object.keys(props || {}).map((key) => [normalizeKey(key), key]));
   for (const candidate of candidates) {
@@ -510,17 +518,17 @@ export function buildAssetPopupHtml(
         total > 1
           ? `
             <div class="asset-popup-switcher">
-              <button type="button" class="asset-popup-nav" data-asset-popup-action="prev" title="Previous asset">&lt;</button>
+              <button type="button" class="asset-popup-nav" data-asset-popup-action="prev" title="Previous asset" aria-label="Previous asset"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
               <select class="asset-popup-select" data-asset-popup-action="select">
                 ${Array.from({ length: total }, (_unused, i) => `<option value="${i}" ${i === index ? 'selected' : ''}>Asset ${i + 1}</option>`).join('')}
               </select>
-              <button type="button" class="asset-popup-nav" data-asset-popup-action="next" title="Next asset">&gt;</button>
+              <button type="button" class="asset-popup-nav" data-asset-popup-action="next" title="Next asset" aria-label="Next asset"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
             </div>
           `
           : ''
       }
       <div class="asset-popup-actions">
-        <button type="button" class="asset-popup-zoom" data-asset-popup-action="zoom">Zoom to</button>
+        <button type="button" class="asset-popup-zoom" data-asset-popup-action="zoom"><i class="bi bi-crosshair" aria-hidden="true"></i><span>Zoom to</span></button>
       </div>
       <div class="asset-popup-scroll-body">
         <div class="asset-popup-original-details">
@@ -597,7 +605,44 @@ async function loadAssetIdDetails(layerKey: string, assetId: string, objectId: s
   return payload?.row || payload;
 }
 
-function positionPopupSmartly(popup: L.Popup): void {
+function panPopupIntoView(popup: L.Popup): void {
+  requestAnimationFrame(() => {
+    const element = popup.getElement();
+    const map = (popup as any)._map as L.Map | undefined;
+    if (!element || !map) return;
+
+    const mapContainer = map.getContainer();
+    const popupBounds = element.getBoundingClientRect();
+    const mapBounds = mapContainer.getBoundingClientRect();
+    const padding = POPUP_VIEW_PADDING_PX;
+    let dx = 0;
+    let dy = 0;
+
+    if (popupBounds.left < mapBounds.left + padding) {
+      dx = popupBounds.left - mapBounds.left - padding;
+    } else if (popupBounds.right > mapBounds.right - padding) {
+      dx = popupBounds.right - mapBounds.right + padding;
+    }
+
+    if (popupBounds.top < mapBounds.top + padding) {
+      dy = popupBounds.top - mapBounds.top - padding;
+    } else if (popupBounds.bottom > mapBounds.bottom - padding) {
+      dy = popupBounds.bottom - mapBounds.bottom + padding;
+    }
+
+    if (dx || dy) {
+      map.panBy([dx, dy], { animate: true, duration: 0.18 });
+    }
+  });
+}
+
+function schedulePopupPanIntoView(popup: L.Popup): void {
+  [0, 80, 240, 600, 1100].forEach((delay) => {
+    window.setTimeout(() => panPopupIntoView(popup), delay);
+  });
+}
+
+function positionPopupSmartly(popup: L.Popup, panIntoView = false): void {
   requestAnimationFrame(() => {
     const element = popup.getElement();
     const map = (popup as any)._map as L.Map | undefined;
@@ -643,6 +688,10 @@ function positionPopupSmartly(popup: L.Popup): void {
     element.classList.add(`asset-popup-place-${placement}`);
     element.style.transform = `${baseTransform} translateX(${translateX}px) translateY(${translateY}px)`;
     protectPopupElement(element);
+
+    if (panIntoView) {
+      schedulePopupPanIntoView(popup);
+    }
   });
 }
 
@@ -703,7 +752,7 @@ function renderPopupEntry(popup: L.Popup, entries: PopupEntry[], index: number):
   }));
   highlightPopupEntry(popup, entry);
   wirePopupSwitcher(popup, entries, safeIndex);
-  positionPopupSmartly(popup);
+  positionPopupSmartly(popup, isLandPlanOntrackPopup(entry.layerTitle, entry.layerKey));
 }
 
 function zoomToEntry(popup: L.Popup, entries: PopupEntry[], index: number): void {
@@ -750,7 +799,7 @@ function keepPopupOpenAfterZoom(popup: L.Popup, entries: PopupEntry[], index: nu
     }));
     highlightPopupEntry(popup, entry);
     wirePopupSwitcher(popup, entries, index);
-    positionPopupSmartly(popup);
+    positionPopupSmartly(popup, isLandPlanOntrackPopup(entry.layerTitle, entry.layerKey));
   };
 
   map.once('zoomend moveend', reopen);

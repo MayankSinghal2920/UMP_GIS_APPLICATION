@@ -8,15 +8,22 @@
   </div>
 
   <div class="asset-popup-switcher" *ngIf="total > 1">
-    <button type="button" class="asset-popup-nav">&lt;</button>
+    <button type="button" class="asset-popup-nav" aria-label="Previous asset">
+      <i class="bi bi-chevron-left" aria-hidden="true"></i>
+    </button>
     <select class="asset-popup-select">
       <option *ngFor="let asset of assets; let i = index" [value]="i">Asset {{ i + 1 }}</option>
     </select>
-    <button type="button" class="asset-popup-nav">&gt;</button>
+    <button type="button" class="asset-popup-nav" aria-label="Next asset">
+      <i class="bi bi-chevron-right" aria-hidden="true"></i>
+    </button>
   </div>
 
   <div class="asset-popup-actions">
-    <button type="button" class="asset-popup-zoom">Zoom to</button>
+    <button type="button" class="asset-popup-zoom">
+      <i class="bi bi-crosshair" aria-hidden="true"></i>
+      <span>Zoom to</span>
+    </button>
   </div>
 
   <div class="asset-popup-table-wrap" *ngIf="fields.length; else empty">
