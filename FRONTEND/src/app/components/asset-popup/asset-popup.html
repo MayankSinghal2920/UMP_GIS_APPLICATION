@@ -1,0 +1,36 @@
+<div class="asset-popup-shell">
+  <div class="asset-popup-header">
+    <div class="asset-popup-title">{{ title }}</div>
+    <div class="asset-popup-subtitle">
+      <span>{{ layerTitle }}</span>
+      <span *ngIf="total > 1">{{ index + 1 }} of {{ total }}</span>
+    </div>
+  </div>
+
+  <div class="asset-popup-switcher" *ngIf="total > 1">
+    <button type="button" class="asset-popup-nav">&lt;</button>
+    <select class="asset-popup-select">
+      <option *ngFor="let asset of assets; let i = index" [value]="i">Asset {{ i + 1 }}</option>
+    </select>
+    <button type="button" class="asset-popup-nav">&gt;</button>
+  </div>
+
+  <div class="asset-popup-actions">
+    <button type="button" class="asset-popup-zoom">Zoom to</button>
+  </div>
+
+  <div class="asset-popup-table-wrap" *ngIf="fields.length; else empty">
+    <table class="asset-popup-table">
+      <tr *ngFor="let field of fields">
+        <th class="asset-popup-field">{{ field.label }}</th>
+        <td class="asset-popup-value">{{ field.value }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <ng-template #empty>
+    <div class="asset-popup-empty">No details available</div>
+  </ng-template>
+
+  <div class="asset-popup-count">{{ fields.length }} field{{ fields.length === 1 ? '' : 's' }}</div>
+</div>

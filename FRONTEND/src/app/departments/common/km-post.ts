@@ -1,6 +1,6 @@
 import * as L from 'leaflet';
 import { Api } from '../../api/api';
-import { buildAssetPopupHtml } from '../../components/asset-popup/asset-popup';
+import { bindAssetDetailsPopup } from '../../components/asset-popup/asset-popup';
 import { defineLegend, MapLayer, pointLayerFromLegend } from '../../services/interface';
 
 const KM_POST_PANE = 'KmPostPane';
@@ -65,6 +65,7 @@ export class KmPostLayer implements MapLayer {
         html: '<div style="width:' + size + 'px;height:' + size + 'px;transform:rotate(45deg);background:' + fill + ';border:1px solid ' + stroke + ';border-radius:2px;box-sizing:border-box;"></div>',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, size / 2 + 12],
       }),
     }) as any;
     if (kmPostNo && marker.bindTooltip) {
@@ -77,9 +78,7 @@ export class KmPostLayer implements MapLayer {
       });
     }
     if (marker.bindPopup) {
-      marker.bindPopup(buildAssetPopupHtml('KM Post Details', p), {
-        maxWidth: 380,
-      });
+      bindAssetDetailsPopup(marker, 'KM Post Details', p);
     }
     return marker;
   }
