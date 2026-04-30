@@ -110,11 +110,11 @@ body::before {
 
 .portal-card {
   position: relative;
-  width: 580px;
+  width: 680px;
   max-width: 94vw;
-  min-height: 850px;
+  min-height: 920px;
   height: 92vh;
-  max-height: 940px;
+  max-height: 1000px;
   display: flex;
   flex-direction: column;
   border-radius: 22px;
@@ -205,7 +205,7 @@ body::before {
   align-items: center;
   gap: 6px;
   text-align: center;
-  font-size: 29px;
+  font-size: 32px;
   line-height: 1.25;
   font-weight: 800;
   letter-spacing: 0.2px;
@@ -216,8 +216,8 @@ body::before {
 .rail-track-mark {
   position: relative;
   display: inline-block;
-  width: 18px;
-  height: 42px;
+  width: 20px;
+  height: 46px;
   flex: 0 0 auto;
   transform: translateY(2px);
 }
@@ -252,17 +252,17 @@ body::before {
 }
 
 .hint {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   text-align: center;
-  font-size: 17px;
+  font-size: 18px;
   color: rgba(255, 255, 255, 0.86);
 }
 
 .form-area {
-  margin-top: 34px;
+  margin-top: 42px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 26px;
 }
 
 .field {
@@ -272,13 +272,13 @@ body::before {
 .line-input,
 .captcha-input {
   width: 100%;
-  height: 54px;
-  padding: 0 18px;
+  height: 58px;
+  padding: 0 20px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(10, 25, 57, 0.36);
   color: #ffffff;
-  font-size: 16px;
+  font-size: 17px;
   outline: none;
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
@@ -351,13 +351,13 @@ body::before {
 
 .captcha-row {
   display: grid;
-  grid-template-columns: 150px 46px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 164px 50px minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
 }
 
 .captcha-img {
-  height: 46px;
+  height: 50px;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -375,8 +375,8 @@ body::before {
 }
 
 .captcha-refresh {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.94);
@@ -388,15 +388,15 @@ body::before {
 .sign-in-row {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .next-btn {
-  height: 52px;
+  height: 58px;
   border: 0;
   border-radius: 12px;
   padding: 0 20px;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   transition: transform 140ms ease, box-shadow 180ms ease, opacity 180ms ease;
@@ -464,10 +464,10 @@ body::before {
   }
 
   .portal-card {
-    width: 540px;
-    min-height: 800px;
+    width: 630px;
+    min-height: 870px;
     height: 90vh;
-    max-height: 900px;
+    max-height: 960px;
   }
 
   .portal-header {
@@ -486,41 +486,41 @@ body::before {
   }
 
   .brand-title {
-    font-size: 26px;
+    font-size: 28px;
   }
 
   .hint {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   .form-area {
-    margin-top: 28px;
-    gap: 18px;
+    margin-top: 34px;
+    gap: 22px;
   }
 
   .line-input,
   .captcha-input {
-    height: 50px;
-    font-size: 15px;
+    height: 54px;
+    font-size: 16px;
   }
 
   .captcha-row {
-    grid-template-columns: 138px 44px minmax(0, 1fr);
+    grid-template-columns: 150px 48px minmax(0, 1fr);
   }
 
   .captcha-img,
   .captcha-refresh {
-    height: 44px;
+    height: 48px;
   }
 
   .captcha-refresh {
-    width: 44px;
+    width: 48px;
     font-size: 20px;
   }
 
   .next-btn {
-    height: 48px;
-    font-size: 16px;
+    height: 52px;
+    font-size: 17px;
   }
 }
 
@@ -530,10 +530,10 @@ body::before {
   }
 
   .portal-card {
-    width: 500px;
-    min-height: 740px;
+    width: 580px;
+    min-height: 810px;
     height: 88vh;
-    max-height: 840px;
+    max-height: 900px;
     border-radius: 20px;
   }
 
@@ -558,31 +558,31 @@ body::before {
   }
 
   .brand-title {
-    font-size: 23px;
+    font-size: 25px;
     line-height: 1.2;
   }
 
   .rail-track-mark {
-    width: 16px;
-    height: 36px;
+    width: 18px;
+    height: 40px;
   }
 
   .hint {
     margin-top: 10px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .form-area {
-    margin-top: 22px;
-    gap: 16px;
+    margin-top: 28px;
+    gap: 20px;
   }
 
   .line-input,
   .captcha-input {
-    height: 46px;
-    padding: 0 15px;
+    height: 50px;
+    padding: 0 17px;
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .pw-field .line-input {
@@ -602,26 +602,26 @@ body::before {
   }
 
   .captcha-row {
-    grid-template-columns: 126px 42px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 138px 46px minmax(0, 1fr);
+    gap: 12px;
   }
 
   .captcha-img,
   .captcha-refresh {
-    height: 42px;
+    height: 46px;
     border-radius: 9px;
   }
 
   .captcha-refresh {
-    width: 42px;
+    width: 46px;
     font-size: 18px;
   }
 
   .next-btn {
-    height: 44px;
+    height: 48px;
     border-radius: 10px;
     padding: 0 18px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .portal-footer {
