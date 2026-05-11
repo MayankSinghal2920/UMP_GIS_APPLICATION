@@ -14,6 +14,16 @@ export class LayerManager {
   private activeDepartmentLabel = 'Department Layers';
   private groupedLayers: LayerGroupView[] = [];
 
+  private destroyLayer(layer: MapLayer) {
+    const maybeDestroy = (layer as any)?.destroy;
+    if (typeof maybeDestroy !== 'function') return;
+    try {
+      maybeDestroy.call(layer);
+    } catch (e) {
+      console.error(`Layer destroy failed: ${layer.id}`, e);
+    }
+  }
+
   // ✅ use only for quick tests; prefer registerOnce
   register(layer: MapLayer) {
     this.layers.push(layer);
@@ -44,6 +54,7 @@ export class LayerManager {
           console.error(`Layer replace remove failed: ${prev.id}`, e);
         }
       }
+      this.destroyLayer(prev);
       this.layers[idx] = layer;
     } else {
       this.layers.push(layer);
@@ -63,6 +74,7 @@ export class LayerManager {
 
   // ✅ call this when you want a fresh start (optional)
   clear() {
+    this.layers.forEach((layer) => this.destroyLayer(layer));
     this.layers = [];
     this.groupedLayers = [];
   }
@@ -90,6 +102,7 @@ export class LayerManager {
       } catch (e) {
         console.error(`Layer removeFrom failed: ${layer.id}`, e);
       }
+      this.destroyLayer(layer);
     });
   }
 

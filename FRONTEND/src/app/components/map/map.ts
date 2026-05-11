@@ -7,6 +7,7 @@ import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { ActivatedRoute, Router, NavigationStart } from '@angular/router';
 
+import { StationCategoryVisibilityService } from '../../services/station-category-visibility';
 import { Api } from '../../api/api';
 import {
   DynamicDepartmentEditLayer,
@@ -17,7 +18,6 @@ import {
   StationLayer,
 } from '../../departments/civil_engineering_assets/editing/civil-engineering-assets-editing';
 import {
-  DynamicDepartmentLayer,
   LandBoundaryLayer,
   LandPlanOntrackViewingLayer,
   LandOffsetLayer,
@@ -41,7 +41,10 @@ import { MapZoomService, ZoomTarget } from '../../services/map-zoom';
 import { Station } from '../../services/station.service';
 
 type EditableLayer = string | null;
-type DepartmentModuleKey = 'civil_engineering_assets' | 'civil_engineering_assets_offtrack' | 'unknown';
+type DepartmentModuleKey =
+  | 'civil_engineering_assets'
+  | 'civil_engineering_assets_offtrack'
+  | 'unknown';
 type DepartmentLayerMeta = {
   layerName: string;
   layerKey: string;
@@ -53,11 +56,7 @@ type DepartmentLayerMeta = {
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [
-    CommonModule,
-    StationSearchComponent,
-    MeasurementToolComponent,
-  ],
+  imports: [CommonModule, StationSearchComponent, MeasurementToolComponent],
   templateUrl: './map.html',
   styleUrl: './map.css',
 })
@@ -120,7 +119,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     private currentUser: CurrentUserService,
     private mapZoom: MapZoomService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private stationCategoryVisibility: StationCategoryVisibilityService,
   ) {}
 
   ngAfterViewInit(): void {
@@ -139,13 +139,29 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private forceMapResize(): void { if (!this.map) return; this.map.invalidateSize(); requestAnimationFrame(() => this.map?.invalidateSize()); setTimeout(() => this.map?.invalidateSize(), 350); }
-  private scheduleReload(): void { if (!this.map) return; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; this.layerManager.reloadVisible(this.map); }, 900); }
+  private forceMapResize(): void {
+    if (!this.map) return;
+    this.map.invalidateSize();
+    requestAnimationFrame(() => this.map?.invalidateSize());
+    setTimeout(() => this.map?.invalidateSize(), 350);
+  }
+  private scheduleReload(): void {
+    if (!this.map) return;
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    this.reloadTimer = setTimeout(() => {
+      if (!this.map) return;
+      this.layerManager.reloadVisible(this.map);
+    }, 900);
+  }
 
   private isPortalAdmin(): boolean {
     const user = this.currentUser.getSnapshot();
-    const userId = String(user?.user_id || '').trim().toLowerCase();
-    const userType = String(user?.user_type || '').trim().toLowerCase();
+    const userId = String(user?.user_id || '')
+      .trim()
+      .toLowerCase();
+    const userType = String(user?.user_type || '')
+      .trim()
+      .toLowerCase();
     return userId === 'portaladmin' || userType === 'portaladmin' || userType === 'portal admin';
   }
 
@@ -158,15 +174,46 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private captureHomeAfterFirstSettle(): void {
     if (!this.map || this.homeCaptured) return;
     const initialView = this.getInitialMapView();
-    const initialCenter = L.latLng(initialView.center); const initialZoom = initialView.zoom;
-    const isInitialView = () => { if (!this.map) return true; const z = this.map.getZoom(); const c = this.map.getCenter(); return Math.abs(z - initialZoom) < 0.05 && c.distanceTo(initialCenter) < 50000; };
-    const trySave = () => { if (!this.map || this.homeCaptured || isInitialView()) return; this.homeCenter = this.map.getCenter(); this.homeZoom = this.map.getZoom(); this.homeCaptured = true; this.map.off('moveend', trySave); this.map.off('zoomend', trySave); };
-    this.map.on('moveend', trySave); this.map.on('zoomend', trySave);
+    const initialCenter = L.latLng(initialView.center);
+    const initialZoom = initialView.zoom;
+    const isInitialView = () => {
+      if (!this.map) return true;
+      const z = this.map.getZoom();
+      const c = this.map.getCenter();
+      return Math.abs(z - initialZoom) < 0.05 && c.distanceTo(initialCenter) < 50000;
+    };
+    const trySave = () => {
+      if (!this.map || this.homeCaptured || isInitialView()) return;
+      this.homeCenter = this.map.getCenter();
+      this.homeZoom = this.map.getZoom();
+      this.homeCaptured = true;
+      this.map.off('moveend', trySave);
+      this.map.off('zoomend', trySave);
+    };
+    this.map.on('moveend', trySave);
+    this.map.on('zoomend', trySave);
     let tries = 0;
-    const timer = setInterval(() => { if (!this.map || this.homeCaptured) { clearInterval(timer); return; } tries++; trySave(); if (tries >= 30) { clearInterval(timer); this.map.off('moveend', trySave); this.map.off('zoomend', trySave); } }, 200);
+    const timer = setInterval(() => {
+      if (!this.map || this.homeCaptured) {
+        clearInterval(timer);
+        return;
+      }
+      tries++;
+      trySave();
+      if (tries >= 30) {
+        clearInterval(timer);
+        this.map.off('moveend', trySave);
+        this.map.off('zoomend', trySave);
+      }
+    }, 200);
   }
 
-  private zoomToHome(): void { if (!this.map) return; if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') return; this.map.invalidateSize(); this.map.setView(this.homeCenter, this.homeZoom, { animate: false }); }
+  private zoomToHome(): void {
+    if (!this.map) return;
+    if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') return;
+    this.map.invalidateSize();
+    this.map.setView(this.homeCenter, this.homeZoom, { animate: false });
+  }
   private clearExistingMarkerHighlight(): void {
     if (this.highlightedMarkerElement) {
       this.highlightedMarkerElement.classList.remove('map-selected-symbol');
@@ -181,7 +228,21 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.highlightedMarkerElement = element;
     return true;
   }
-  private clearZoomArtifacts(): void { if (!this.map) return; this.clearExistingMarkerHighlight(); if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) this.map.removeLayer(this.zoomHighlight as any); this.zoomHighlight = undefined; if (this.highlightLayer && this.map.hasLayer(this.highlightLayer)) this.map.removeLayer(this.highlightLayer); this.highlightLayer = undefined; if (this.dragMarker && this.map.hasLayer(this.dragMarker as any)) { this.dragMarker.off(); this.map.removeLayer(this.dragMarker as any); } this.dragMarker = undefined; }
+  private clearZoomArtifacts(): void {
+    if (!this.map) return;
+    this.clearExistingMarkerHighlight();
+    if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any))
+      this.map.removeLayer(this.zoomHighlight as any);
+    this.zoomHighlight = undefined;
+    if (this.highlightLayer && this.map.hasLayer(this.highlightLayer))
+      this.map.removeLayer(this.highlightLayer);
+    this.highlightLayer = undefined;
+    if (this.dragMarker && this.map.hasLayer(this.dragMarker as any)) {
+      this.dragMarker.off();
+      this.map.removeLayer(this.dragMarker as any);
+    }
+    this.dragMarker = undefined;
+  }
 
   private createAttributeHighlightLayer(feature: any): L.GeoJSON {
     return L.geoJSON(feature, {
@@ -204,14 +265,31 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private createDraggableCircleMarker(ll: L.LatLng): L.Marker {
-    const size = 34; const border = 5;
-    const icon = L.divIcon({ className: 'drag-circle-icon', html: `<div style="width:${size}px;height:${size}px;border:${border}px solid #7c3aed;background: rgba(167,139,250,0.60);border-radius: 50%;box-sizing: border-box;box-shadow: 0 2px 10px rgba(0,0,0,0.25);"></div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
-    const m = L.marker(ll, { draggable: true, icon, keyboard: false, autoPan: true, autoPanPadding: L.point(40, 40) });
+    const size = 34;
+    const border = 5;
+    const icon = L.divIcon({
+      className: 'drag-circle-icon',
+      html: `<div style="width:${size}px;height:${size}px;border:${border}px solid #7c3aed;background: rgba(167,139,250,0.60);border-radius: 50%;box-sizing: border-box;box-shadow: 0 2px 10px rgba(0,0,0,0.25);"></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+    const m = L.marker(ll, {
+      draggable: true,
+      icon,
+      keyboard: false,
+      autoPan: true,
+      autoPanPadding: L.point(40, 40),
+    });
     (m as any).setZIndexOffset?.(9999);
     return m;
   }
 
-  private createFocusCircleMarker(ll: L.LatLng, size = 34, border = 5, fillOpacity = 0.6): L.Marker {
+  private createFocusCircleMarker(
+    ll: L.LatLng,
+    size = 34,
+    border = 5,
+    fillOpacity = 0.6,
+  ): L.Marker {
     const icon = L.divIcon({
       className: 'focus-circle-icon',
       html: `<div style="width:${size}px;height:${size}px;border:${border}px solid #7c3aed;background: rgba(167,139,250,${fillOpacity.toFixed(2)});border-radius: 50%;box-sizing: border-box;box-shadow: 0 2px 10px rgba(0,0,0,0.18);"></div>`,
@@ -226,14 +304,17 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private isEditableLayer(x: any): x is EditableLayer {
     return !!normalizeCivilEngineeringLayerId(String(x || '').trim());
   }
-  private normalizeDepartmentName(value: string | null | undefined): string { return (value || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+  private normalizeDepartmentName(value: string | null | undefined): string {
+    return (value || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
 
   private updateStationCreateModeUi(): void {
     if (!this.map) return;
     const isCreatingPoint = this.edit.enabled && !!this.edit.editLayer && this.edit.creatingStation;
     const container = this.map.getContainer();
     container.style.cursor = isCreatingPoint ? 'crosshair' : '';
-    if (isCreatingPoint) this.map.doubleClickZoom.disable(); else this.map.doubleClickZoom.enable();
+    if (isCreatingPoint) this.map.doubleClickZoom.disable();
+    else this.map.doubleClickZoom.enable();
 
     if (!isCreatingPoint) {
       if (this.createPointHintMarker && this.map.hasLayer(this.createPointHintMarker)) {
@@ -251,10 +332,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         iconSize: [210, 32],
         iconAnchor: [0, 16],
       });
-      this.createPointHintMarker = L.marker(center, { icon, interactive: false, keyboard: false }).addTo(this.map);
+      this.createPointHintMarker = L.marker(center, {
+        icon,
+        interactive: false,
+        keyboard: false,
+      }).addTo(this.map);
     } else {
       this.createPointHintMarker.setLatLng(center);
-      if (!this.map.hasLayer(this.createPointHintMarker)) this.createPointHintMarker.addTo(this.map);
+      if (!this.map.hasLayer(this.createPointHintMarker))
+        this.createPointHintMarker.addTo(this.map);
     }
   }
 
@@ -266,9 +352,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const element = document.querySelector(selector) as HTMLElement | null;
     if (!element) return null;
     const style = window.getComputedStyle(element);
-    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return null;
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')
+      return null;
     const rect = element.getBoundingClientRect();
-    const overlaps = rect.right > mapRect.left && rect.left < mapRect.right && rect.bottom > mapRect.top && rect.top < mapRect.bottom;
+    const overlaps =
+      rect.right > mapRect.left &&
+      rect.left < mapRect.right &&
+      rect.bottom > mapRect.top &&
+      rect.top < mapRect.bottom;
     return overlaps ? rect : null;
   }
   private getVisualCenterPoint(): L.Point | null {
@@ -307,9 +398,13 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private handleStationCreateDoubleClick(e: L.LeafletMouseEvent): void {
     if (!this.map) return;
     if (!this.edit.enabled || !this.edit.editLayer || !this.edit.creatingStation) return;
-    const divisionBuffer = this.layerManager.findById('division_buffer') as DivisionBufferLayer | undefined;
+    const divisionBuffer = this.layerManager.findById('division_buffer') as
+      | DivisionBufferLayer
+      | undefined;
     if (divisionBuffer?.containsLatLng && !divisionBuffer.containsLatLng(e.latlng)) {
-      this.zone.run(() => { alert('New asset can only be created inside the division buffer.'); });
+      this.zone.run(() => {
+        alert('New asset can only be created inside the division buffer.');
+      });
       return;
     }
     const lat = Number(e.latlng.lat);
@@ -329,11 +424,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (this.isPortalAdmin()) {
       return { key: 'civil_engineering_assets', label: 'Civil Engineering Assets Layers' };
     }
-    const rawDepartment = localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
+    const rawDepartment =
+      localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
     const normalized = this.normalizeDepartmentName(rawDepartment);
     const key = this.departmentAliases[normalized] || 'unknown';
-    if (key === 'civil_engineering_assets') return { key, label: 'Civil Engineering Assets Layers' };
-    if (key === 'civil_engineering_assets_offtrack') return { key, label: 'Civil Engineering Assets Offtrack Layers' };
+    if (key === 'civil_engineering_assets')
+      return { key, label: 'Civil Engineering Assets Layers' };
+    if (key === 'civil_engineering_assets_offtrack')
+      return { key, label: 'Civil Engineering Assets Offtrack Layers' };
     return { key, label: rawDepartment?.trim() || 'Department Layers' };
   }
   private toLayerTitle(value: string): string {
@@ -343,7 +441,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       .trim()
       .replace(/\b\w/g, (char) => char.toUpperCase());
   }
-  private shouldSkipDynamicDepartmentLayer(layerKey: string, departmentKey: DepartmentModuleKey): boolean {
+  private shouldSkipDynamicDepartmentLayer(
+    layerKey: string,
+    departmentKey: DepartmentModuleKey,
+  ): boolean {
     if (this.builtInDepartmentLayerKeys.has(layerKey)) return true;
     if (departmentKey === 'civil_engineering_assets' && layerKey === 'station') return true;
     return false;
@@ -351,7 +452,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private registerDynamicDepartmentLayers(
     departmentRef: string,
     departmentKey: DepartmentModuleKey,
-    attributeTabs: LayerKey[]
+    attributeTabs: LayerKey[],
   ): void {
     if (!departmentRef.trim()) {
       this.attrTable.setTabs(attributeTabs);
@@ -373,8 +474,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
               departmentRef,
               layerKey,
               this.edit,
-              (g: any) => this.attrTable.pushFeatureCollection(title, g)
-            )
+              (g: any) => this.attrTable.pushFeatureCollection(title, g),
+            ),
           );
           if (!nextTabs.includes(title)) nextTabs.push(title);
         });
@@ -395,83 +496,310 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     const department = this.resolveDepartmentModule();
     const departmentRef = this.isPortalAdmin()
       ? 'Civil Engineering Assets'
-      : String(localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '').trim();
+      : String(
+          localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '',
+        ).trim();
     const attributeTabs: LayerKey[] = [...this.commonAttributeTabs];
     const portalAdmin = this.isPortalAdmin();
-    this.layerManager.clear(); this.layerManager.setActiveDepartmentLabel(department.label);
+
+    this.layerManager.clear();
+    this.layerManager.setActiveDepartmentLabel(department.label);
     this.layerManager.registerOnce(new IndiaBoundaryLayer(this.api));
+
     if (!portalAdmin) {
       this.layerManager.registerOnce(new DivisionBufferLayer(this.api));
     }
-    this.layerManager.registerOnce(new TrackLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Railway Track', g)));
+
+    this.layerManager.registerOnce(
+      new TrackLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Railway Track', g)),
+    );
+
     if (department.key === 'civil_engineering_assets' || portalAdmin) {
       attributeTabs.unshift('Station');
-      this.layerManager.registerOnce(new StationViewingLayer(this.api, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)));
+      this.layerManager.registerOnce(
+        new StationViewingLayer(this.api, this.zone, this.stationCategoryVisibility, (g) =>
+          this.attrTable.pushFeatureCollection('Station', g),
+        ),
+      );
     }
+
     if (department.key === 'civil_engineering_assets') {
       attributeTabs.splice(1, 0, 'Land Plan Ontrack', 'Land Offset', 'Land Boundary');
-      this.layerManager.registerOnce(new LandOffsetLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)));
-      this.layerManager.registerOnce(new LandBoundaryLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)));
-      this.layerManager.registerOnce(new LandPlanOntrackViewingLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)));
+      this.layerManager.registerOnce(
+        new LandOffsetLayer(this.api, (g) =>
+          this.attrTable.pushFeatureCollection('Land Offset', g),
+        ),
+      );
+      this.layerManager.registerOnce(
+        new LandBoundaryLayer(this.api, (g) =>
+          this.attrTable.pushFeatureCollection('Land Boundary', g),
+        ),
+      );
+      this.layerManager.registerOnce(
+        new LandPlanOntrackViewingLayer(this.api, (g) =>
+          this.attrTable.pushFeatureCollection('Land Plan Ontrack', g),
+        ),
+      );
     }
-    this.layerManager.registerOnce(new KmPostLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Km Post', g)));
+
+    this.layerManager.registerOnce(
+      new KmPostLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Km Post', g)),
+    );
+
     this.attrTable.setTabs(attributeTabs);
     this.registerDynamicDepartmentLayers(departmentRef, department.key, attributeTabs);
   }
 
   private syncEditAwareLayers(): void {
     if (!this.map) return;
+
     const normalizedEditLayer = normalizeCivilEngineeringLayerId(this.edit.editLayer || '');
     const wantsStationEditLayer = this.edit.enabled && normalizedEditLayer === 'stations';
-    const wantsLandPlanEditLayer = this.edit.enabled && (normalizedEditLayer === 'landplan_ontrack' || normalizedEditLayer === 'landplan');
+    const wantsLandPlanEditLayer =
+      this.edit.enabled &&
+      (normalizedEditLayer === 'landplan_ontrack' || normalizedEditLayer === 'landplan');
     const wantsLandOffsetEditLayer = this.edit.enabled && normalizedEditLayer === 'land_offset';
     const wantsLandBoundaryEditLayer = this.edit.enabled && normalizedEditLayer === 'land_boundary';
-    this.layerManager.replaceLayer(wantsStationEditLayer ? new StationLayer(this.api, this.filters, this.edit, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)) : new StationViewingLayer(this.api, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)), this.map);
-    this.layerManager.replaceLayer(wantsLandPlanEditLayer ? new LandPlanOntrackLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)) : new LandPlanOntrackViewingLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Plan Ontrack', g)), this.map);
-    this.layerManager.replaceLayer(wantsLandOffsetEditLayer ? new LandOffsetEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)) : new LandOffsetLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)), this.map);
-    this.layerManager.replaceLayer(wantsLandBoundaryEditLayer ? new LandBoundaryEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)) : new LandBoundaryLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)), this.map);
+
+    this.layerManager.replaceLayer(
+      wantsStationEditLayer
+        ? new StationLayer(
+            this.api,
+            this.filters,
+            this.edit,
+            this.zone,
+            this.stationCategoryVisibility,
+            (g) => this.attrTable.pushFeatureCollection('Station', g),
+          )
+        : new StationViewingLayer(this.api, this.zone, this.stationCategoryVisibility, (g) =>
+            this.attrTable.pushFeatureCollection('Station', g),
+          ),
+      this.map,
+    );
+
+    this.layerManager.replaceLayer(
+      wantsLandPlanEditLayer
+        ? new LandPlanOntrackLayer(this.api, this.edit, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g),
+          )
+        : new LandPlanOntrackViewingLayer(this.api, (g) =>
+            this.attrTable.pushFeatureCollection('Land Plan Ontrack', g),
+          ),
+      this.map,
+    );
+
+    this.layerManager.replaceLayer(
+      wantsLandOffsetEditLayer
+        ? new LandOffsetEditLayer(this.api, this.edit, (g) =>
+            this.attrTable.pushFeatureCollection('Land Offset', g),
+          )
+        : new LandOffsetLayer(this.api, (g) =>
+            this.attrTable.pushFeatureCollection('Land Offset', g),
+          ),
+      this.map,
+    );
+
+    this.layerManager.replaceLayer(
+      wantsLandBoundaryEditLayer
+        ? new LandBoundaryEditLayer(this.api, this.edit, (g) =>
+            this.attrTable.pushFeatureCollection('Land Boundary', g),
+          )
+        : new LandBoundaryLayer(this.api, (g) =>
+            this.attrTable.pushFeatureCollection('Land Boundary', g),
+          ),
+      this.map,
+    );
   }
 
   private initDeepLinking(): void {
     this.routeSub?.unsubscribe();
     this.routeSub = this.route.queryParams.subscribe((params) => {
-      const panel = String(params['panel'] || '').trim().toLowerCase();
+      const panel = String(params['panel'] || '')
+        .trim()
+        .toLowerCase();
       if (panel !== 'edit') return;
       const layerParam = String(params['layer'] || '').trim();
-      this.ui.activePanel = 'edit'; this.edit.enable();
+      this.ui.activePanel = 'edit';
+      this.edit.enable();
       if (this.isEditableLayer(layerParam)) {
         const safeLayer = layerParam as EditableLayer;
-        (this.edit as any).editLayer = safeLayer; this.edit.setLayer(safeLayer as any);
-        setTimeout(() => { (this.edit as any).editLayer = safeLayer; this.edit.setLayer(safeLayer as any); }, 0);
+        (this.edit as any).editLayer = safeLayer;
+        this.edit.setLayer(safeLayer as any);
+        setTimeout(() => {
+          (this.edit as any).editLayer = safeLayer;
+          this.edit.setLayer(safeLayer as any);
+        }, 0);
       }
-      setTimeout(() => this.forceMapResize(), 0); setTimeout(() => this.forceMapResize(), 260);
+      setTimeout(() => this.forceMapResize(), 0);
+      setTimeout(() => this.forceMapResize(), 260);
     });
   }
 
   private initializeMapSafely(): void {
-    const el = document.getElementById('map'); if (!el) { requestAnimationFrame(() => this.initializeMapSafely()); return; }
+    const el = document.getElementById('map');
+    if (!el) {
+      requestAnimationFrame(() => this.initializeMapSafely());
+      return;
+    }
     if (this.map) return;
-    const anyEl = el as any; if (anyEl._leaflet_id) { try { anyEl._leaflet_id = undefined; } catch {} }
-    this.ui.activePanel = null; this.edit.disable();
+    const anyEl = el as any;
+    if (anyEl._leaflet_id) {
+      try {
+        anyEl._leaflet_id = undefined;
+      } catch {}
+    }
+    this.ui.activePanel = null;
+    this.edit.disable();
     const initialView = this.getInitialMapView();
-    this.map = L.map(el, { preferCanvas: false, zoomControl: false, zoomAnimation: true, fadeAnimation: true, markerZoomAnimation: false, zoomAnimationThreshold: 8, wheelDebounceTime: 60, wheelPxPerZoomLevel: 140, zoomSnap: 0.1, zoomDelta: 0.1, maxZoom: 22 }).setView(initialView.center, initialView.zoom);
+    this.map = L.map(el, {
+      preferCanvas: false,
+      zoomControl: false,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: false,
+      zoomAnimationThreshold: 8,
+      wheelDebounceTime: 60,
+      wheelPxPerZoomLevel: 140,
+      zoomSnap: 0.1,
+      zoomDelta: 0.1,
+      maxZoom: 22,
+    }).setView(initialView.center, initialView.zoom);
     L.control.zoom({ position: 'topleft' }).addTo(this.map);
     this.mapRegistry.setMap(this.map);
-    this.createStationDblClickHandler = (e: L.LeafletMouseEvent) => this.handleStationCreateDoubleClick(e);
+    this.createStationDblClickHandler = (e: L.LeafletMouseEvent) =>
+      this.handleStationCreateDoubleClick(e);
     this.createPointMouseMoveHandler = (e: L.LeafletMouseEvent) => {
       if (!this.edit.enabled || !this.edit.editLayer || !this.edit.creatingStation) return;
       this.updateCreatePointHintPosition(e.latlng);
     };
     this.map.on('click', this.createStationDblClickHandler);
     this.map.on('mousemove', this.createPointMouseMoveHandler);
-    this.sidebarSub?.unsubscribe(); this.sidebarSub = new Subscription();
-    this.sidebarSub.add(this.ui.layoutChanged$.subscribe(() => { setTimeout(() => this.forceMapResize(), 320); }));
-    this.sidebarSub.add(this.router.events.pipe(filter((e) => e instanceof NavigationStart)).subscribe((e: any) => { const fromUrl = this.router.url || ''; const toUrl = e?.url || ''; const isMapPage = (u: string) => u.includes('/dashboard/railway-assets') || u.includes('/map'); if (isMapPage(fromUrl) && !isMapPage(toUrl)) { this.ui.activePanel = null; this.edit.disable(); this.mapZoom.clearHighlight(); this.clearZoomArtifacts(); this.applyEditSuppression(); } }));
-    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles Ã‚Â© Esri' }).addTo(this.map);
-    base.once('load', () => { this.forceMapResize(); });
+    this.sidebarSub?.unsubscribe();
+    this.sidebarSub = new Subscription();
+    this.sidebarSub.add(
+      this.ui.layoutChanged$.subscribe(() => {
+        setTimeout(() => this.forceMapResize(), 320);
+      }),
+    );
+    this.sidebarSub.add(
+      this.router.events.pipe(filter((e) => e instanceof NavigationStart)).subscribe((e: any) => {
+        const fromUrl = this.router.url || '';
+        const toUrl = e?.url || '';
+        const isMapPage = (u: string) =>
+          u.includes('/dashboard/railway-assets') || u.includes('/map');
+        if (isMapPage(fromUrl) && !isMapPage(toUrl)) {
+          this.ui.activePanel = null;
+          this.edit.disable();
+          this.mapZoom.clearHighlight();
+          this.clearZoomArtifacts();
+          this.applyEditSuppression();
+        }
+      }),
+    );
+    const base = L.tileLayer(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+      { maxNativeZoom: 17, maxZoom: 22, attribution: 'Tiles Ã‚Â© Esri' },
+    ).addTo(this.map);
+    base.once('load', () => {
+      this.forceMapResize();
+    });
     this.registerDepartmentLayers();
     this.map.whenReady(() => {
-      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); this.layerManager.addAll(this.map!); this.layerManager.reloadAll(this.map!); this.map!.once('moveend', () => { if (this.map) this.layerManager.reloadVisible(this.map); }); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => { this.syncEditAwareLayers(); this.applyEditSuppression(); this.updateStationCreateModeUi(); }); this.syncEditAwareLayers(); this.applyEditSuppression(); this.updateStationCreateModeUi(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else if (existingLayer && this.applyExistingMarkerHighlight(existingLayer)) { this.zoomHighlight = undefined; } else { this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); if ((this.highlightLayer as any).bringToFront) (this.highlightLayer as any).bringToFront(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false }); } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
+      this.forceMapResize();
+      this.ui.activePanel = null;
+      this.edit.disable();
+      this.clearZoomArtifacts();
+      this.mapZoom.clearHighlight();
+      this.layerManager.addAll(this.map!);
+      this.layerManager.reloadAll(this.map!);
+      this.map!.once('moveend', () => {
+        if (this.map) this.layerManager.reloadVisible(this.map);
+      });
+      this.captureHomeAfterFirstSettle();
+      this.initDeepLinking();
+      this.onMoveOrZoom = () => this.scheduleReload();
+      this.map!.on('moveend', this.onMoveOrZoom);
+      this.editSuppressionSub?.unsubscribe();
+      this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => {
+        this.syncEditAwareLayers();
+        this.applyEditSuppression();
+        this.updateStationCreateModeUi();
+      });
+      this.syncEditAwareLayers();
+      this.applyEditSuppression();
+      this.updateStationCreateModeUi();
+      this.lockDragSub?.unsubscribe();
+      this.lockDragSub = this.edit.lockDrag$.subscribe(() => {
+        if (!this.dragMarker) return;
+        this.dragMarker.dragging?.disable();
+        this.dragMarker.off('drag');
+        this.dragMarker.off('dragend');
+      });
+      this.mapZoomSub?.unsubscribe();
+      this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => {
+        if (!this.map) return;
+        this.clearZoomArtifacts();
+        if (t.type === 'clear') return;
+        if (t.type === 'home') {
+          this.zoomToHome();
+          return;
+        }
+        if (t.type === 'latlng') {
+          const z = t.zoom ?? 17;
+          const ll = L.latLng(t.lat, t.lng);
+          const draggable = !!(t as any).draggable;
+          const existingLayer = (t as any).existingLayer;
+          this.centerLatLngInVisibleMapArea(ll, z);
+          if (draggable) {
+            this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map);
+            this.dragMarker.on('drag', () => {
+              const p = this.dragMarker!.getLatLng();
+              this.edit.emitDragEnd(p.lat, p.lng);
+            });
+            this.dragMarker.on('dragend', () => {
+              const p = this.dragMarker!.getLatLng();
+              this.edit.emitDragEnd(p.lat, p.lng);
+            });
+            this.zoomHighlight = this.dragMarker;
+          } else if (existingLayer && this.applyExistingMarkerHighlight(existingLayer)) {
+            this.zoomHighlight = undefined;
+          } else {
+            this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map);
+          }
+          return;
+        }
+        if (t.type === 'xy') {
+          const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y));
+          const z = t.zoom ?? 17;
+          this.centerLatLngInVisibleMapArea(ll, z);
+          this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map);
+          return;
+        }
+        if (t.type === 'bounds') {
+          const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east));
+          this.map.invalidateSize();
+          this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false });
+        }
+      });
+      this.zoomSub?.unsubscribe();
+      this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => {
+        if (!this.map) return;
+        try {
+          this.clearZoomArtifacts();
+          const gj = this.createAttributeHighlightLayer(feature);
+          const bounds = gj.getBounds();
+          this.highlightLayer = gj.addTo(this.map);
+          if ((this.highlightLayer as any).bringToFront)
+            (this.highlightLayer as any).bringToFront();
+          if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false });
+        } catch (e) {}
+      });
+      this.clearSelectionSub?.unsubscribe();
+      this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => {
+        if (!this.map) return;
+        this.clearZoomArtifacts();
+        this.zoomToHome();
+      });
     });
   }
 
@@ -506,7 +834,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-
   onStationSelected(station: Station): void {
     const coordinates = station.geometry.coordinates;
     const lng = coordinates[0];
@@ -522,7 +849,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       lat,
       lng,
       zoom: 17,
-      draggable: false
+      draggable: false,
     } as any);
 
     if (this.map) {
@@ -551,9 +878,16 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private showStationNotification(station: Station): void {
     const notification = document.createElement('div');
     notification.className = 'station-notification';
-    notification.innerHTML = '<div style="background: white; padding: 12px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border-left: 4px solid #4CAF50;">' +
-      '<strong>' + station.properties.sttnname + '</strong><br>' +
-      '<small>Code: ' + station.properties.sttncode + ' | District: ' + station.properties.district + '</small>' +
+    notification.innerHTML =
+      '<div style="background: white; padding: 12px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); border-left: 4px solid #4CAF50;">' +
+      '<strong>' +
+      station.properties.sttnname +
+      '</strong><br>' +
+      '<small>Code: ' +
+      station.properties.sttncode +
+      ' | District: ' +
+      station.properties.district +
+      '</small>' +
       '</div>';
     notification.style.position = 'absolute';
     notification.style.bottom = '40px';
@@ -568,34 +902,53 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     document.body.classList.remove(this.performanceBodyClass);
-    this.zoomSub?.unsubscribe(); this.clearSelectionSub?.unsubscribe(); this.sidebarSub?.unsubscribe(); this.mapZoomSub?.unsubscribe(); this.lockDragSub?.unsubscribe(); this.editSuppressionSub?.unsubscribe(); this.routeSub?.unsubscribe(); this.zoomSub = undefined; this.clearSelectionSub = undefined; this.sidebarSub = undefined; this.mapZoomSub = undefined; this.lockDragSub = undefined; this.editSuppressionSub = undefined; this.routeSub = undefined; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = null; if (this.map) this.clearZoomArtifacts(); if (!this.map) return;
-    try { if (this.createStationDblClickHandler) this.map.off('click', this.createStationDblClickHandler); if (this.createPointMouseMoveHandler) this.map.off('mousemove', this.createPointMouseMoveHandler); if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom); else this.map.off(); this.layerManager.removeAll(this.map); this.map.remove(); } finally { if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) { this.map.removeLayer(this.selectedStationMarker); } if (this.createPointHintMarker && this.map?.hasLayer(this.createPointHintMarker)) { this.map.removeLayer(this.createPointHintMarker); } this.selectedStationMarker = undefined; this.createPointHintMarker = undefined; this.map = undefined; this.onMoveOrZoom = undefined; this.highlightLayer = undefined; this.homeCenter = undefined; this.homeZoom = undefined; this.homeCaptured = false; this.dragMarker = undefined; this.zoomHighlight = undefined; this.suppressedVis.clear(); this.createStationDblClickHandler = undefined; this.createPointMouseMoveHandler = undefined; }
+    this.zoomSub?.unsubscribe();
+    this.clearSelectionSub?.unsubscribe();
+    this.sidebarSub?.unsubscribe();
+    this.mapZoomSub?.unsubscribe();
+    this.lockDragSub?.unsubscribe();
+    this.editSuppressionSub?.unsubscribe();
+    this.routeSub?.unsubscribe();
+    this.zoomSub = undefined;
+    this.clearSelectionSub = undefined;
+    this.sidebarSub = undefined;
+    this.mapZoomSub = undefined;
+    this.lockDragSub = undefined;
+    this.editSuppressionSub = undefined;
+    this.routeSub = undefined;
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    this.reloadTimer = null;
+    if (this.map) this.clearZoomArtifacts();
+    if (!this.map) return;
+    try {
+      if (this.createStationDblClickHandler)
+        this.map.off('click', this.createStationDblClickHandler);
+      if (this.createPointMouseMoveHandler)
+        this.map.off('mousemove', this.createPointMouseMoveHandler);
+      if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom);
+      else this.map.off();
+      this.layerManager.removeAll(this.map);
+      this.map.remove();
+    } finally {
+      if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) {
+        this.map.removeLayer(this.selectedStationMarker);
+      }
+      if (this.createPointHintMarker && this.map?.hasLayer(this.createPointHintMarker)) {
+        this.map.removeLayer(this.createPointHintMarker);
+      }
+      this.selectedStationMarker = undefined;
+      this.createPointHintMarker = undefined;
+      this.map = undefined;
+      this.onMoveOrZoom = undefined;
+      this.highlightLayer = undefined;
+      this.homeCenter = undefined;
+      this.homeZoom = undefined;
+      this.homeCaptured = false;
+      this.dragMarker = undefined;
+      this.zoomHighlight = undefined;
+      this.suppressedVis.clear();
+      this.createStationDblClickHandler = undefined;
+      this.createPointMouseMoveHandler = undefined;
+    }
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

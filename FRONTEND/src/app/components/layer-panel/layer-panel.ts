@@ -5,15 +5,24 @@ import { MapRegistry } from '../../services/map-registry';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AttributeTableService } from '../../services/attribute-table';
+import { StationCategoryVisibilityService } from '../../services/station-category-visibility';
+import {
+  STATION_CATEGORY_GROUPS,
+  type StationCategory,
+  type StationCategoryGroup,
+} from '../../departments/civil_engineering_assets/viewing/station-category-config';
 
 type LayerTreeNode = {
   id: string;
   title: string;
-  kind: 'group' | 'layer';
+  kind: 'group' | 'layer' | 'station-category';
   checked: boolean;
   expanded: boolean;
   children?: LayerTreeNode[];
   layerRef?: any;
+  stationCategory?: StationCategory;
+  stationGroup?: StationCategoryGroup;
+  controlsStationLayer?: boolean;
 };
 
 @Component({
@@ -31,7 +40,8 @@ export class LayerPanel {
     public ui: UiState,
     public layerManager: LayerManager,
     private mapRegistry: MapRegistry,
-    private attributeTable: AttributeTableService
+    private attributeTable: AttributeTableService,
+    private stationCategoryVisibility: StationCategoryVisibilityService,
   ) {}
 
   @HostListener('document:click')
@@ -85,8 +95,47 @@ export class LayerPanel {
     };
   }
 
+  private makeStationCategoryNode(category: StationCategory): LayerTreeNode {
+    return {
+      id: `station-category-${category}`,
+      title: category,
+      kind: 'station-category',
+      checked: this.stationCategoryVisibility.isCategoryVisible(category),
+      expanded: false,
+      stationCategory: category,
+    };
+  }
+
+  private makeStationCategoryGroupNode(group: StationCategoryGroup): LayerTreeNode {
+    const groupDef = STATION_CATEGORY_GROUPS.find((item) => item.group === group);
+    const children = (groupDef?.categories || []).map((category) => this.makeStationCategoryNode(category));
+    return {
+      id: `station-group-${group}`,
+      title: group,
+      kind: 'group',
+      checked: children.some((child) => child.checked),
+      expanded: this.isExpanded(`station-group-${group}`, true),
+      children,
+      stationGroup: group,
+    };
+  }
+
+  private makeStationRootNode(layer: any): LayerTreeNode {
+    const children = STATION_CATEGORY_GROUPS.map((group) => this.makeStationCategoryGroupNode(group.group));
+    return {
+      id: 'root-railway-stations',
+      title: 'RAILWAY STATIONS',
+      kind: 'group',
+      checked: !!layer.visible && this.stationCategoryVisibility.isAnyCategoryVisible(),
+      expanded: this.isExpanded('root-railway-stations', true),
+      children,
+      layerRef: layer,
+      controlsStationLayer: true,
+    };
+  }
+
   private groupDepartmentLayers(layers: any[]): LayerTreeNode[] {
-    const stationChildren: LayerTreeNode[] = [];
+    let stationRoot: LayerTreeNode | null = null;
     const trackChildren: LayerTreeNode[] = [];
     const bridgeChildren: LayerTreeNode[] = [];
     const railwayLandChildren: LayerTreeNode[] = [];
@@ -114,7 +163,7 @@ export class LayerPanel {
       const normalized = this.normalize(node.title);
 
       if (normalized === 'stations' || normalized === 'station' || normalized.includes('railway station')) {
-        stationChildren.push(node);
+        stationRoot = this.makeStationRootNode(layer);
         return;
       }
       if ([...railwayLandKeys].some((key) => normalized.includes(key))) {
@@ -133,7 +182,7 @@ export class LayerPanel {
     });
 
     const groups: LayerTreeNode[] = [];
-    groups.push(...stationChildren);
+    if (stationRoot) groups.push(stationRoot);
     if (trackChildren.length) groups.push(this.makeGroupNode('group-track', 'Track', trackChildren));
     if (bridgeChildren.length) groups.push(this.makeGroupNode('group-bridges', 'Bridges', bridgeChildren));
     if (railwayLandChildren.length) groups.push(this.makeGroupNode('group-railway-land', 'Railway Land', railwayLandChildren));
@@ -151,11 +200,11 @@ export class LayerPanel {
         : group.layers.map((layer) => this.makeLayerNode(layer));
 
       if (group.key === 'department') {
-        const stationNodes = children.filter((child) => child.kind === 'layer' && this.normalize(child.title) === 'stations');
-        const departmentChildren = children.filter((child) => !(child.kind === 'layer' && this.normalize(child.title) === 'stations'));
+        const stationRoot = children.find((child) => child.id === 'root-railway-stations');
+        const departmentChildren = children.filter((child) => child.id !== 'root-railway-stations');
 
-        if (stationNodes.length) {
-          tree.push(this.makeGroupNode('root-railway-stations', 'RAILWAY STATIONS', stationNodes, true));
+        if (stationRoot) {
+          tree.push(stationRoot);
         }
         if (departmentChildren.length) {
           tree.push(this.makeGroupNode(`root-${group.key}`, group.title.toUpperCase(), departmentChildren, true));
@@ -195,6 +244,27 @@ export class LayerPanel {
     if (!this.mapRegistry.hasMap()) return;
     const map = this.mapRegistry.getMap();
 
+    if (node.controlsStationLayer) {
+      this.stationCategoryVisibility.setAllVisible(checked);
+      if (node.layerRef) {
+        node.layerRef.visible = checked;
+        this.layerManager.setVisible(node.layerRef.id, checked, map);
+      }
+      return;
+    }
+
+    if (node.stationGroup) {
+      this.stationCategoryVisibility.setGroupVisible(node.stationGroup, checked);
+      this.syncStationLayerVisibility(map);
+      return;
+    }
+
+    if (node.stationCategory) {
+      this.stationCategoryVisibility.setCategoryVisible(node.stationCategory, checked);
+      this.syncStationLayerVisibility(map);
+      return;
+    }
+
     if (node.kind === 'group') {
       const nextValue = checked;
       node.checked = nextValue;
@@ -211,6 +281,24 @@ export class LayerPanel {
 
   private applyNodeVisibility(node: LayerTreeNode, visible: boolean, map: any): void {
     node.checked = visible;
+    if (node.controlsStationLayer) {
+      this.stationCategoryVisibility.setAllVisible(visible);
+      if (node.layerRef) {
+        node.layerRef.visible = visible;
+        this.layerManager.setVisible(node.layerRef.id, visible, map);
+      }
+      return;
+    }
+    if (node.stationGroup) {
+      this.stationCategoryVisibility.setGroupVisible(node.stationGroup, visible);
+      this.syncStationLayerVisibility(map);
+      return;
+    }
+    if (node.stationCategory) {
+      this.stationCategoryVisibility.setCategoryVisible(node.stationCategory, visible);
+      this.syncStationLayerVisibility(map);
+      return;
+    }
     if (node.kind === 'group') {
       (node.children || []).forEach((child) => this.applyNodeVisibility(child, visible, map));
       return;
@@ -219,6 +307,14 @@ export class LayerPanel {
       node.layerRef.visible = visible;
       this.layerManager.setVisible(node.layerRef.id, visible, map);
     }
+  }
+
+  private syncStationLayerVisibility(map: any): void {
+    const stationLayer = this.layerManager.findById('stations');
+    if (!stationLayer) return;
+    const shouldShow = this.stationCategoryVisibility.isAnyCategoryVisible();
+    stationLayer.visible = shouldShow;
+    this.layerManager.setVisible(stationLayer.id, shouldShow, map);
   }
 }
 

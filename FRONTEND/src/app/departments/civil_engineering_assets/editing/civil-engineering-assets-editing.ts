@@ -11,6 +11,8 @@ import {
   LandPlanOntrackViewingLayer,
   StationViewingLayer,
 } from '../viewing/civil-engineering-assets-viewing';
+import { StationCategoryVisibilityService } from '../../../services/station-category-visibility';
+
 
 export const CIVIL_ENGINEERING_ASSET_LAYER_ALIASES: Record<string, string> = {
   stations: 'Stations',
@@ -109,9 +111,10 @@ export class StationLayer extends StationViewingLayer {
     _filters: FilterState,
     private edit: EditState,
     zone: NgZone,
-    onData?: (geojson: any) => void
+    stationCategoryVisibility: StationCategoryVisibilityService,
+    onData?: (geojson: any) => void,
   ) {
-    super(api, zone, onData);
+    super(api, zone, stationCategoryVisibility, onData);
   }
 
   protected override onMarkerCreated(feature: any, marker: L.Marker) {

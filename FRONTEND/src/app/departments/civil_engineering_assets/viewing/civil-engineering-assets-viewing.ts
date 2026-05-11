@@ -2,10 +2,14 @@
 import * as L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import { NgZone } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { Api } from '../../../api/api';
 import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend } from '../../../services/interface';
 import { inferCivilLegendFromFeatureCollection } from '../../../components/legend-panel/legend-panel';
 import { bindAssetDetailsPopup } from '../../../components/asset-popup/asset-popup';
+import { getStationCategoryIconConfig, normalizeStationCategory } from './station-category-config';
+import { StationCategoryVisibilityService } from '../../../services/station-category-visibility';
+
 
 const STATION_LEGEND: LayerLegend = defineLegend({
   type: 'point' as const,
@@ -125,12 +129,15 @@ export class StationViewingLayer implements MapLayer {
   private onMoveEndHandler?: () => void;
   private labelUpdateTimer: any = null;
   private requestSeq = 0;
+  private visibilitySub?: Subscription;
+  private lastGeojson: any = null;
+  private lastMap?: L.Map;
 
   protected getStationLabel(feature: any): string {
     const p = feature?.properties || {};
     const name = (p.sttnname || '').toString().trim();
     const code = (p.sttncode || '').toString().trim();
-    return code && name ? code + ' : ' + name : (code || name);
+    return code && name ? code + ' : ' + name : code || name;
   }
 
   protected bindStationTooltip(marker: L.Marker, label: string, permanent: boolean): void {
@@ -151,9 +158,18 @@ export class StationViewingLayer implements MapLayer {
   constructor(
     protected api: Api,
     protected zone: NgZone,
-    protected onData?: (geojson: any) => void
+    protected stationCategoryVisibility: StationCategoryVisibilityService,
+    protected onData?: (geojson: any) => void,
   ) {
     this.layer = L.featureGroup();
+
+    this.visibilitySub = this.stationCategoryVisibility.state$.subscribe(() => {
+      if (!this.lastMap || !this.lastGeojson) return;
+      this.zone.run(() => {
+        this.renderStationFeatures(this.lastMap as L.Map, this.lastGeojson);
+        this.scheduleLabelUpdate(this.lastMap as L.Map);
+      });
+    });
   }
 
   protected onMarkerCreated(_feature: any, _marker: L.Marker) {}
@@ -197,6 +213,7 @@ export class StationViewingLayer implements MapLayer {
     if (this.labelUpdateTimer) clearTimeout(this.labelUpdateTimer);
     this.labelUpdateTimer = null;
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    this.lastMap = undefined;
     this.isOnMap = false;
   }
 
@@ -215,10 +232,8 @@ export class StationViewingLayer implements MapLayer {
   }
 
   protected updateLabels(map: L.Map) {
-
     if (!this.isOnMap || !map || !map.getContainer || !map.getContainer()) return;
     if (!map.hasLayer(this.layer)) return;
-
 
     const show = map.getZoom() >= this.LABEL_ZOOM;
     const bounds = map.getBounds();
@@ -252,7 +267,7 @@ export class StationViewingLayer implements MapLayer {
       const tooClose = occupied.some((q) => {
         const dx = q.x - p.x;
         const dy = q.y - p.y;
-        return (dx * dx + dy * dy) < (minDistancePx * minDistancePx);
+        return dx * dx + dy * dy < minDistancePx * minDistancePx;
       });
       if (tooClose || shownCount >= maxLabels) {
         this.bindStationTooltip(l, label, false);
@@ -268,24 +283,34 @@ export class StationViewingLayer implements MapLayer {
 
   protected beforeRender(_geojson: any) {}
 
-
   protected createStationMarker(feature: any, latlng: L.LatLng): L.Layer {
     const p = feature?.properties || {};
     const stationLabel = this.getStationLabel(feature);
-    const iconWidth = this.legend.imageWidth ?? 20;
-    const iconHeight = this.legend.imageHeight ?? 20;
+    const iconConfig = getStationCategoryIconConfig(p.category);
+    const iconWidth = iconConfig.imageWidth ?? this.legend.imageWidth ?? 20;
+    const iconHeight = iconConfig.imageHeight ?? this.legend.imageHeight ?? 20;
+    const iconUrl = iconConfig.imageUrl || this.legend.imageUrl || 'assets/images/download.png';
+
     const marker = L.marker(latlng, {
       pane: DEPARTMENT_POINT_PANE,
       keyboard: false,
       interactive: true,
       icon: L.divIcon({
         className: 'map-symbol-icon station-symbol-icon',
-        html: '<img src="' + (this.legend.imageUrl || 'assets/images/download.png') + '" style="display:block;width:' + iconWidth + 'px;height:' + iconHeight + 'px;object-fit:contain;" alt="Station">',
+        html:
+          '<img src="' +
+          iconUrl +
+          '" style="display:block;width:' +
+          iconWidth +
+          'px;height:' +
+          iconHeight +
+          'px;object-fit:contain;" alt="Station">',
         iconSize: [iconWidth, iconHeight],
         iconAnchor: [iconWidth / 2, iconHeight / 2],
         popupAnchor: [0, Math.round(iconHeight / 2) + 12],
       }),
     }) as any;
+
     this.onMarkerCreated(feature, marker as any);
 
     this.bindStationTooltip(marker as any, stationLabel, false);
@@ -303,12 +328,20 @@ export class StationViewingLayer implements MapLayer {
 
     this.layer.clearLayers();
     features.forEach((feature: any) => {
+      if (!this.isStationVisible(feature)) return;
+
       const coords = feature?.geometry?.coordinates || [];
       const lng = Number(coords[0]);
       const lat = Number(coords[1]);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
       this.layer.addLayer(this.createStationMarker(feature, L.latLng(lat, lng)));
     });
+  }
+
+  protected isStationVisible(feature: any): boolean {
+    const category = normalizeStationCategory(feature?.properties?.category);
+    return this.stationCategoryVisibility.isCategoryVisible(category);
   }
 
   loadForMap(map: L.Map) {
@@ -326,6 +359,8 @@ export class StationViewingLayer implements MapLayer {
     this.api.getStations(bbox).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
+        this.lastGeojson = geojson;
+        this.lastMap = map;
         this.zone.run(() => {
           this.beforeRender(geojson);
           this.renderStationFeatures(map, geojson);
@@ -336,7 +371,16 @@ export class StationViewingLayer implements MapLayer {
       error: (err: any) => console.error('Station layer error', err),
     });
   }
+
+  destroy(): void {
+    this.visibilitySub?.unsubscribe();
+    this.visibilitySub = undefined;
+    this.lastGeojson = null;
+    this.lastMap = undefined;
+  }
 }
+
+
 export class LandPlanOntrackViewingLayer implements MapLayer {
   id = 'landplan_ontrack';
   title = 'Landplan Ontrack';
@@ -452,6 +496,8 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     });
   }
 }
+
+
 export class LandOffsetLayer implements MapLayer {
   id = 'land_offset';
   title = 'Land Offset';
