@@ -1,36 +1,4 @@
 <div class="container-fluid super-admin-page dashboard-page-shell">
-  <div class="user-toast-overlay" *ngIf="showToast">
-    <div class="user-toast" [ngClass]="'toast-' + toastType">
-      <div class="user-toast-icon">
-        <i
-          class="bi"
-          [ngClass]="{
-            'bi-check2-circle': toastType === 'success',
-            'bi-x-circle': toastType === 'error',
-            'bi-exclamation-circle': toastType === 'warning'
-          }"
-        ></i>
-      </div>
-
-      <div class="user-toast-content">
-        <div class="user-toast-title">
-          {{
-            toastType === 'success'
-              ? 'Success'
-              : toastType === 'error'
-                ? 'Something Went Wrong'
-                : 'Attention'
-          }}
-        </div>
-        <div class="user-toast-message">{{ toastMessage }}</div>
-      </div>
-
-      <button class="user-toast-close" (click)="closeToast()" aria-label="Close notification">
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </div>
-  </div>
-
   <div class="row g-3 h-100">
     <div class="col-12 col-xl-3 d-flex">
       <div class="super-admin-sidebar w-100">
@@ -60,13 +28,7 @@
 
         <div class="summary-group-list">
           <div class="summary-group-card" *ngFor="let card of summaryCards">
-            <div class="summary-group-header">
-              <div class="summary-group-title-wrap">
-                <span class="summary-group-accent"></span>
-                <div class="summary-group-title">{{ card.label }}</div>
-              </div>
-              <div class="summary-group-chip">{{ card.counts.length }} Roles</div>
-            </div>
+            <div class="summary-group-title">{{ card.label }}</div>
 
             <div class="summary-group-grid">
               <div class="summary-group-item" *ngFor="let count of card.counts">
@@ -86,7 +48,9 @@
             <h4 class="super-admin-title">User List</h4>
           </div>
 
-          <button class="create-user-btn" type="button" (click)="openCreateUserModal()">+ Create New User</button>
+          <button class="create-user-btn" type="button">
+            + Create New User
+          </button>
         </div>
 
         <ul class="super-admin-tabs">
@@ -178,22 +142,13 @@
                   <td>{{ user.designation || '--' }}</td>
                   <td>
                     <div class="table-actions">
-                      <button
-                        type="button"
-                        class="btn-action btn-view"
-                        title="View User"
-                        (click)="openViewModal(user)"
-                      >
+                      <button type="button" class="btn-action btn-view" title="View User">
                         <i class="bi bi-person-vcard-fill"></i>
                       </button>
-                      <button
-                        type="button"
-                        class="btn-action btn-edit"
-                        title="Edit User"
-                        (click)="openEditUserModal(user)"
-                      >
+                      <button type="button" class="btn-action btn-edit" title="Edit User">
                         <i class="bi bi-pencil-fill"></i>
                       </button>
+
                       <button
                         type="button"
                         class="btn-action btn-delete"
@@ -201,6 +156,7 @@
                         [disabled]="isCurrentUser(user) || isSuperAdminUser(user)"
                         (click)="openDeleteConfirmModal(user)"
                       >
+
                         <i class="bi bi-trash-fill"></i>
                       </button>
                     </div>
@@ -208,7 +164,9 @@
                 </tr>
 
                 <tr *ngIf="paginatedUsers.length === 0">
-                  <td colspan="11" class="empty-row">No users found for the selected filter.</td>
+                  <td colspan="11" class="empty-row">
+                    No users found for the selected filter.
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -217,7 +175,7 @@
           <div class="table-pager">
             <small>
               Showing
-              {{ filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1 }}
+              {{ filteredUsers.length === 0 ? 0 : ((currentPage - 1) * pageSize + 1) }}
               -
               {{ (currentPage - 1) * pageSize + paginatedUsers.length }}
               of {{ filteredUsers.length }} entries
@@ -253,6 +211,7 @@
       </div>
     </div>
   </div>
+
 
   <div
   class="modal-backdrop-custom"
@@ -481,5 +440,6 @@
     </div>
   </div>
 </div>
+
 
 </div>

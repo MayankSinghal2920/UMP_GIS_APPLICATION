@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { Api } from '../../../api/api';
 import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend } from '../../../services/interface';
 import { inferCivilLegendFromFeatureCollection } from '../../../components/legend-panel/legend-panel';
+
 import { bindAssetDetailsPopup } from '../../../components/asset-popup/asset-popup';
 import { getStationCategoryIconConfig, normalizeStationCategory } from './station-category-config';
 import { StationCategoryVisibilityService } from '../../../services/station-category-visibility';
@@ -100,10 +101,6 @@ function orderLayerInPane(layer: L.GeoJSON, legend: LayerLegend): void {
   else layer.bringToFront();
 }
 
-function bindAssetPopup(feature: any, layer: any, title: string, layerKey?: string): void {
-  bindAssetDetailsPopup(layer, title, feature?.properties || {}, { layerKey });
-}
-
 function inferMinZoomFromTitle(title: string): number {
   const normalized = String(title || '').toLowerCase().replace(/\s+/g, ' ').trim();
   if (normalized.includes('station')) return 0;
@@ -178,7 +175,7 @@ export class StationViewingLayer implements MapLayer {
 
   addTo(map: L.Map) {
     if (this.visible && !this.isOnMap) {
-      ensurePane(map, DEPARTMENT_POINT_PANE, 'auto');
+      ensurePane(map, DEPARTMENT_POINT_PANE);
       this.layer.addTo(map);
       this.isOnMap = true;
 
@@ -307,7 +304,7 @@ export class StationViewingLayer implements MapLayer {
           'px;object-fit:contain;" alt="Station">',
         iconSize: [iconWidth, iconHeight],
         iconAnchor: [iconWidth / 2, iconHeight / 2],
-        popupAnchor: [0, Math.round(iconHeight / 2) + 12],
+        popupAnchor: [0, -Math.round(iconHeight / 2)],
       }),
     }) as any;
 
@@ -316,7 +313,7 @@ export class StationViewingLayer implements MapLayer {
     this.bindStationTooltip(marker as any, stationLabel, false);
 
     if (marker.bindPopup) {
-      bindAssetDetailsPopup(marker, 'Station Details', p);
+      marker.bindPopup('<b>' + (p.sttnname || 'Station') + '</b><br>Code: ' + (p.sttncode || '-'));
     }
 
     this.onFeatureReady(feature, marker);
@@ -402,14 +399,13 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
       style: () => pathStyleFromLegend(this.legend),
       interactive: this.isInteractive(),
       onEachFeature: (feature: any, layer: any) => {
-        bindAssetPopup(feature, layer, this.title);
         this.onFeatureReady(feature, layer);
       },
     });
   }
 
   protected isInteractive(): boolean {
-    return true;
+    return false;
   }
 
   protected panePointerEvents(): string {
@@ -524,14 +520,13 @@ export class LandOffsetLayer implements MapLayer {
       style: () => pathStyleFromLegend(this.legend),
       interactive: this.isInteractive(),
       onEachFeature: (feature: any, layer: any) => {
-        bindAssetPopup(feature, layer, this.title);
         this.onFeatureReady(feature, layer);
       },
     });
   }
 
   protected isInteractive(): boolean {
-    return true;
+    return false;
   }
 
   protected onFeatureReady(_feature: any, _layer: any): void {}
@@ -696,14 +691,13 @@ export class LandBoundaryLayer implements MapLayer {
       style: pathStyleFromLegend(this.legend),
       interactive: this.isInteractive(),
       onEachFeature: (feature: any, layer: any) => {
-        bindAssetPopup(feature, layer, this.title);
         this.onFeatureReady(feature, layer);
       },
     });
   }
 
   protected isInteractive(): boolean {
-    return true;
+    return false;
   }
 
   protected onFeatureReady(_feature: any, _layer: any): void {}
@@ -790,8 +784,6 @@ export class DynamicDepartmentLayer implements MapLayer {
   private added = false;
   private readonly minZoom: number;
   private onZoomEndHandler?: () => void;
-  private renderedPointIndex = new Map<string, L.LatLng>();
-  private renderedPointFeatures: Array<{ props: Record<string, any>; latLng: L.LatLng; layer?: any }> = [];
 
   constructor(
     public id: string,
@@ -808,171 +800,24 @@ export class DynamicDepartmentLayer implements MapLayer {
       pointToLayer: (_feature: any, latlng: L.LatLng) =>
         pointLayerFromLegend(this.legend, latlng, paneNameForLegend(this.legend)),
       onEachFeature: (feature: any, layer: any) => {
-        bindAssetPopup(feature, layer, this.title, this.layerKey);
+        const props = feature?.properties || {};
+        const firstKeys = Object.keys(props).slice(0, 5);
+        if (firstKeys.length) {
+          const html = firstKeys
+            .map((key) => `<b>${key}</b>: ${props[key] ?? '-'}`)
+            .join('<br>');
+          layer.bindPopup(html);
+        }
         this.onFeatureReady(feature, layer);
       },
     });
   }
 
-  private isBridgeMinorLayer(): boolean {
-    return String(this.layerKey || this.id || '').toLowerCase().includes('bridge_minor');
-  }
-
-  private getRequestLimit(): number | undefined {
-    return this.isBridgeMinorLayer() ? 3000 : undefined;
-  }
-
   protected isInteractive(): boolean {
-    return true;
+    return false;
   }
 
   protected onFeatureReady(_feature: any, _layer: any): void {}
-
-  getRenderedLatLngForKey(...keys: Array<string | number | null | undefined>): L.LatLng | null {
-    for (const key of keys) {
-      const normalized = String(key ?? '').trim().toLowerCase();
-      if (!normalized) continue;
-      const latLng = this.renderedPointIndex.get(normalized);
-      if (latLng) return latLng;
-    }
-    return null;
-  }
-
-  getBestRenderedLatLng(row: any): L.LatLng | null {
-    if (!row || !this.renderedPointFeatures.length) return null;
-
-    const normalize = (value: any) => String(value ?? '').trim().toLowerCase();
-    const normalizeNumber = (value: any) => {
-      const num = Number(value);
-      return Number.isFinite(num) ? String(num) : '';
-    };
-
-    let bestScore = 0;
-    let bestLatLng: L.LatLng | null = null;
-
-    for (const candidate of this.renderedPointFeatures) {
-      const props = candidate.props || {};
-      let score = 0;
-
-      const rowObjectId = normalizeNumber(row?.objectid);
-      const propObjectId = normalizeNumber(props?.objectid || props?.OBJECTID);
-      if (rowObjectId && propObjectId && rowObjectId === propObjectId) score += 100;
-
-      const rowGid = normalizeNumber(row?.gid);
-      const propGid = normalizeNumber(props?.gid);
-      if (rowGid && propGid && rowGid === propGid) score += 100;
-
-      const rowAssetId = normalize(row?.asset_id || row?.assetid);
-      const propAssetId = normalize(props?.asset_id || props?.assetid);
-      if (rowAssetId && propAssetId && rowAssetId === propAssetId) score += 80;
-
-      const rowBridgeNo = normalize(row?.bridgeno || row?.rorno);
-      const propBridgeNo = normalize(props?.bridgeno || props?.rorno);
-      if (rowBridgeNo && propBridgeNo && rowBridgeNo === propBridgeNo) score += 50;
-
-      const rowLine = normalize(row?.line);
-      const propLine = normalize(props?.line);
-      if (rowLine && propLine && rowLine === propLine) score += 40;
-
-      const rowDistKm = normalizeNumber(row?.distkm);
-      const rowDistM = normalizeNumber(row?.distm);
-      const candidateKmValues = [
-        normalizeNumber(props?.distkm),
-        normalizeNumber(props?.kmfrom),
-        normalizeNumber(props?.kmto),
-      ].filter(Boolean);
-      const candidateMValues = [
-        normalizeNumber(props?.distm),
-        normalizeNumber(props?.metfrom),
-        normalizeNumber(props?.metto),
-      ].filter(Boolean);
-      if (rowDistKm && candidateKmValues.includes(rowDistKm)) score += 25;
-      if (rowDistM && candidateMValues.includes(rowDistM)) score += 25;
-
-      const rowState = normalize(row?.state);
-      const propState = normalize(props?.state);
-      if (rowState && propState && rowState === propState) score += 10;
-
-      const rowDistrict = normalize(row?.district);
-      const propDistrict = normalize(props?.district);
-      if (rowDistrict && propDistrict && rowDistrict === propDistrict) score += 10;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestLatLng = candidate.latLng;
-      }
-    }
-
-    return bestScore > 0 ? bestLatLng : null;
-  }
-
-  getBestRenderedLayer(row: any): any | null {
-    if (!row || !this.renderedPointFeatures.length) return null;
-
-    const normalize = (value: any) => String(value ?? '').trim().toLowerCase();
-    const normalizeNumber = (value: any) => {
-      const num = Number(value);
-      return Number.isFinite(num) ? String(num) : '';
-    };
-
-    let bestScore = 0;
-    let bestLayer: any | null = null;
-
-    for (const candidate of this.renderedPointFeatures) {
-      const props = candidate.props || {};
-      let score = 0;
-
-      const rowObjectId = normalizeNumber(row?.objectid);
-      const propObjectId = normalizeNumber(props?.objectid || props?.OBJECTID);
-      if (rowObjectId && propObjectId && rowObjectId === propObjectId) score += 100;
-
-      const rowGid = normalizeNumber(row?.gid);
-      const propGid = normalizeNumber(props?.gid);
-      if (rowGid && propGid && rowGid === propGid) score += 100;
-
-      const rowAssetId = normalize(row?.asset_id || row?.assetid);
-      const propAssetId = normalize(props?.asset_id || props?.assetid);
-      if (rowAssetId && propAssetId && rowAssetId === propAssetId) score += 80;
-
-      const rowBridgeNo = normalize(row?.bridgeno || row?.rorno);
-      const propBridgeNo = normalize(props?.bridgeno || props?.rorno);
-      if (rowBridgeNo && propBridgeNo && rowBridgeNo === propBridgeNo) score += 50;
-
-      const rowLine = normalize(row?.line);
-      const propLine = normalize(props?.line);
-      if (rowLine && propLine && rowLine === propLine) score += 40;
-
-      const rowDistKm = normalizeNumber(row?.distkm);
-      const rowDistM = normalizeNumber(row?.distm);
-      const candidateKmValues = [
-        normalizeNumber(props?.distkm),
-        normalizeNumber(props?.kmfrom),
-        normalizeNumber(props?.kmto),
-      ].filter(Boolean);
-      const candidateMValues = [
-        normalizeNumber(props?.distm),
-        normalizeNumber(props?.metfrom),
-        normalizeNumber(props?.metto),
-      ].filter(Boolean);
-      if (rowDistKm && candidateKmValues.includes(rowDistKm)) score += 25;
-      if (rowDistM && candidateMValues.includes(rowDistM)) score += 25;
-
-      const rowState = normalize(row?.state);
-      const propState = normalize(props?.state);
-      if (rowState && propState && rowState === propState) score += 10;
-
-      const rowDistrict = normalize(row?.district);
-      const propDistrict = normalize(props?.district);
-      if (rowDistrict && propDistrict && rowDistrict === propDistrict) score += 10;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestLayer = candidate.layer || null;
-      }
-    }
-
-    return bestScore > 0 ? bestLayer : null;
-  }
 
   private canShow(map: L.Map): boolean {
     return this.visible && map.getZoom() >= this.minZoom;
@@ -996,7 +841,7 @@ export class DynamicDepartmentLayer implements MapLayer {
     }
 
     if (!this.canShow(map)) return;
-    ensurePane(map, paneNameForLegend(this.legend), 'auto');
+    ensurePane(map, paneNameForLegend(this.legend));
     this.layer.addTo(map);
     this.added = true;
   }
@@ -1022,14 +867,12 @@ export class DynamicDepartmentLayer implements MapLayer {
     this.lastBbox = bboxKey;
     const requestId = ++this.requestSeq;
 
-    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox, this.getRequestLimit()).subscribe({
+    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
         this.legend = inferCivilLegendFromFeatureCollection(this.title, this.layerKey, geojson);
-        ensurePane(map, paneNameForLegend(this.legend), 'auto');
+        ensurePane(map, paneNameForLegend(this.legend));
         this.onData?.(geojson);
-        this.renderedPointIndex.clear();
-        this.renderedPointFeatures = [];
 
         if (!this.canShow(map)) {
           this.layer.clearLayers();
@@ -1038,29 +881,6 @@ export class DynamicDepartmentLayer implements MapLayer {
 
         this.layer.clearLayers();
         this.layer.addData(geojson);
-        this.layer.eachLayer((featureLayer: any) => {
-          const feature = featureLayer?.feature;
-          const props = feature?.properties ?? {};
-          const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : null;
-          const lng = Number(coords?.[0]);
-          const lat = Number(coords?.[1]);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-          const latLng = L.latLng(lat, lng);
-          this.renderedPointFeatures.push({ props, latLng, layer: featureLayer });
-          const candidateKeys = [
-            props?.objectid,
-            props?.OBJECTID,
-            props?.gid,
-            props?.asset_id,
-            props?.assetid,
-            feature?.id,
-          ];
-          candidateKeys.forEach((key) => {
-            const normalized = String(key ?? '').trim().toLowerCase();
-            if (!normalized) return;
-            this.renderedPointIndex.set(normalized, latLng);
-          });
-        });
         if (this.legend.type !== 'polygon') {
           this.layer.bringToFront();
         }
