@@ -87,8 +87,27 @@ async function getLayer(req, res, next) {
   }
 }
 
+async function searchStations(req, res, next) {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(25, Math.max(1, Number(req.query.limit) || 10));
+
+    if (!q || q.length < 2) {
+      return res.json({ type: 'FeatureCollection', features: [] });
+    }
+
+    const geojson = await model.searchStations(q, limit);
+
+    res.json(geojson || { type: 'FeatureCollection', features: [] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
 module.exports = {
   getLayer,
   getDepartmentLayers,
   getDepartmentLayer,
+  searchStations,
 };

@@ -15,13 +15,29 @@ import {
 export class CommonViewingApi {
   constructor(private http: HttpClient) {}
 
-  getStations(bbox: string) {
-    const allIndia = isPortalAdminUser();
-    if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
-    return this.http.get<any>(`${BASE_URL}/api/common/view/layers/station`, {
-      params: allIndia ? withAllIndia({ bbox }) : withDivision({ bbox }),
-    });
-  }
+ getStations(bbox: string, limit?: number) {
+  const allIndia = isPortalAdminUser();
+  if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
+
+  const params = limit ? { bbox, limit } : { bbox };
+
+  return this.http.get<any>(`${BASE_URL}/api/common/view/layers/station`, {
+    params: allIndia ? withAllIndia(params) : withDivision(params),
+  });
+}
+
+searchStations(q: string, limit = 10) {
+  const allIndia = isPortalAdminUser();
+  if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
+
+  return this.http.get<any>(`${BASE_URL}/api/common/view/layers/station/search`, {
+    params: allIndia
+      ? withAllIndia({ q, limit })
+      : withDivision({ q, limit }),
+  });
+}
+
+
 
   getTracks(bbox: string) {
     const allIndia = isPortalAdminUser();

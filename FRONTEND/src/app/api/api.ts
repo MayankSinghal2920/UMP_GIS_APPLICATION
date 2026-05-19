@@ -28,9 +28,15 @@ export class Api {
     private superAdminUserManagementApi: SuperAdminUserManagementApi,
   ) {}
 
-  getStations(bbox: string) {
-    return this.commonViewingApi.getStations(bbox);
-  }
+ getStations(bbox: string, limit?: number) {
+  return this.commonViewingApi.getStations(bbox, limit);
+}
+
+searchStations(q: string, limit = 10) {
+  return this.commonViewingApi.searchStations(q, limit);
+}
+
+
   getTracks(bbox: string) {
     return this.commonViewingApi.getTracks(bbox);
   }

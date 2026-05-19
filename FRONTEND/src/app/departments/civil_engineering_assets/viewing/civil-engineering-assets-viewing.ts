@@ -4,7 +4,7 @@ import 'leaflet-polylinedecorator';
 import { NgZone } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { Api } from '../../../api/api';
-import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend } from '../../../services/interface';
+import { LayerLegend, defineLegend, MapLayer, pathStyleFromLegend, pointLayerFromLegend, buildClusteredPointLayers } from '../../../services/interface';
 import { inferCivilLegendFromFeatureCollection } from '../../../components/legend-panel/legend-panel';
 import { bindAssetDetailsPopup } from '../../../components/asset-popup/asset-popup';
 import { getStationCategoryIconConfig, normalizeStationCategory } from './station-category-config';
@@ -25,6 +25,9 @@ const STATION_LEGEND: LayerLegend = defineLegend({
   imageWidth: 23,
   imageHeight: 23,
 });
+
+
+
 
 const LANDPLAN_ONTRACK_LEGEND = defineLegend({
   type: 'polygon' as const,
@@ -118,6 +121,7 @@ export class StationViewingLayer implements MapLayer {
   visible = true;
   layerGroup = 'department' as const;
 
+  protected readonly MIN_RENDER_ZOOM = 7;
   protected readonly LABEL_ZOOM = 12;
 
   legend: LayerLegend = STATION_LEGEND;
@@ -132,6 +136,15 @@ export class StationViewingLayer implements MapLayer {
   private visibilitySub?: Subscription;
   private lastGeojson: any = null;
   private lastMap?: L.Map;
+
+  protected getStationRequestLimit(map: L.Map): number {
+  const zoom = map.getZoom();
+
+  if (zoom < 9) return 500;
+  if (zoom < 11) return 1500;
+  return 5000;
+}
+
 
   protected getStationLabel(feature: any): string {
     const p = feature?.properties || {};
@@ -323,21 +336,54 @@ export class StationViewingLayer implements MapLayer {
     return marker;
   }
 
-  protected renderStationFeatures(_map: L.Map, geojson: any): void {
-    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+protected getStationCategoryLegend(category: string): LayerLegend {
+  const iconConfig = getStationCategoryIconConfig(category);
 
-    this.layer.clearLayers();
-    features.forEach((feature: any) => {
-      if (!this.isStationVisible(feature)) return;
+  return defineLegend({
+    ...this.legend,
+    imageUrl: iconConfig.imageUrl,
+    imageWidth: iconConfig.imageWidth,
+    imageHeight: iconConfig.imageHeight,
+    label: `Railway Station ${category}`,
+  });
+}
 
-      const coords = feature?.geometry?.coordinates || [];
-      const lng = Number(coords[0]);
-      const lat = Number(coords[1]);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-      this.layer.addLayer(this.createStationMarker(feature, L.latLng(lat, lng)));
+
+protected renderStationFeatures(map: L.Map, geojson: any): void {
+  const features = Array.isArray(geojson?.features) ? geojson.features : [];
+  const featuresByCategory = new Map<string, any[]>();
+
+  features.forEach((feature: any) => {
+    if (!this.isStationVisible(feature)) return;
+
+    const category = normalizeStationCategory(feature?.properties?.category);
+    const group = featuresByCategory.get(category) || [];
+    group.push(feature);
+    featuresByCategory.set(category, group);
+  });
+
+  this.layer.clearLayers();
+
+  featuresByCategory.forEach((categoryFeatures, category) => {
+    const layers = buildClusteredPointLayers({
+      map,
+      features: categoryFeatures,
+      legend: this.getStationCategoryLegend(category),
+      pointFactory: (feature: any, latlng: L.LatLng) =>
+        this.createStationMarker(feature, latlng),
+      clusterRadiusPx: 56,
+      disableClusteringZoom: 13,
+      minClusterCount: 12,
+      clusterLabel: `${category} stations`,
+
     });
-  }
+
+    layers.forEach((layer) => this.layer.addLayer(layer));
+  });
+}
+
+
 
   protected isStationVisible(feature: any): boolean {
     const category = normalizeStationCategory(feature?.properties?.category);
@@ -348,6 +394,14 @@ export class StationViewingLayer implements MapLayer {
     if (!this.visible) return;
 
     this.addTo(map);
+    
+
+    if (map.getZoom() < this.MIN_RENDER_ZOOM) {
+      this.lastBbox = '';
+      this.lastGeojson = null;
+      this.layer.clearLayers();
+      return;
+    }
 
     const b = map.getBounds();
     const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
@@ -356,7 +410,9 @@ export class StationViewingLayer implements MapLayer {
     this.lastBbox = bbox;
     const requestId = ++this.requestSeq;
 
-    this.api.getStations(bbox).subscribe({
+    const limit = this.getStationRequestLimit(map);
+
+    this.api.getStations(bbox, limit).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
         this.lastGeojson = geojson;
@@ -453,8 +509,16 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   loadForMap(map: L.Map) {
     if (!this.visible) return;
 
+     this.syncVisibility(map);
+
+  if (!this.canShow(map)) {
+    this.lastKey = '';
+    this.layer.clearLayers();
+    return;
+  }
+
     const zActual = map.getZoom();
-    const zForQuery = Math.max(zActual, this.minZoom);
+    const zForQuery = Math.max(zActual);
     const key = `${zForQuery}`;
 
     if (key === this.lastKey) return;
@@ -599,6 +663,13 @@ export class LandOffsetLayer implements MapLayer {
     if (!this.visible) return;
 
     this.syncVisibility(map);
+
+    if (!this.canShow(map)) {
+    this.lastKey = '';
+    this.layer.clearLayers();
+    this.decorators.clearLayers();
+    return;
+  }
 
     const b = map.getBounds();
     const z = map.getZoom();
@@ -745,6 +816,14 @@ export class LandBoundaryLayer implements MapLayer {
     if (!this.visible) return;
 
     const z = map.getZoom();
+
+      if (!this.canShow(map)) {
+    this.lastBbox = '';
+    this.layer.clearLayers();
+    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    return;
+  }
+
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
@@ -1014,6 +1093,12 @@ export class DynamicDepartmentLayer implements MapLayer {
     if (!this.visible) return;
 
     this.addTo(map);
+
+      if (!this.canShow(map)) {
+    this.lastBbox = '';
+    this.layer.clearLayers();
+    return;
+  }
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;

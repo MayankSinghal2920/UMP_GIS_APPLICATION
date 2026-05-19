@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Subject, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap, tap } from 'rxjs/operators';
+import { BehaviorSubject, Subject, of, Observable  } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged,map, switchMap, tap } from 'rxjs/operators';
 import { Api } from '../api/api';
 
 export interface Station {
@@ -90,8 +90,8 @@ export class StationService {
   private searchCache = new Map<string, SearchResult[]>();
   private loadPromise: Promise<void> | null = null;
 
-  constructor(private api: Api) {
-    this.loadStations();
+   constructor(private api: Api) {
+    // this.loadStations();
     this.wireSearchStream();
   }
 
@@ -301,6 +301,41 @@ export class StationService {
     return this.finalise(scoreMap, limit, cacheKey);
   }
 
+  searchStationsFromApi(query: string, limit = 10): Observable<SearchResult[]> {
+  const q = String(query || '').trim();
+
+  if (q.length < 2) {
+    return of([]);
+  }
+
+  return this.api.searchStations(q, limit).pipe(
+    map((response: any) => {
+      const stations = Array.isArray(response?.features)
+        ? response.features
+        : Array.isArray(response)
+          ? response
+          : [];
+
+      return stations.map((station: Station, index: number) => ({
+        station,
+        score: 100 - index,
+        matchType: this.getStationCode(station).toLowerCase().startsWith(q.toLowerCase())
+          ? 'code'
+          : 'name',
+        matchedText: this.getStationCode(station).toLowerCase().startsWith(q.toLowerCase())
+          ? this.getStationCode(station)
+          : this.getStationName(station),
+        matchReason: 'api-search',
+      }));
+    }),
+    catchError((err) => {
+      console.error('Station API search error', err);
+      return of([]);
+    })
+  );
+}
+
+
   getStationName(station: Station): string {
     return String(station?.properties?.sttnname || '').trim();
   }
@@ -312,7 +347,7 @@ export class StationService {
   getStationLocation(station: Station): string {
     const district = String(station?.properties?.district || '').trim();
     const division = String(station?.properties?.division || '').trim();
-    return [district, division].filter(Boolean).join(' • ');
+    return [district, division].filter(Boolean).join(' ï¿½ ');
   }
 
   getDisplayValue(station: Station): string {

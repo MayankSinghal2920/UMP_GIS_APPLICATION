@@ -210,11 +210,72 @@ async function getDepartmentLayerGeoJSON(departmentRef, layerKey, whereSql, para
   };
 }
 
+async function searchStations(q, limit = 10) {
+  const search = String(q || '').trim();
+  const rowLimit = Math.min(25, Math.max(1, Number(limit) || 10));
+
+  const sql = `
+    SELECT jsonb_build_object(
+      'type','FeatureCollection',
+      'features', COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'type','Feature',
+            'id', objectid,
+            'properties', jsonb_build_object(
+              'objectid', objectid,
+              'sttnname', sttnname,
+              'sttncode', sttncode,
+              'district', district,
+              'division', division,
+              'state', state,
+              'category', category
+            ),
+            'geometry', ST_AsGeoJSON(shape)::jsonb
+          )
+          ORDER BY
+            CASE
+              WHEN UPPER(sttncode) = UPPER($1) THEN 1
+              WHEN UPPER(sttncode) LIKE UPPER($1) || '%' THEN 2
+              WHEN UPPER(sttnname) LIKE UPPER($1) || '%' THEN 3
+              ELSE 4
+            END,
+            sttnname
+        ),
+        '[]'::jsonb
+      )
+    ) AS geojson
+    FROM (
+      SELECT *
+      FROM sde.station
+      WHERE shape IS NOT NULL
+        AND (
+          UPPER(sttncode) LIKE UPPER($1) || '%'
+          OR UPPER(sttnname) LIKE '%' || UPPER($1) || '%'
+        )
+      ORDER BY
+        CASE
+          WHEN UPPER(sttncode) = UPPER($1) THEN 1
+          WHEN UPPER(sttncode) LIKE UPPER($1) || '%' THEN 2
+          WHEN UPPER(sttnname) LIKE UPPER($1) || '%' THEN 3
+          ELSE 4
+        END,
+        sttnname
+      LIMIT ${rowLimit}
+    ) t;
+  `;
+
+  const { rows } = await pool.query(sql, [search]);
+  return rows[0]?.geojson;
+}
+
+
 module.exports = {
   getLayerGeoJSON,
   getDepartmentLayerCatalog,
   getDepartmentLayerGeoJSON,
   resolveDepartmentLayerConfig,
   normalizeLayerKey,
+    searchStations,
 };
 

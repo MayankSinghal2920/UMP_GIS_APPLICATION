@@ -664,6 +664,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       zoomDelta: 0.1,
       maxZoom: 22,
     }).setView(initialView.center, initialView.zoom);
+
+//     this.map.on('zoomend', () => {
+//   console.log('Current zoom:', this.map?.getZoom());
+// });
     L.control.zoom({ position: 'topleft' }).addTo(this.map);
     this.mapRegistry.setMap(this.map);
     this.createStationDblClickHandler = (e: L.LeafletMouseEvent) =>
