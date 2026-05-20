@@ -12,12 +12,14 @@ import {
   DynamicDepartmentEditLayer,
   LandBoundaryEditLayer,
   LandOffsetEditLayer,
+  LandPlanOntrackLayer,
   normalizeCivilEngineeringLayerId,
   StationLayer,
 } from '../../departments/civil_engineering_assets/editing/civil-engineering-assets-editing';
 import {
   LandBoundaryLayer,
   LandOffsetLayer,
+  LandPlanOntrackViewingLayer,
   StationViewingLayer,
 } from '../../departments/civil_engineering_assets/viewing/civil-engineering-assets-viewing';
 import {
@@ -101,6 +103,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private readonly commonAttributeTabs: LayerKey[] = ['Km Post', 'Railway Track'];
   private readonly builtInDepartmentLayerKeys = new Set([
     'station',
+    'landplan_ontrack',
+    'landplan',
     'land_boundary',
     'land_offset',
     'division_buffer',
@@ -411,8 +415,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         });
         this.attrTable.setTabs(nextTabs);
         if (this.map) {
-          this.layerManager.applyVisibility(this.map);
-          this.layerManager.reloadAll(this.map);
+          if (this.edit.enabled) {
+            this.handleEditStateChange();
+          } else {
+            this.layerManager.applyVisibility(this.map);
+            this.layerManager.reloadAll(this.map);
+          }
         }
       },
       error: (err: any) => {
@@ -444,7 +452,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.layerManager.registerOnce(new StationViewingLayer(this.api, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)));
     }
     if (department.key === 'civil_engineering_assets') {
-      attributeTabs.splice(1, 0, 'Land Offset', 'Land Boundary');
+      attributeTabs.splice(1, 0, 'Landplan Ontrack', 'Land Offset', 'Land Boundary');
+      this.layerManager.registerOnce(new LandPlanOntrackViewingLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Landplan Ontrack', g)));
       this.layerManager.registerOnce(new LandOffsetLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)));
       this.layerManager.registerOnce(new LandBoundaryLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)));
     }
@@ -461,9 +470,11 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     this.editAwareLayerModeKey = modeKey;
 
     const wantsStationEditLayer = this.edit.enabled && normalizedEditLayer === 'stations';
+    const wantsLandPlanOntrackEditLayer = this.edit.enabled && normalizedEditLayer === 'landplan_ontrack';
     const wantsLandOffsetEditLayer = this.edit.enabled && normalizedEditLayer === 'land_offset';
     const wantsLandBoundaryEditLayer = this.edit.enabled && normalizedEditLayer === 'land_boundary';
     this.layerManager.replaceLayer(wantsStationEditLayer ? new StationLayer(this.api, this.filters, this.edit, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)) : new StationViewingLayer(this.api, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)), this.map);
+    this.layerManager.replaceLayer(wantsLandPlanOntrackEditLayer ? new LandPlanOntrackLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Landplan Ontrack', g)) : new LandPlanOntrackViewingLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Landplan Ontrack', g)), this.map);
     this.layerManager.replaceLayer(wantsLandOffsetEditLayer ? new LandOffsetEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)) : new LandOffsetLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)), this.map);
     this.layerManager.replaceLayer(wantsLandBoundaryEditLayer ? new LandBoundaryEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)) : new LandBoundaryLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)), this.map);
   }
@@ -471,7 +482,49 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private handleEditStateChange(): void {
     this.syncEditAwareLayers();
     this.applyEditSuppression();
+    this.loadSelectedEditLayer();
     this.updateStationCreateModeUi();
+  }
+
+  private getSelectedEditLayerCandidates(): string[] {
+    const normalizedEditLayer = normalizeCivilEngineeringLayerId(this.edit.editLayer || '');
+    if (!normalizedEditLayer) return [];
+
+    const candidates = [
+      normalizedEditLayer,
+      `department_${normalizedEditLayer}`,
+    ];
+    if (normalizedEditLayer === 'land_boundary') candidates.push('landboundary');
+    if (normalizedEditLayer === 'station') candidates.push('stations');
+    if (normalizedEditLayer === 'stations') candidates.push('station', 'department_station');
+    return Array.from(new Set(candidates.filter(Boolean)));
+  }
+
+  private loadSelectedEditLayer(): void {
+    if (!this.map || !this.edit.enabled) return;
+    const selectedLayerIds = new Set(this.getSelectedEditLayerCandidates());
+
+    this.layerManager.getLayers()
+      .filter((layer) => this.isSelectedEditLayer(layer.id, selectedLayerIds))
+      .forEach((layer) => {
+        layer.visible = true;
+        try {
+          layer.addTo(this.map!);
+          layer.loadForMap(this.map!);
+        } catch (err) {
+          console.error(`Selected edit layer load failed: ${layer.id}`, err);
+        }
+      });
+  }
+
+  private isSelectedEditLayer(layerId: string, selectedLayerIds = new Set(this.getSelectedEditLayerCandidates())): boolean {
+    if (!selectedLayerIds.size) return false;
+    const normalizedLayerId = normalizeCivilEngineeringLayerId(String(layerId || '').replace(/^department_/, ''));
+    return (
+      selectedLayerIds.has(layerId) ||
+      selectedLayerIds.has(normalizedLayerId) ||
+      selectedLayerIds.has(`department_${normalizedLayerId}`)
+    );
   }
 
   private initDeepLinking(): void {
@@ -513,7 +566,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     base.once('load', () => { this.forceMapResize(); });
     this.registerDepartmentLayers();
     this.map.whenReady(() => {
-      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); setTimeout(() => { if (this.map) this.layerManager.reloadAll(this.map); }, 180); this.map!.once('moveend', () => { if (this.map) this.layerManager.reloadVisible(this.map); }); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => this.handleEditStateChange()); this.handleEditStateChange(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { if (existingLayer) this.applyExistingMarkerHighlight(existingLayer); this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); if ((this.highlightLayer as any).bringToFront) (this.highlightLayer as any).bringToFront(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false }); } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
+      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); setTimeout(() => { if (this.map) this.layerManager.reloadAll(this.map); }, 180); this.map!.once('moveend', () => { if (this.map) this.layerManager.reloadVisible(this.map); }); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => this.handleEditStateChange()); this.handleEditStateChange(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'feature') { try { const gj = this.createAttributeHighlightLayer((t as any).feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); (this.highlightLayer as any).bringToFront?.(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad((t as any).pad ?? 0.2), { animate: false }); } catch (e) {} return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { if (existingLayer) this.applyExistingMarkerHighlight(existingLayer); this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); if ((this.highlightLayer as any).bringToFront) (this.highlightLayer as any).bringToFront(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false }); } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
     });
   }
 
@@ -557,19 +610,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const selectedLayerIds = new Set<string>();
-    if (normalizedEditLayer) {
-      selectedLayerIds.add(normalizedEditLayer);
-      selectedLayerIds.add(`department_${normalizedEditLayer}`);
-      if (normalizedEditLayer === 'land_boundary') selectedLayerIds.add('landboundary');
-      if (normalizedEditLayer === 'station') selectedLayerIds.add('stations');
-    }
+    const selectedLayerIds = new Set<string>(this.getSelectedEditLayerCandidates());
 
     this.layerManager.getLayers().forEach((layer) => {
+      const isSelectedLayer = this.isSelectedEditLayer(layer.id, selectedLayerIds);
       const shouldShow =
         layer.layerGroup === 'common' ||
         this.EDIT_BASE_LAYER_IDS.has(layer.id) ||
-        selectedLayerIds.has(layer.id);
+        isSelectedLayer;
       if (!this.suppressedVis.has(layer.id)) this.suppressedVis.set(layer.id, !!layer.visible);
       this.layerManager.setVisible(layer.id, shouldShow, this.map!);
     });

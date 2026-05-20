@@ -41,6 +41,9 @@ const COLUMN_LIBRARY: Record<string, TableColumnConfig> = {
   state: { key: 'state', label: 'State' },
   district: { key: 'district', label: 'District' },
   bridgeno: { key: 'bridgeno', label: 'Bridge No' },
+  robno: { key: 'robno', label: 'ROB No' },
+  rubno: { key: 'rubno', label: 'RUB No' },
+  rorno: { key: 'rorno', label: 'ROR No' },
   asset_id: { key: 'asset_id', label: 'Asset ID', stationLink: true },
   km: { key: 'km', label: 'KM' },
   km_post: { key: 'km_post', label: 'KM Post' },
@@ -50,6 +53,7 @@ const COLUMN_LIBRARY: Record<string, TableColumnConfig> = {
   disttom: { key: 'disttom', label: 'To M' },
   agency_name: { key: 'agency_name', label: 'Agency' },
   assetid: { key: 'assetid', label: 'Asset ID' },
+  imageno: { key: 'imageno', label: 'Image No' },
   attachment_bundle_url: { key: 'attachment_bundle_url', label: 'Attachments' },
 };
 
@@ -95,11 +99,15 @@ const FIELD_LIBRARY: Record<string, EditFieldConfig> = {
   xcoord: { key: 'xcoord', label: 'X Coordinate', required: true, full: true },
   ycoord: { key: 'ycoord', label: 'Y Coordinate', required: true, full: true },
   bridgeno: { key: 'bridgeno', label: 'Bridge No', required: true, full: true },
+  robno: { key: 'robno', label: 'ROB No', required: true, full: true },
+  rubno: { key: 'rubno', label: 'RUB No', required: true, full: true },
+  rorno: { key: 'rorno', label: 'ROR No', required: true, full: true },
   constituncy: { key: 'constituncy', label: 'Constituency', required: true, full: true },
   bridgetype: { key: 'bridgetype', label: 'Bridge Type', required: true, full: true },
   spanconf: { key: 'spanconf', label: 'Span Configuration', required: true, full: true },
 
   assetid: { key: 'assetid', label: 'Asset ID' },
+  imageno: { key: 'imageno', label: 'Image No', full: true },
   attachment_bundle_url: { key: 'attachment_bundle_url', label: 'Attachments', full: true },
 
 };
@@ -143,6 +151,32 @@ function buildBridgeLayerConfig(id: string, label: string): LayerFormConfig {
     includeGenericStatusFields: false,
     tableColumnKeys: BRIDGE_TABLE_COLUMN_KEYS,
     formFieldKeys: BRIDGE_FORM_FIELD_KEYS,
+  });
+}
+
+function buildBridgeLikeLayerConfig(id: string, label: string, numberField: 'robno' | 'rubno' | 'rorno'): LayerFormConfig {
+  return buildLayerConfig({
+    id,
+    label,
+    formTitle: `${label} Details`,
+    note: `* Fill all mandatory ${label.toLowerCase()} fields before sending the record to checker.`,
+    includeGenericStatusColumns: false,
+    includeGenericStatusFields: false,
+    tableColumnKeys: ['asset_id', numberField, 'distkm', 'distm', 'state', 'district', 'constituncy'],
+    formFieldKeys: [
+      'asset_id',
+      'distkm',
+      'distm',
+      'railway',
+      'division',
+      'state',
+      'district',
+      numberField,
+      'constituncy',
+      'bridgetype',
+      'spanconf',
+      'attachment_bundle_url',
+    ],
   });
 }
 
@@ -218,8 +252,10 @@ export const EDIT_LAYER_CONFIG: Record<string, LayerFormConfig> = {
   landplan_ontrack: buildLayerConfig({
     id: 'landplan_ontrack',
     label: 'Landplan Ontrack',
-    tableColumnKeys: ['distfromkm', 'disttokm', 'distfromm', 'disttom'],
-    formFieldKeys: ['distfromkm', 'distfromm', 'disttokm', 'disttom', 'railway', 'division'],
+    includeGenericStatusColumns: false,
+    includeGenericStatusFields: false,
+    tableColumnKeys: ['distfromkm', 'disttokm', 'distfromm', 'disttom', 'state', 'district', 'constituncy'],
+    formFieldKeys: ['distfromkm', 'distfromm', 'disttokm', 'disttom', 'railway', 'division', 'state', 'district', 'constituncy', 'imageno'],
   }),
 
   landplan_offtrack: buildLayerConfig({
@@ -323,33 +359,13 @@ export const EDIT_LAYER_CONFIG: Record<string, LayerFormConfig> = {
     formFieldKeys: ['assetid', 'sttncode', 'sttnname', 'constituncy'],
   }),
 
-  road_over_bridge: buildLayerConfig({
-    id: 'road_over_bridge',
-    label: 'Road Over Bridge',
-    tableColumnKeys: ['assetid', 'sttncode'],
-    formFieldKeys: ['assetid', 'sttncode', 'sttnname', 'constituncy'],
-  }),
+  road_over_bridge: buildBridgeLikeLayerConfig('road_over_bridge', 'Road Over Bridge', 'robno'),
 
-  rub_lhs: buildLayerConfig({
-    id: 'rub_lhs',
-    label: 'Rub Lhs',
-    tableColumnKeys: ['assetid', 'sttncode'],
-    formFieldKeys: ['assetid', 'sttncode', 'sttnname', 'constituncy'],
-  }),
+  rub_lhs: buildBridgeLikeLayerConfig('rub_lhs', 'Rub Lhs', 'rubno'),
 
-  ror: buildLayerConfig({
-    id: 'ror',
-    label: 'Ror',
-    tableColumnKeys: ['assetid', 'sttncode'],
-    formFieldKeys: ['assetid', 'sttncode', 'sttnname', 'constituncy'],
-  }),
+  ror: buildBridgeLikeLayerConfig('ror', 'ROR', 'rorno'),
 
-  rob: buildLayerConfig({
-    id: 'rob',
-    label: 'Rob',
-    tableColumnKeys: ['assetid', 'sttncode'],
-    formFieldKeys: ['assetid', 'sttncode', 'sttnname'],
-  }),
+  rob: buildBridgeLikeLayerConfig('rob', 'Road Over Bridge', 'robno'),
 
   pointxing: buildLayerConfig({
     id: 'pointxing',
@@ -368,8 +384,25 @@ export const EDIT_LAYER_CONFIG: Record<string, LayerFormConfig> = {
   buffer_rails: buildLayerConfig({
     id: 'buffer_rails',
     label: 'Buffer Rails',
-    tableColumnKeys: ['assetid', 'sttncode'],
-    formFieldKeys: ['assetid', 'sttncode', 'sttnname', 'constituency'],
+    formTitle: 'Buffer Rails Details',
+    note: '* Fill all mandatory buffer rails fields before sending the record to checker.',
+    includeGenericStatusColumns: false,
+    includeGenericStatusFields: false,
+    tableColumnKeys: ['asset_id', 'bridgeno', 'distkm', 'distm', 'state', 'district', 'constituncy'],
+    formFieldKeys: [
+      'asset_id',
+      'distkm',
+      'distm',
+      'railway',
+      'division',
+      'state',
+      'district',
+      'bridgeno',
+      'constituncy',
+      'bridgetype',
+      'spanconf',
+      'attachment_bundle_url',
+    ],
   }),
 
   gradient_start: buildLayerConfig({

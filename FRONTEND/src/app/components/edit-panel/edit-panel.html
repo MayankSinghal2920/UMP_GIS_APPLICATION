@@ -275,42 +275,63 @@
           </div>
 
           <ng-template #standardField>
+            <ng-container *ngIf="showImageNoDeleteButton(field); else nonImageNoField">
+              <div class="field-inline">
+                <input class="field-input" [type]="field.type || 'text'" [(ngModel)]="draft[field.key]"
+                  [readonly]="isFieldReadonly(field)" [disabled]="isFieldDisabled(field)" />
+                <button class="btn ghost danger-action" type="button" (click)="deleteImageNo()"
+                  [disabled]="isFieldReadonly(field) || isFieldDisabled(field) || !draft?.imageno">
+                  Delete
+                </button>
+              </div>
+            </ng-container>
+
+            <ng-template #nonImageNoField>
             <ng-container *ngIf="field.key === 'attachment_bundle_url'; else regularField">
-              <div class="attachment-input">
-                <input #attachmentInput type="file" accept=".png,.jpg,.jpeg,.gif,.bmp,.pdf"
+              <div class="attachment-card">
+                <div class="attachment-card-head">
+                  <span class="attachment-card-title">Supporting Files</span>
+                  <span class="attachment-card-types">PNG, JPG, PDF</span>
+                </div>
+
+                <div class="attachment-controls">
+                  <input #attachmentInput class="attachment-file-input" type="file" accept=".png,.jpg,.jpeg,.gif,.bmp,.pdf"
                   (change)="onAttachmentFilesSelected($event)" [disabled]="isReviewer() || isMakerSentForDeletionView()"
                   multiple />
-                <button type="button" class="btn secondary" (click)="uploadAttachmentFiles()"
-                  [disabled]="attachmentFiles.length === 0 || uploadingAttachments || isReviewer() || isMakerSentForDeletionView()">
-                  {{ uploadingAttachments ? 'Uploading...' : 'Upload Files' }}
-                </button>
-                <button type="button" class="btn secondary" (click)="clearSelectedFiles()"
-                  [disabled]="attachmentFiles.length === 0 || uploadingAttachments || isReviewer() || isMakerSentForDeletionView()">
-                  Clear All
-                </button>
-              </div>
-
-              <div class="attachment-meta" *ngIf="attachmentFiles.length > 0">
-                <strong>{{ attachmentFiles.length }} file(s) selected:</strong>
-                <ul class="file-list">
-                  <li *ngFor="let file of attachmentFiles; let i = index" class="file-item">
-                    <span class="file-name">{{ file.name }}</span>
-                    <button type="button" class="btn-remove" (click)="removeSelectedFile(i)"
-                      [disabled]="uploadingAttachments" title="Remove file">
-                      x
+                  <div class="attachment-buttons">
+                    <button type="button" class="btn secondary attachment-upload-btn" (click)="uploadAttachmentFiles()"
+                      [disabled]="attachmentFiles.length === 0 || uploadingAttachments || isReviewer() || isMakerSentForDeletionView()">
+                      {{ uploadingAttachments ? 'Uploading...' : 'Upload Files' }}
                     </button>
-                  </li>
-                </ul>
-              </div>
+                    <button type="button" class="btn ghost attachment-clear-all-btn" (click)="clearSelectedFiles()"
+                      [disabled]="attachmentFiles.length === 0 || uploadingAttachments || isReviewer() || isMakerSentForDeletionView()">
+                      Clear All
+                    </button>
+                  </div>
+                </div>
 
-              <div class="attachment-meta error-text" *ngIf="attachmentUploadError">
-                {{ attachmentUploadError }}
-              </div>
+                <div class="attachment-meta selected-files" *ngIf="attachmentFiles.length > 0">
+                  <strong>{{ attachmentFiles.length }} file(s) selected</strong>
+                  <ul class="file-list">
+                    <li *ngFor="let file of attachmentFiles; let i = index" class="file-item">
+                      <span class="file-name">{{ file.name }}</span>
+                      <button type="button" class="btn-remove" (click)="removeSelectedFile(i)"
+                        [disabled]="uploadingAttachments" title="Remove file">
+                        x
+                      </button>
+                    </li>
+                  </ul>
+                </div>
 
-              <div class="attachment-meta" *ngIf="draft[field.key]">
-                <a [href]="draft[field.key]" target="_blank" rel="noreferrer" class="attachment-link">
-                  View uploaded files
-                </a>
+                <div class="attachment-meta error-text" *ngIf="attachmentUploadError">
+                  {{ attachmentUploadError }}
+                </div>
+
+                <div class="attachment-meta uploaded-files" *ngIf="draft[field.key]">
+                  <a [href]="draft[field.key]" target="_blank" rel="noreferrer" class="attachment-link">
+                    View uploaded files
+                  </a>
+                </div>
               </div>
             </ng-container>
 
@@ -333,36 +354,8 @@
                 </ng-container>
               </ng-template>
             </ng-template>
+            </ng-template>
           </ng-template>
-        </div>
-      </div>
-      <div class="attachment-field" *ngIf="shouldShowAttachmentField()">
-        <div class="attachment-head">
-          <div class="attachment-head-copy">
-            <label class="field-label attachment-label" for="edit-attachment-input">
-              Attachment
-            </label>
-            <span class="attachment-help">Upload supporting files before sending the record.</span>
-          </div>
-          <span class="attachment-types">Accepted: .jpg / .pdf</span>
-        </div>
-
-        <div class="attachment-row">
-          <input #attachmentInput id="edit-attachment-input" type="file" class="attachment-input"
-            accept=".pdf,.jpg,.jpeg" (change)="onAttachmentSelected($event, 'other')"
-            [disabled]="isReviewer() || isMakerSentForDeletionView()" />
-          <button *ngIf="selectedAttachmentFile" class="btn ghost attachment-clear-btn" type="button"
-            (click)="clearAttachmentSelection()">
-            Clear
-          </button>
-        </div>
-
-        <div class="attachment-name" *ngIf="selectedAttachmentName">
-          Attached file: {{ selectedAttachmentName }}
-        </div>
-
-        <div class="attachment-selected-type" *ngIf="selectedAttachmentKind === 'other'">
-          Type: Document / image upload
         </div>
       </div>
       <div class="form-actions" *ngIf="!isMakerSentForDeletionView()">
@@ -385,19 +378,19 @@
         </ng-container>
 
         <ng-container *ngIf="isMaker() && supportsCurrentLayerPersistence()">
-          <button class="btn ghost" type="button" (click)="deleteDraft()" [disabled]="deleting">
+          <button class="btn ghost danger-action" type="button" (click)="deleteDraft()" [disabled]="deleting">
             {{ deleting ? 'Deleting...' : 'Delete Record' }}
           </button>
 
-          <button class="btn primary" type="button" (click)="startGeometryEdit()">
+          <button class="btn primary geometry-action" type="button" (click)="startGeometryEdit()">
             Edit Geometry
           </button>
 
-          <button class="btn primary" type="button" (click)="saveGeometry()" [disabled]="!geomEditing">
+          <button class="btn primary geometry-action" type="button" (click)="saveGeometry()" [disabled]="!geomEditing">
             Save Geometry
           </button>
 
-          <button class="btn primary" type="button" (click)="send()" [disabled]="saving">
+          <button class="btn primary send-action" type="button" (click)="send()" [disabled]="saving">
             {{ getSendButtonLabel() }}
           </button>
         </ng-container>

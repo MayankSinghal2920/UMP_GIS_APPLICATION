@@ -21,10 +21,13 @@ const POPUP_GAP_PX = 8;
 const SYMBOL_CLEARANCE_PX = 12;
 const POPUP_VIEW_PADDING_PX = 18;
 const ASSET_HIGHLIGHT_PANE = 'AssetPopupHighlightPane';
+const SELECTED_ASSET_POPUP_PANE = 'popupPane';
 const POPUP_CONTROL_STOP_EVENTS = 'click dblclick mousedown mouseup pointerdown pointerup contextmenu';
 let highlightedElement: Element | null = null;
 let highlightLayer: L.Layer | null = null;
 let activeAssetPopup: L.Popup | null = null;
+let selectedAssetOverlay: HTMLElement | null = null;
+let selectedAssetOverlayCleanup: (() => void) | null = null;
 
 const HIDDEN_KEYS = new Set([
   'shape',
@@ -457,6 +460,11 @@ function clearAssetHighlight(): void {
   highlightedElement?.classList.remove('asset-popup-highlighted');
   highlightedElement = null;
 
+  selectedAssetOverlayCleanup?.();
+  selectedAssetOverlayCleanup = null;
+  selectedAssetOverlay?.remove();
+  selectedAssetOverlay = null;
+
   const map = (highlightLayer as any)?._map as L.Map | undefined;
   if (highlightLayer && map) {
     map.removeLayer(highlightLayer);
@@ -483,8 +491,53 @@ function ensureAssetHighlightPane(map: L.Map): void {
   }
   const pane = map.getPane(ASSET_HIGHLIGHT_PANE);
   if (!pane) return;
-  pane.style.zIndex = '1200';
+  pane.style.zIndex = '695';
   pane.style.pointerEvents = 'none';
+}
+
+function createSelectedAssetOverlay(map: L.Map, entry: PopupEntry, latLng: L.LatLng): void {
+  const pane = map.getPane(SELECTED_ASSET_POPUP_PANE);
+  const sourceElement = entry.layer?.getElement?.() as HTMLElement | null;
+  if (!pane || !sourceElement) return;
+
+  selectedAssetOverlayCleanup?.();
+  selectedAssetOverlay?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'asset-popup-selected-overlay';
+
+  const symbol = document.createElement('div');
+  symbol.className = 'asset-popup-selected-symbol';
+  symbol.innerHTML = sourceElement.innerHTML;
+  const symbolWidth = Math.max(14, sourceElement.offsetWidth || 18);
+  const symbolHeight = Math.max(14, sourceElement.offsetHeight || 18);
+  symbol.style.width = `${symbolWidth}px`;
+  symbol.style.height = `${symbolHeight}px`;
+  overlay.appendChild(symbol);
+
+  const tooltip = entry.layer?.getTooltip?.();
+  const tooltipContent = tooltip?.getContent?.();
+  const labelText = typeof tooltipContent === 'string'
+    ? tooltipContent.replace(/<[^>]*>/g, '').trim()
+    : '';
+  if (labelText) {
+    const label = document.createElement('div');
+    label.className = 'asset-popup-selected-label';
+    label.textContent = labelText;
+    overlay.appendChild(label);
+  }
+
+  const updatePosition = () => {
+    const point = map.latLngToLayerPoint(latLng);
+    overlay.style.left = `${point.x}px`;
+    overlay.style.top = `${point.y}px`;
+  };
+
+  pane.appendChild(overlay);
+  updatePosition();
+  map.on('move zoom', updatePosition);
+  selectedAssetOverlay = overlay;
+  selectedAssetOverlayCleanup = () => map.off('move zoom', updatePosition);
 }
 
 function createTargetRing(latLng: L.LatLng): L.LayerGroup {
@@ -536,6 +589,7 @@ function highlightPopupEntry(popup: L.Popup, entry: PopupEntry): void {
   }
 
   const latLng = getEntryLatLng(entry) || popup.getLatLng?.();
+  if (latLng) createSelectedAssetOverlay(map, entry, latLng);
   const geojson = entry.layer?.toGeoJSON?.();
   if (geojson) {
     const highlightGroup = L.featureGroup();

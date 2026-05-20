@@ -73,6 +73,7 @@ function paneZIndex(paneName: string): number {
   if (paneName === DEPARTMENT_POLYGON_PANE) return 390;
   if (paneName === DEPARTMENT_LINE_PANE) return 440;
   if (paneName === DEPARTMENT_DECORATOR_PANE) return 445;
+  if (paneName === DEPARTMENT_POINT_PANE) return 660;
   return 460;
 }
 
@@ -758,7 +759,10 @@ export class DynamicDepartmentLayer implements MapLayer {
 
   private layer: L.GeoJSON;
   private lastBbox = '';
+  private lastRenderKey = '';
+  private cachedGeojson: any = null;
   private requestSeq = 0;
+  private activeRequest?: { unsubscribe(): void };
   private added = false;
   private readonly minZoom: number;
   private onZoomEndHandler?: () => void;
@@ -792,7 +796,7 @@ export class DynamicDepartmentLayer implements MapLayer {
   }
 
   private getRequestLimit(): number | undefined {
-    return this.isBridgeMinorLayer() ? 3000 : undefined;
+    return this.isBridgeMinorLayer() ? 1800 : 1500;
   }
 
   protected isInteractive(): boolean {
@@ -966,7 +970,11 @@ export class DynamicDepartmentLayer implements MapLayer {
           map.removeLayer(this.layer);
           this.added = false;
           this.lastBbox = '';
+          this.lastRenderKey = '';
           this.layer.clearLayers();
+          this.renderedPointIndex.clear();
+          this.renderedPointFeatures = [];
+          this.cachedGeojson = null;
         }
       };
       map.on('zoomend', this.onZoomEndHandler);
@@ -984,7 +992,83 @@ export class DynamicDepartmentLayer implements MapLayer {
       this.onZoomEndHandler = undefined;
     }
     if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    this.activeRequest?.unsubscribe();
+    this.activeRequest = undefined;
     this.added = false;
+  }
+
+  private renderGeojson(map: L.Map, geojson: any, emitData = true): void {
+    this.legend = inferCivilLegendFromFeatureCollection(this.title, this.layerKey, geojson);
+    ensurePane(map, paneNameForLegend(this.legend), 'auto');
+    if (emitData) this.onData?.(geojson);
+    this.renderedPointIndex.clear();
+    this.renderedPointFeatures = [];
+
+    if (!this.canShow(map)) {
+      this.layer.clearLayers();
+      return;
+    }
+
+    const indexPointFeature = (feature: any, featureLayer?: any, includeFeature = true) => {
+      const props = feature?.properties ?? {};
+      const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : null;
+      const lng = Number(coords?.[0]);
+      const lat = Number(coords?.[1]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      const latLng = L.latLng(lat, lng);
+      if (includeFeature) this.renderedPointFeatures.push({ props, latLng, layer: featureLayer });
+      const candidateKeys = [
+        props?.objectid,
+        props?.OBJECTID,
+        props?.gid,
+        props?.asset_id,
+        props?.assetid,
+        feature?.id,
+      ];
+      candidateKeys.forEach((key) => {
+        const normalized = String(key ?? '').trim().toLowerCase();
+        if (!normalized) return;
+        this.renderedPointIndex.set(normalized, latLng);
+      });
+      return latLng;
+    };
+
+    this.layer.clearLayers();
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+    const isPointLayer = this.legend.type === 'point';
+
+    if (isPointLayer) {
+      features.forEach((feature: any) => indexPointFeature(feature, undefined, false));
+      const pointLayers = buildClusteredPointLayers({
+        map,
+        features,
+        legend: this.legend,
+        disableClusteringZoom: 15,
+        clusterClickZoom: 15,
+        minClusterCount: 80,
+        pointFactory: (feature: any, latLng: L.LatLng) => {
+          const featureLayer: any = pointLayerFromLegend(this.legend, latLng, paneNameForLegend(this.legend));
+          featureLayer.feature = feature;
+          bindAssetPopup(feature, featureLayer, this.title, this.layerKey);
+          this.onFeatureReady(feature, featureLayer);
+          indexPointFeature(feature, featureLayer);
+          return featureLayer;
+        },
+      });
+      pointLayers.forEach((pointLayer) => this.layer.addLayer(pointLayer));
+    } else {
+      this.layer.addData(geojson);
+    }
+
+    if (!isPointLayer) {
+      this.layer.eachLayer((featureLayer: any) => {
+        const feature = featureLayer?.feature;
+        indexPointFeature(feature, featureLayer);
+      });
+    }
+    if (this.legend.type !== 'polygon') {
+      this.layer.bringToFront();
+    }
   }
 
   loadForMap(map: L.Map): void {
@@ -992,95 +1076,46 @@ export class DynamicDepartmentLayer implements MapLayer {
 
     this.addTo(map);
     if (!this.canShow(map)) {
+      this.activeRequest?.unsubscribe();
+      this.activeRequest = undefined;
       this.layer.clearLayers();
       this.renderedPointIndex.clear();
       this.renderedPointFeatures = [];
       this.lastBbox = '';
+      this.lastRenderKey = '';
       return;
     }
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
-    if (bboxKey === this.lastBbox) return;
-    this.lastBbox = bboxKey;
+    const zoom = map.getZoom();
+    const zoomKey = Math.floor(zoom * 2) / 2;
+    const renderKey = `${bboxKey}|${zoomKey}`;
+    if (renderKey === this.lastRenderKey) return;
+    this.lastRenderKey = renderKey;
+
+    if (bboxKey === this.lastBbox && this.cachedGeojson) {
+      this.renderGeojson(map, this.cachedGeojson, false);
+      return;
+    }
+
     const requestId = ++this.requestSeq;
 
-    this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox, this.getRequestLimit()).subscribe({
+    this.activeRequest?.unsubscribe();
+    this.activeRequest = this.api.getDepartmentLayerData(this.departmentRef, this.layerKey, bbox, this.getRequestLimit()).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
-        this.legend = inferCivilLegendFromFeatureCollection(this.title, this.layerKey, geojson);
-        ensurePane(map, paneNameForLegend(this.legend), 'auto');
-        this.onData?.(geojson);
-        this.renderedPointIndex.clear();
-        this.renderedPointFeatures = [];
-
-        if (!this.canShow(map)) {
-          this.layer.clearLayers();
-          return;
-        }
-
-        const indexPointFeature = (feature: any, featureLayer?: any, includeFeature = true) => {
-          const props = feature?.properties ?? {};
-          const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : null;
-          const lng = Number(coords?.[0]);
-          const lat = Number(coords?.[1]);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-          const latLng = L.latLng(lat, lng);
-          if (includeFeature) this.renderedPointFeatures.push({ props, latLng, layer: featureLayer });
-          const candidateKeys = [
-            props?.objectid,
-            props?.OBJECTID,
-            props?.gid,
-            props?.asset_id,
-            props?.assetid,
-            feature?.id,
-          ];
-          candidateKeys.forEach((key) => {
-            const normalized = String(key ?? '').trim().toLowerCase();
-            if (!normalized) return;
-            this.renderedPointIndex.set(normalized, latLng);
-          });
-          return latLng;
-        };
-
-        this.layer.clearLayers();
-        const features = Array.isArray(geojson?.features) ? geojson.features : [];
-        const isPointLayer = this.legend.type === 'point';
-
-        if (isPointLayer) {
-          features.forEach((feature: any) => indexPointFeature(feature, undefined, false));
-          const pointLayers = buildClusteredPointLayers({
-            map,
-            features,
-            legend: this.legend,
-            disableClusteringZoom: 13,
-            minClusterCount: 80,
-            pointFactory: (feature: any, latLng: L.LatLng) => {
-              const featureLayer: any = pointLayerFromLegend(this.legend, latLng, paneNameForLegend(this.legend));
-              featureLayer.feature = feature;
-              bindAssetPopup(feature, featureLayer, this.title, this.layerKey);
-              this.onFeatureReady(feature, featureLayer);
-              indexPointFeature(feature, featureLayer);
-              return featureLayer;
-            },
-          });
-          pointLayers.forEach((pointLayer) => this.layer.addLayer(pointLayer));
-        } else {
-          this.layer.addData(geojson);
-        }
-
-        if (!isPointLayer) {
-          this.layer.eachLayer((featureLayer: any) => {
-            const feature = featureLayer?.feature;
-            indexPointFeature(feature, featureLayer);
-          });
-        }
-        if (this.legend.type !== 'polygon') {
-          this.layer.bringToFront();
-        }
+        this.activeRequest = undefined;
+        this.lastBbox = bboxKey;
+        this.cachedGeojson = geojson;
+        this.renderGeojson(map, geojson);
       },
-      error: (err: any) => console.error(`Dynamic department layer error (${this.layerKey})`, err),
+      error: (err: any) => {
+        if (requestId === this.requestSeq) this.activeRequest = undefined;
+        this.lastRenderKey = '';
+        console.error(`Dynamic department layer error (${this.layerKey})`, err);
+      },
     });
   }
 }

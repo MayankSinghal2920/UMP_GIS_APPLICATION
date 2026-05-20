@@ -70,6 +70,10 @@ const FIELD_ALIASES = {
   assetid: ['assetid', 'asset_id'],
   constituency: ['constituency', 'constituncy'],
   constituncy: ['constituncy', 'constituency'],
+  robno: ['robno', 'bridgeno', 'rorno'],
+  rubno: ['rubno', 'bridgeno', 'rorno'],
+  rorno: ['rorno', 'bridgeno'],
+  bridgeno: ['bridgeno', 'robno', 'rubno', 'rorno'],
 };
 
 function resolveConfiguredColumn(field, tableColumns) {
@@ -103,22 +107,69 @@ function getAliasedRecordValue(record, column) {
   return { found: false, value: undefined };
 }
 
-function getGeometryReadColumn(config) {
+function getGeometryReadColumn(config, tableColumns = null) {
   const column = String(config?.geometry?.readColumn || config?.geometry?.column || '').trim();
-  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column) ? column : null;
+  const candidates = [column, config?.geometry?.column, 'shape', 'geom', 'geometry', 'wkb_geometry']
+    .map((item) => String(item || '').trim())
+    .filter((item) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(item));
+  if (Array.isArray(tableColumns)) {
+    return candidates.find((candidate) => tableColumns.includes(candidate)) || null;
+  }
+  return candidates[0] || null;
 }
 
-function getMainSelectList(config) {
-  const geometryColumn = getGeometryReadColumn(config);
+function getMainSelectList(config, tableColumns = null) {
+  const geometryColumn = getGeometryReadColumn(config, tableColumns);
   if (!geometryColumn) return '*';
-  return `*, ST_X(${geometryColumn}) AS geom_lng, ST_Y(${geometryColumn}) AS geom_lat`;
+  return `*, ST_X(ST_PointOnSurface(${geometryColumn})) AS geom_lng, ST_Y(ST_PointOnSurface(${geometryColumn})) AS geom_lat, ST_AsGeoJSON(${geometryColumn})::json AS asset_geometry_geojson`;
+}
+
+function getDivisionColumn(tableColumns) {
+  return [
+    'asset_division',
+    'division',
+    'division_code',
+    'divisioncode',
+    'divcode',
+    'div_code',
+    'div',
+    'rlydiv',
+    'rly_div',
+    'div_name',
+  ]
+    .find((column) => tableColumns.includes(column)) || null;
+}
+
+function normalizeDivisionSql(expression) {
+  return `REGEXP_REPLACE(UPPER(COALESCE(${expression}::text, '')), '[^A-Z0-9]', '', 'g')`;
+}
+
+function buildDivisionWhereClause(columnName, paramIndex) {
+  if (!columnName) return 'TRUE';
+  const columnValue = normalizeDivisionSql(columnName);
+  const paramValue = normalizeDivisionSql(`$${paramIndex}`);
+  const directMatch = `${columnValue} = ${paramValue}`;
+  const divisionLookup = `
+    ${columnValue} IN (
+      SELECT ${normalizeDivisionSql('divcode')}
+      FROM div_master
+      WHERE ${normalizeDivisionSql('divcode')} = ${paramValue}
+         OR ${normalizeDivisionSql('div_name')} = ${paramValue}
+      UNION
+      SELECT ${normalizeDivisionSql('div_name')}
+      FROM div_master
+      WHERE ${normalizeDivisionSql('divcode')} = ${paramValue}
+         OR ${normalizeDivisionSql('div_name')} = ${paramValue}
+    )
+  `;
+  return `(${directMatch} OR ${divisionLookup})`;
 }
 
 function getDraftSelectList(config, draftTableColumns, alias = '') {
   const prefix = alias ? `${alias}.` : '';
   const configuredColumn = String(config?.geometry?.column || '').trim();
   const configuredReadColumn = String(config?.geometry?.readColumn || '').trim();
-  const candidates = [configuredColumn, configuredReadColumn, 'shape', 'geom']
+  const candidates = [configuredColumn, configuredReadColumn, 'shape', 'geom', 'geometry']
     .filter((column) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column));
   const geometryColumn = candidates.find((column) => draftTableColumns.includes(column));
   if (!geometryColumn) return `${prefix}*`;
@@ -128,7 +179,7 @@ function getDraftSelectList(config, draftTableColumns, alias = '') {
 function getGeometryColumnExpression(config, tableColumns, alias) {
   const configuredColumn = String(config?.geometry?.column || '').trim();
   const configuredReadColumn = String(config?.geometry?.readColumn || '').trim();
-  const candidates = [configuredColumn, configuredReadColumn, 'shape', 'geom']
+  const candidates = [configuredColumn, configuredReadColumn, 'shape', 'geom', 'geometry']
     .filter((column) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(column));
   const geometryColumn = candidates.find((column) => tableColumns.includes(column));
   return geometryColumn ? `${alias}.${geometryColumn}` : null;
@@ -1259,11 +1310,17 @@ async function getTable(config, page, pageSize, q, division, status = '') {
   const limit = Math.min(200, Math.max(1, Number(pageSize)));
   const offset = (Number(page) - 1) * limit;
 
-  const params = [division];
-  let where = `UPPER(division) = UPPER($1)`;
+  const tableColumns = await getTableColumns(pool, config.table);
+  const divisionColumn = getDivisionColumn(tableColumns);
+  const params = [];
+  let where = 'TRUE';
+
+  if (divisionColumn && division) {
+    params.push(division);
+    where = buildDivisionWhereClause(divisionColumn, params.length);
+  }
 
   if (status) {
-    const tableColumns = await getTableColumns(pool, config.table);
     if (tableColumns.includes('status')) {
       if (String(status).trim().toLowerCase() === '__empty__') {
         where += ` AND TRIM(COALESCE(status::text, '')) = ''`;
@@ -1275,14 +1332,17 @@ async function getTable(config, page, pageSize, q, division, status = '') {
   }
 
   if (q && config.searchableFields?.length) {
-    params.push(`%${q}%`);
-
     const searchConditions = config.searchableFields
-      .map((field) => `LOWER(${field}) LIKE LOWER($2)`)
-      .join(' OR ');
+      .filter((field) => tableColumns.includes(field))
+      .map((field) => `LOWER(${field}::text) LIKE LOWER($${params.length + 1})`);
 
-    where += ` AND (${searchConditions})`;
+    if (searchConditions.length) {
+      params.push(`%${q}%`);
+      where += ` AND (${searchConditions.join(' OR ')})`;
+    }
   }
+
+  const orderColumn = tableColumns.includes(config.idColumn) ? config.idColumn : tableColumns[0] || '1';
 
   const totalSql = `
     SELECT COUNT(*)::int AS total
@@ -1291,10 +1351,10 @@ async function getTable(config, page, pageSize, q, division, status = '') {
   `;
 
   const listSql = `
-    SELECT ${getMainSelectList(config)}
+    SELECT ${getMainSelectList(config, tableColumns)}
     FROM ${config.table}
     WHERE ${where}
-    ORDER BY ${config.idColumn}
+    ORDER BY ${orderColumn}
     LIMIT ${limit} OFFSET ${offset}
   `;
 
@@ -1540,6 +1600,9 @@ function getAssetValidationParam(layer) {
     'bridge_end',
     'bridge_start',
     'road_over_bridge',
+    'rob',
+    'rub_lhs',
+    'ror',
     'road_under_bridge',
     'foot_over_bridge',
     'rail_over_rail',

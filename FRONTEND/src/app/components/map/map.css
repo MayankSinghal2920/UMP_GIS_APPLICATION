@@ -69,11 +69,11 @@
 }
 
 :host ::ng-deep .leaflet-marker-pane {
-  z-index: 760;
+  z-index: 660;
 }
 
 :host ::ng-deep .leaflet-tooltip-pane {
-  z-index: 770;
+  z-index: 690;
 }
 
 :host ::ng-deep .leaflet-container {

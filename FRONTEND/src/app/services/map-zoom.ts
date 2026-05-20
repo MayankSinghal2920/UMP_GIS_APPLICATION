@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 
 export type ZoomTarget =
   | { type: 'latlng'; lat: number; lng: number; zoom?: number; draggable?: boolean; existingLayer?: any }
+  | { type: 'feature'; feature: any; pad?: number }
   | { type: 'xy'; x: number; y: number; zoom?: number }
   | { type: 'bounds'; west: number; south: number; east: number; north: number; pad?: number }
   | { type: 'home' }

@@ -71,8 +71,8 @@ export class EditState {
     this.notify();
   }
 
-  setLayer(layer: EditableLayer) {
-    if (this.editLayer === layer && !this.selectedFeatureId && !this.selectedFeature && !this.draft && !this.creatingStation) return;
+  setLayer(layer: EditableLayer, force = false) {
+    if (!force && this.editLayer === layer && !this.selectedFeatureId && !this.selectedFeature && !this.draft && !this.creatingStation) return;
     this.editLayer = layer;
     this.resetSelection();
     this.notify();

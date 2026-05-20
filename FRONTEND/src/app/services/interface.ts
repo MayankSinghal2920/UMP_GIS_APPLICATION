@@ -178,6 +178,7 @@ export interface ClusteredPointLayerOptions {
   clusterRadiusPx?: number;
   disableClusteringZoom?: number;
   minClusterCount?: number;
+  clusterClickZoom?: number;
 }
 
 function createClusterMarker(latlng: L.LatLng, count: number, legend: LayerLegend): L.Marker {
@@ -221,6 +222,7 @@ export function buildClusteredPointLayers(options: ClusteredPointLayerOptions): 
     clusterRadiusPx = 48,
     disableClusteringZoom = 14,
     minClusterCount = 40,
+    clusterClickZoom,
   } = options;
 
   const validFeatures = (features || []).filter((feature) => {
@@ -274,7 +276,14 @@ export function buildClusteredPointLayers(options: ClusteredPointLayerOptions): 
     const latlng = L.latLng(bucket.lat / bucket.features.length, bucket.lng / bucket.features.length);
     const marker = createClusterMarker(latlng, bucket.features.length, legend);
     marker.on('click', () => {
-      map.fitBounds(bucket.bounds.pad(0.4));
+      const targetZoom = clusterClickZoom ?? disableClusteringZoom;
+      const boundsZoom = map.getBoundsZoom(bucket.bounds.pad(0.4));
+      const nextZoom = Math.max(boundsZoom, targetZoom);
+      if (nextZoom >= targetZoom) {
+        map.setView(bucket.bounds.getCenter(), nextZoom, { animate: false });
+      } else {
+        map.fitBounds(bucket.bounds.pad(0.4), { animate: false });
+      }
     });
     marker.bindPopup('<b>' + bucket.features.length + '</b> features in this area');
     layers.push(marker);

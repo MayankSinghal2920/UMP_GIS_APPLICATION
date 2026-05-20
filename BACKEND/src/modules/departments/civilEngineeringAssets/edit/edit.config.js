@@ -1,3 +1,94 @@
+function buildGenericPointLayerConfig(table, options = {}) {
+  return {
+    table: `sde.${table}`,
+    idColumn: 'objectid',
+    idStrategy: 'manual',
+    geometry: {
+      enabled: true,
+      type: 'Point',
+      column: options.geometryColumn || 'shape',
+      readColumn: options.readColumn || options.geometryColumn || 'shape',
+      xField: 'xcoord',
+      yField: 'ycoord'
+    },
+    insertFields: options.fields || ['assetid', 'sttncode', 'sttnname', 'constituncy', 'division', 'railway'],
+    updateFields: options.fields || ['assetid', 'sttncode', 'sttnname', 'constituncy', 'division', 'railway'],
+    searchableFields: options.searchableFields || ['assetid', 'sttncode', 'sttnname']
+  };
+}
+
+function buildBridgeLikePointLayerConfig(table, numberField) {
+  const fields = [
+    'gid',
+    'asset_id',
+    'assetid',
+    numberField,
+    'bridgeno',
+    'distkm',
+    'distm',
+    'latitude',
+    'longitude',
+    'xcoord',
+    'ycoord',
+    'railway',
+    'division',
+    'state',
+    'district',
+    'tmssection',
+    'bridgetype',
+    'spanconf',
+    'constituncy',
+    'constituency',
+    'attachment_bundle_url'
+  ];
+
+  return buildGenericPointLayerConfig(table, {
+    fields,
+    geometryColumn: 'geom',
+    readColumn: 'geom',
+    searchableFields: ['asset_id', 'assetid', numberField, 'bridgeno', 'state', 'district']
+  });
+}
+
+function buildGenericPolygonLayerConfig(table, options = {}) {
+  return {
+    table: `sde.${table}`,
+    idColumn: 'objectid',
+    idStrategy: 'manual',
+    geometry: {
+      enabled: false,
+      type: 'Polygon',
+      column: options.geometryColumn || 'shape',
+      readColumn: options.readColumn || options.geometryColumn || 'shape'
+    },
+    insertFields: options.fields || ['distfromkm', 'distfromm', 'disttokm', 'disttom', 'railway', 'division'],
+    updateFields: options.fields || ['distfromkm', 'distfromm', 'disttokm', 'disttom', 'railway', 'division'],
+    searchableFields: options.searchableFields || ['distfromkm', 'disttokm', 'division']
+  };
+}
+
+function buildLandPlanOnTrackLayerConfig() {
+  const fields = [
+    'distfromkm',
+    'distfromm',
+    'disttokm',
+    'disttom',
+    'railway',
+    'division',
+    'state',
+    'district',
+    'constituncy',
+    'imageno',
+  ];
+
+  return buildGenericPolygonLayerConfig('land_plan_on_track', {
+    fields,
+    geometryColumn: 'shape',
+    readColumn: 'shape',
+    searchableFields: ['distfromkm', 'disttokm', 'state', 'district', 'constituncy', 'division']
+  });
+}
+
 module.exports = {
   station: {
     table: 'sde.station',
@@ -409,6 +500,15 @@ module.exports = {
       'stnfrom',
       'stnto'
     ]
-  }
+  },
+
+  landplan: buildLandPlanOnTrackLayerConfig(),
+  landplan_ontrack: buildLandPlanOnTrackLayerConfig(),
+
+  road_over_bridge: buildBridgeLikePointLayerConfig('road_over_bridge', 'robno'),
+  rob: buildBridgeLikePointLayerConfig('road_over_bridge', 'robno'),
+  rub_lhs: buildBridgeLikePointLayerConfig('rub_lhs', 'rubno'),
+  ror: buildBridgeLikePointLayerConfig('ror', 'rorno'),
+  buffer_rails: buildGenericPointLayerConfig('buffer_rails')
 };
 
