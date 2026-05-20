@@ -36,6 +36,7 @@ import { UiState } from '../../services/ui-state';
 import { CurrentUserService } from '../../services/current-user';
 import { MapZoomService, ZoomTarget } from '../../services/map-zoom';
 import { Station } from '../../services/station.service';
+import { FileUploadService } from '../../services/file-upload.service';
 
 type EditableLayer = string | null;
 type DepartmentModuleKey = 'civil_engineering_assets' | 'civil_engineering_assets_offtrack' | 'unknown';
@@ -74,6 +75,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private homeZoom?: number;
   private homeCaptured = false;
   private editSuppressionSub?: Subscription;
+  private shapefileUploadSub?: Subscription;
+  private editAwareLayerModeKey = '';
+  private editSuppressionKey = '';
   private suppressedVis = new globalThis.Map<string, boolean>();
   private readonly LAND_OFFSET_ID = 'land_offset';
   private readonly EDIT_BASE_LAYER_IDS = new Set(['stations', 'landboundary']);
@@ -116,12 +120,18 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     public ui: UiState,
     private currentUser: CurrentUserService,
     private mapZoom: MapZoomService,
+    private fileUploadService: FileUploadService,
     private route: ActivatedRoute,
     private router: Router
   ) {}
 
   ngAfterViewInit(): void {
     document.body.classList.add(this.performanceBodyClass);
+    this.shapefileUploadSub?.unsubscribe();
+    this.shapefileUploadSub = this.fileUploadService.shapefileUploaded$.subscribe(({ layerName }) => {
+      this.refreshAfterShapefileUpload(layerName);
+    });
+
     void this.currentUser.loadMe(true).then((user) => {
       if (!user?.user_id) {
         this.zone.run(() => {
@@ -137,7 +147,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private forceMapResize(): void { if (!this.map) return; this.map.invalidateSize(); requestAnimationFrame(() => this.map?.invalidateSize()); setTimeout(() => this.map?.invalidateSize(), 350); }
-  private scheduleReload(): void { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } this.layerManager.reloadVisible(this.map); }, 900); }
+  private scheduleReload(): void { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } this.layerManager.reloadVisible(this.map); }, 280); }
   private scheduleReloadAfterSuppression(): void {
     if (!this.map) return;
     if (this.suppressedReloadTimer) clearTimeout(this.suppressedReloadTimer);
@@ -446,12 +456,22 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private syncEditAwareLayers(): void {
     if (!this.map) return;
     const normalizedEditLayer = normalizeCivilEngineeringLayerId(this.edit.editLayer || '');
+    const modeKey = `${this.edit.enabled ? 'edit' : 'view'}:${normalizedEditLayer || 'none'}`;
+    if (this.editAwareLayerModeKey === modeKey) return;
+    this.editAwareLayerModeKey = modeKey;
+
     const wantsStationEditLayer = this.edit.enabled && normalizedEditLayer === 'stations';
     const wantsLandOffsetEditLayer = this.edit.enabled && normalizedEditLayer === 'land_offset';
     const wantsLandBoundaryEditLayer = this.edit.enabled && normalizedEditLayer === 'land_boundary';
     this.layerManager.replaceLayer(wantsStationEditLayer ? new StationLayer(this.api, this.filters, this.edit, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)) : new StationViewingLayer(this.api, this.zone, (g) => this.attrTable.pushFeatureCollection('Station', g)), this.map);
     this.layerManager.replaceLayer(wantsLandOffsetEditLayer ? new LandOffsetEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)) : new LandOffsetLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Offset', g)), this.map);
     this.layerManager.replaceLayer(wantsLandBoundaryEditLayer ? new LandBoundaryEditLayer(this.api, this.edit, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)) : new LandBoundaryLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Land Boundary', g)), this.map);
+  }
+
+  private handleEditStateChange(): void {
+    this.syncEditAwareLayers();
+    this.applyEditSuppression();
+    this.updateStationCreateModeUi();
   }
 
   private initDeepLinking(): void {
@@ -493,12 +513,41 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     base.once('load', () => { this.forceMapResize(); });
     this.registerDepartmentLayers();
     this.map.whenReady(() => {
-      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); setTimeout(() => { if (this.map) this.layerManager.reloadAll(this.map); }, 180); this.map!.once('moveend', () => { if (this.map) this.layerManager.reloadVisible(this.map); }); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => { this.syncEditAwareLayers(); this.applyEditSuppression(); this.updateStationCreateModeUi(); }); this.syncEditAwareLayers(); this.applyEditSuppression(); this.updateStationCreateModeUi(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { if (existingLayer) this.applyExistingMarkerHighlight(existingLayer); this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); if ((this.highlightLayer as any).bringToFront) (this.highlightLayer as any).bringToFront(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false }); } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
+      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); setTimeout(() => { if (this.map) this.layerManager.reloadAll(this.map); }, 180); this.map!.once('moveend', () => { if (this.map) this.layerManager.reloadVisible(this.map); }); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => this.handleEditStateChange()); this.handleEditStateChange(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { if (existingLayer) this.applyExistingMarkerHighlight(existingLayer); this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); if ((this.highlightLayer as any).bringToFront) (this.highlightLayer as any).bringToFront(); if (bounds?.isValid()) this.map.fitBounds(bounds.pad(0.2), { animate: false }); } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
     });
+  }
+
+  private refreshAfterShapefileUpload(layerName: string): void {
+    if (!this.map) return;
+
+    const normalizedLayer = normalizeCivilEngineeringLayerId(layerName || '') || String(layerName || '').trim().toLowerCase();
+    const candidateIds = [
+      `department_${normalizedLayer}`,
+      normalizedLayer,
+      normalizedLayer === 'station' ? 'stations' : '',
+      normalizedLayer === 'land_boundary' ? 'landboundary' : '',
+    ].filter(Boolean);
+
+    const targetLayer = candidateIds
+      .map((id) => this.layerManager.findById(id))
+      .find((layer) => !!layer);
+
+    if (targetLayer) {
+      targetLayer.addTo(this.map);
+      targetLayer.loadForMap(this.map);
+      return;
+    }
+
+    this.layerManager.reloadVisible(this.map);
   }
 
   private applyEditSuppression(): void {
     if (!this.map) return;
+
+    const normalizedEditLayer = normalizeCivilEngineeringLayerId(this.edit.editLayer || '');
+    const suppressionKey = `${this.edit.enabled ? 'edit' : 'view'}:${normalizedEditLayer || 'none'}`;
+    if (this.editSuppressionKey === suppressionKey) return;
+    this.editSuppressionKey = suppressionKey;
 
     if (!this.edit.enabled) {
       this.suppressedVis.clear();
@@ -508,7 +557,6 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const normalizedEditLayer = normalizeCivilEngineeringLayerId(this.edit.editLayer || '');
     const selectedLayerIds = new Set<string>();
     if (normalizedEditLayer) {
       selectedLayerIds.add(normalizedEditLayer);
@@ -589,7 +637,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     document.body.classList.remove(this.performanceBodyClass);
-    this.zoomSub?.unsubscribe(); this.clearSelectionSub?.unsubscribe(); this.sidebarSub?.unsubscribe(); this.mapZoomSub?.unsubscribe(); this.lockDragSub?.unsubscribe(); this.editSuppressionSub?.unsubscribe(); this.routeSub?.unsubscribe(); this.zoomSub = undefined; this.clearSelectionSub = undefined; this.sidebarSub = undefined; this.mapZoomSub = undefined; this.lockDragSub = undefined; this.editSuppressionSub = undefined; this.routeSub = undefined; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = null; if (this.map) this.clearZoomArtifacts(); if (!this.map) return;
+    this.zoomSub?.unsubscribe(); this.clearSelectionSub?.unsubscribe(); this.sidebarSub?.unsubscribe(); this.mapZoomSub?.unsubscribe(); this.lockDragSub?.unsubscribe(); this.editSuppressionSub?.unsubscribe(); this.routeSub?.unsubscribe(); this.shapefileUploadSub?.unsubscribe(); this.zoomSub = undefined; this.clearSelectionSub = undefined; this.sidebarSub = undefined; this.mapZoomSub = undefined; this.lockDragSub = undefined; this.editSuppressionSub = undefined; this.routeSub = undefined; this.shapefileUploadSub = undefined; if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = null; if (this.map) this.clearZoomArtifacts(); if (!this.map) return;
     try { if (this.createStationDblClickHandler) this.map.off('click', this.createStationDblClickHandler); if (this.createPointMouseMoveHandler) this.map.off('mousemove', this.createPointMouseMoveHandler); if (this.onMoveOrZoom) this.map.off('moveend', this.onMoveOrZoom); else this.map.off(); this.layerManager.removeAll(this.map); this.map.remove(); } finally { if (this.selectedStationMarker && this.map?.hasLayer(this.selectedStationMarker)) { this.map.removeLayer(this.selectedStationMarker); } if (this.createPointHintMarker && this.map?.hasLayer(this.createPointHintMarker)) { this.map.removeLayer(this.createPointHintMarker); } this.selectedStationMarker = undefined; this.createPointHintMarker = undefined; this.map = undefined; this.onMoveOrZoom = undefined; this.highlightLayer = undefined; this.homeCenter = undefined; this.homeZoom = undefined; this.homeCaptured = false; this.dragMarker = undefined; this.zoomHighlight = undefined; this.suppressedVis.clear(); this.createStationDblClickHandler = undefined; this.createPointMouseMoveHandler = undefined; }
   }
 }

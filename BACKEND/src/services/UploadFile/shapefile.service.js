@@ -9,6 +9,23 @@ const generateGUID = require('../../utils/guid');
 
 const execAsync = promisify(exec);
 const config = configuration();
+const ASSET_ID_VALIDATED_UPLOAD_TABLES = new Set([
+  'bridge_minor',
+  'bridge_end',
+  'bridge_start',
+  'road_over_bridge',
+  'road_under_bridge',
+  'foot_over_bridge',
+  'rail_over_rail',
+  'switch_expansion_joint',
+  'buffer_rails',
+  'curve_start',
+  'curve_end',
+  'pointxing',
+  'levelxing',
+  'tunnel_start',
+  'tunnel_end',
+]);
 
 const PG_BIN = (config.POSTGRES.PG_BIN || 'C:\\Program Files\\PostgreSQL\\16\\bin').replace(/[\\/]+$/, '');
 const SHP2PGSQL_PATH = path.join(PG_BIN, 'shp2pgsql.exe');
@@ -24,6 +41,63 @@ function ensurePostgresTooling() {
       `PostgreSQL import tools not found: ${missing.join(', ')}. ` +
       'Set PG_BIN in the backend env file to the PostgreSQL bin directory that contains shp2pgsql.exe and psql.exe.',
     );
+  }
+}
+
+function quoteIdent(identifier) {
+  return `"${String(identifier || '').replace(/"/g, '""')}"`;
+}
+
+function createDuplicateAssetIdError(assetId) {
+  const err = new Error(`Asset ID ${assetId} already exists. Please enter a different Asset ID.`);
+  err.status = 409;
+  return err;
+}
+
+async function ensureUniqueUploadAssetIds(client, tempSchema, tempTable, targetSchema, targetTable, mapping, isNew) {
+  if (isNew || !ASSET_ID_VALIDATED_UPLOAD_TABLES.has(String(targetTable || '').trim().toLowerCase())) return;
+
+  const assetMapping = (mapping || []).find((m) => {
+    const targetCol = String(m?.targetCol || '').trim().toLowerCase();
+    return (targetCol === 'asset_id' || targetCol === 'assetid') && m?.sourceCol;
+  });
+  if (!assetMapping) return;
+
+  const sourceAssetIdColumn = quoteIdent(assetMapping.sourceCol);
+  const assetIdExpression = `NULLIF(TRIM(COALESCE(${sourceAssetIdColumn}::text, '')), '')`;
+  const duplicateInUploadSql = `
+    WITH incoming AS (
+      SELECT ${assetIdExpression} AS asset_id
+      FROM ${quoteIdent(tempSchema)}.${quoteIdent(tempTable)}
+    )
+    SELECT asset_id
+    FROM incoming
+    WHERE asset_id IS NOT NULL
+    GROUP BY asset_id
+    HAVING COUNT(*) > 1
+    LIMIT 1
+  `;
+  const { rows: duplicateUploadRows } = await client.query(duplicateInUploadSql);
+  if (duplicateUploadRows.length > 0) {
+    throw createDuplicateAssetIdError(duplicateUploadRows[0].asset_id);
+  }
+
+  const targetAssetIdColumn = assetMapping.targetCol;
+  const duplicateExistingSql = `
+    WITH incoming AS (
+      SELECT DISTINCT ${assetIdExpression} AS asset_id
+      FROM ${quoteIdent(tempSchema)}.${quoteIdent(tempTable)}
+    )
+    SELECT i.asset_id
+    FROM incoming i
+    JOIN ${quoteIdent(targetSchema)}.${quoteIdent(targetTable)} t
+      ON TRIM(COALESCE(t.${quoteIdent(targetAssetIdColumn)}::text, '')) = i.asset_id
+    WHERE i.asset_id IS NOT NULL
+    LIMIT 1
+  `;
+  const { rows: duplicateExistingRows } = await client.query(duplicateExistingSql);
+  if (duplicateExistingRows.length > 0) {
+    throw createDuplicateAssetIdError(duplicateExistingRows[0].asset_id);
   }
 }
 
@@ -505,6 +579,8 @@ async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNe
     if (ignoredColumns.length)                     console.log(`Ignored   (${ignoredColumns.length}): ${ignoredColumns.join(', ')}`);
     console.log(`${'═'.repeat(60)}\n`);
     // ───────────────────────────────────────────────────────────────
+
+    await ensureUniqueUploadAssetIds(client, tempSchema, tempTable, sdeSchema, sdeTable, mapping, isNew);
 
     const insertColumns = [];
     const selectExpressions = [];

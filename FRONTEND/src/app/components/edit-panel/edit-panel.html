@@ -107,7 +107,7 @@
               <div class="add-record-option-text">
                 Create a new record by uploading a `.shp` file.
               </div>
-              <input id="add-record-shapefile-input" type="file" class="add-record-shapefile-input" accept=".shp"
+              <input #addRecordShapefileInput id="add-record-shapefile-input" type="file" class="add-record-shapefile-input" accept=".shp"
                 (change)="onAddRecordShapefileSelected($event)" />
               <div class="add-record-option-meta" *ngIf="addRecordShapefileName">
                 Selected: {{ addRecordShapefileName }}
@@ -133,7 +133,7 @@
             <thead>
               <tr>
                 <th *ngFor="let col of activeTableColumns">{{ col.label }}</th>
-                <th>Actions</th>
+                <th class="actions-heading">Actions</th>
               </tr>
             </thead>
 

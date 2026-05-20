@@ -58,18 +58,21 @@ export class EditState {
   }
 
   enable() {
+    if (this.enabled) return;
     this.enabled = true;
     this.reset();
     this.notify();
   }
 
   disable() {
+    if (!this.enabled && !this.editLayer && !this.selectedFeatureId && !this.selectedFeature && !this.draft && !this.creatingStation) return;
     this.enabled = false;
     this.reset();
     this.notify();
   }
 
   setLayer(layer: EditableLayer) {
+    if (this.editLayer === layer && !this.selectedFeatureId && !this.selectedFeature && !this.draft && !this.creatingStation) return;
     this.editLayer = layer;
     this.resetSelection();
     this.notify();

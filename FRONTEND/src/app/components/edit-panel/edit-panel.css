@@ -360,6 +360,11 @@
   width: 110px;
 }
 
+#panelEdit .tbl thead th.actions-heading{
+  text-align: center;
+  vertical-align: middle;
+}
+
 #panelEdit .tbl tbody td{
   padding: 8px 9px;
   color: #111827;

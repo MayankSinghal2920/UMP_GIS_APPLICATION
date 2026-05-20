@@ -7,13 +7,14 @@ import { BASE_URL, getDivision } from '../../shared/api-utils';
 export class CivilEngineeringAssetsEditingApi {
   constructor(private http: HttpClient) {}
 
-  getLayerTable(layer: string, page: number, pageSize: number, search: string) {
+  getLayerTable(layer: string, page: number, pageSize: number, search: string, status: string = '') {
     const params: any = {
       page,
       pageSize,
       division: getDivision(),
     };
     if (search) params.q = search;
+    if (status) params.status = status;
 
     return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/table`, { params });
   }
@@ -136,20 +137,20 @@ export class CivilEngineeringAssetsEditingApi {
     );
   }
 
-  getStationTable(page: number, pageSize: number, search: string) {
-    return this.getLayerTable('station', page, pageSize, search);
+  getStationTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.getLayerTable('station', page, pageSize, search, status);
   }
 
-  getBridgeStartTable(page: number, pageSize: number, search: string) {
-    return this.getLayerTable('bridge_start', page, pageSize, search);
+  getBridgeStartTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.getLayerTable('bridge_start', page, pageSize, search, status);
   }
 
-  getBridgeEndTable(page: number, pageSize: number, search: string) {
-    return this.getLayerTable('bridge_end', page, pageSize, search);
+  getBridgeEndTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.getLayerTable('bridge_end', page, pageSize, search, status);
   }
 
-  getBridgeMinorTable(page: number, pageSize: number, search: string) {
-    return this.getLayerTable('bridge_minor', page, pageSize, search);
+  getBridgeMinorTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.getLayerTable('bridge_minor', page, pageSize, search, status);
   }
 
   getStationDraftTable(page: number, pageSize: number, search: string, status: string) {

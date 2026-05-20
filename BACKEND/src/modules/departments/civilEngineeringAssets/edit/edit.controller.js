@@ -147,7 +147,7 @@ async function remove(req, res, next) {
 async function getTable(req, res, next) {
   try {
     const { layer } = req.params;
-    const { page = 1, pageSize = 10, q = '' } = req.query;
+    const { page = 1, pageSize = 10, q = '', status = '' } = req.query;
     const division = String(req.query.division || '').trim();
 
     if (!division) {
@@ -157,7 +157,7 @@ async function getTable(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-    const result = await model.getTable(config, page, pageSize, q, division);
+    const result = await model.getTable(config, page, pageSize, q, division, String(status || '').trim());
     res.json(result);
   } catch (err) {
     next(err);

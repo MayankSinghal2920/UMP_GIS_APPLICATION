@@ -37,6 +37,8 @@ export class FileUploadComponent implements OnInit {
 
   fileDescription = '';
   fileCategory = '';
+  private uploadResetTimer: ReturnType<typeof setTimeout> | null = null;
+  private uploadErrorResetTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly SHAPEFILE_EXTENSIONS = ['.shp', '.shx', '.dbf', '.prj', '.cpg', '.qpj', '.sbn', '.sbx'];
   readonly REQUIRED_SHAPEFILE_EXTENSIONS = ['.shp', '.shx', '.dbf'];
@@ -130,6 +132,7 @@ export class FileUploadComponent implements OnInit {
     if (index > -1) {
       this.shapeFiles.splice(index, 1);
     }
+    this.clearNativeFileInput();
   }
 
   uploadShapefile(): void {
@@ -137,14 +140,23 @@ export class FileUploadComponent implements OnInit {
   }
 
   private addShapefiles(files: File[]): void {
+    this.clearUploadErrorResetTimer();
     const valid = files.filter((file) => {
       const ext = '.' + file.name.split('.').pop()?.toLowerCase();
       return this.SHAPEFILE_EXTENSIONS.includes(ext);
     });
 
     const invalid = files.length - valid.length;
+    this.uploadSuccess = false;
     this.uploadError = invalid > 0 ? `${invalid} file(s) skipped. Only shapefile parts are allowed.` : '';
-    this.shapeFiles = [...this.shapeFiles, ...valid];
+
+    const byFileKey = new Map<string, File>();
+    [...this.shapeFiles, ...valid].forEach((file) => {
+      const key = `${file.name.toLowerCase()}|${file.size}|${file.lastModified}`;
+      byFileKey.set(key, file);
+    });
+    this.shapeFiles = Array.from(byFileKey.values());
+    this.clearNativeFileInput();
   }
 
   async uploadShapefiles(): Promise<void> {
@@ -153,11 +165,14 @@ export class FileUploadComponent implements OnInit {
     const validationError = this.getMissingShapefilePartsError();
     if (validationError) {
       this.uploadError = validationError;
+      this.scheduleUploadErrorReset();
       return;
     }
 
     this.isUploading = true;
     this.uploadProgress = 0;
+    this.clearUploadResetTimer();
+    this.clearUploadErrorResetTimer();
     this.uploadError = '';
     const targetLayerName = this.getSelectedLayerTableName();
 
@@ -179,7 +194,11 @@ export class FileUploadComponent implements OnInit {
       this.loadUploadedFiles();
       this.resetAfterSuccessfulUpload();
     } catch (err: any) {
+      this.clearUploadResetTimer();
+      this.uploadSuccess = false;
       this.uploadError = err?.message || 'Upload failed. Please try again.';
+      this.clearNativeFileInput();
+      this.scheduleUploadErrorReset();
     } finally {
       this.isUploading = false;
       this.cdr.markForCheck();
@@ -196,12 +215,16 @@ export class FileUploadComponent implements OnInit {
   }
 
   private resetUploadState(): void {
+    this.clearUploadResetTimer();
+    this.clearUploadErrorResetTimer();
     this.selectedLayer = '';
     this.resetFileState();
     this.filteredLayerOptions = [...this.layerOptions];
   }
 
   private resetFileState(): void {
+    this.clearUploadResetTimer();
+    this.clearUploadErrorResetTimer();
     this.shapeFiles = [];
     this.uploadProgress = 0;
     this.uploadSuccess = false;
@@ -214,6 +237,8 @@ export class FileUploadComponent implements OnInit {
   }
 
   private resetAfterSuccessfulUpload(): void {
+    this.clearUploadResetTimer();
+    this.clearUploadErrorResetTimer();
     this.shapeFiles = [];
     this.fileDescription = '';
     this.fileCategory = '';
@@ -221,7 +246,9 @@ export class FileUploadComponent implements OnInit {
     this.shapefileDragOver = false;
     this.clearNativeFileInput();
 
-    setTimeout(() => {
+    this.uploadResetTimer = setTimeout(() => {
+      this.uploadResetTimer = null;
+      if (this.uploadError) return;
       this.currentView = 'layer-select';
       this.selectedLayer = '';
       this.uploadSuccess = false;
@@ -229,6 +256,33 @@ export class FileUploadComponent implements OnInit {
       this.filteredLayerOptions = [...this.layerOptions];
       this.cdr.markForCheck();
     }, 1200);
+  }
+
+  private clearUploadResetTimer(): void {
+    if (!this.uploadResetTimer) return;
+    clearTimeout(this.uploadResetTimer);
+    this.uploadResetTimer = null;
+  }
+
+  private scheduleUploadErrorReset(): void {
+    this.clearUploadErrorResetTimer();
+    this.uploadErrorResetTimer = setTimeout(() => {
+      this.uploadErrorResetTimer = null;
+      this.shapeFiles = [];
+      this.uploadProgress = 0;
+      this.uploadSuccess = false;
+      this.uploadError = '';
+      this.isUploading = false;
+      this.shapefileDragOver = false;
+      this.clearNativeFileInput();
+      this.cdr.markForCheck();
+    }, 3000);
+  }
+
+  private clearUploadErrorResetTimer(): void {
+    if (!this.uploadErrorResetTimer) return;
+    clearTimeout(this.uploadErrorResetTimer);
+    this.uploadErrorResetTimer = null;
   }
 
   private clearNativeFileInput(): void {

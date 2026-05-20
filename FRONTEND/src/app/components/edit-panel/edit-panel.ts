@@ -9,6 +9,7 @@ import { UiState } from '../../services/ui-state';
 import { MapZoomService } from 'src/app/services/map-zoom';
 import { CurrentUserService } from 'src/app/services/current-user';
 import { LayerManager } from 'src/app/services/layer-manager';
+import { FileUploadService } from 'src/app/services/file-upload.service';
 import {
   CIVIL_ENGINEERING_ASSET_LAYER_OPTIONS,
   getCivilEngineeringAssetLayerDisplayName,
@@ -136,6 +137,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private dragSub?: Subscription;
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
+  private shapefileUploadSub?: Subscription;
   private loadSeq = 0;
   stateOptions: LocationOption[] = [];
   districtOptions: LocationOption[] = [];
@@ -144,6 +146,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private allConstituencyOptions: Array<LocationOption & { state?: string }> = [];
 
   @ViewChild('attachmentInput') attachmentInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('addRecordShapefileInput') addRecordShapefileInput?: ElementRef<HTMLInputElement>;
   attachmentFiles: File[] = [];
   uploadingAttachments = false;
   attachmentUploadError: string | null = null;
@@ -157,7 +160,8 @@ export class EditPanel implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private mapZoom: MapZoomService,
     private currentUser: CurrentUserService,
-    private layerManager: LayerManager
+    private layerManager: LayerManager,
+    private fileUploadService: FileUploadService
   ) {}
 
   ngOnInit(): void {
@@ -184,6 +188,10 @@ export class EditPanel implements OnInit, OnDestroy {
       }
     });
 
+    this.shapefileUploadSub = this.fileUploadService.shapefileUploaded$.subscribe(({ layerName }) => {
+      this.refreshAfterShapefileUpload(layerName);
+    });
+
     if (this.edit.enabled && this.supportsCurrentLayerListing()) this.load(true);
     this.syncSelectedFeatureDraft();
   }
@@ -197,6 +205,9 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.createPointSub?.unsubscribe();
     this.createPointSub = undefined;
+
+    this.shapefileUploadSub?.unsubscribe();
+    this.shapefileUploadSub = undefined;
   }
 
   get totalPages(): number {
@@ -250,6 +261,16 @@ export class EditPanel implements OnInit, OnDestroy {
 
   private getCurrentLayerLabel(): string {
     return this.currentLayerSchema?.label || 'Asset';
+  }
+
+  private refreshAfterShapefileUpload(layerName: string): void {
+    if (!this.edit.enabled || !this.supportsCurrentLayerListing()) return;
+
+    const uploadedLayer = normalizeCivilEngineeringLayerId(layerName || '');
+    const currentLayer = normalizeCivilEngineeringLayerId(this.currentTableLayer || '');
+    if (uploadedLayer && currentLayer && uploadedLayer !== currentLayer) return;
+
+    this.load(false);
   }
 
   private getRecordDisplayName(row: any): string {
@@ -1042,31 +1063,40 @@ export class EditPanel implements OnInit, OnDestroy {
     return '';
   }
 
-  private fetchCurrentLayerPage(layerKey: string, page: number, search: string) {
+  private getMainTableStatusFilter(): string {
+    return this.isMaker() && this.makerTab === 'edit' ? '__empty__' : '';
+  }
+
+  private shouldFetchAllPagesForCurrentView(): boolean {
+    return this.isMakerSentForDeletionView();
+  }
+
+  private fetchCurrentLayerPage(layerKey: string, page: number, pageSize: number, search: string) {
     const status = this.getDraftStatusForCurrentView();
     const isDraft = this.shouldLoadDraftTable();
+    const mainStatus = this.getMainTableStatusFilter();
 
     if (layerKey === 'bridge_start') {
       return isDraft
-        ? this.api.getBridgeStartDraftTable(page, this.fetchPageSize, search, status)
-        : this.api.getBridgeStartTable(page, this.fetchPageSize, search);
+        ? this.api.getBridgeStartDraftTable(page, pageSize, search, status)
+        : this.api.getBridgeStartTable(page, pageSize, search, mainStatus);
     }
 
     if (layerKey === 'bridge_end') {
       return isDraft
-        ? this.api.getBridgeEndDraftTable(page, this.fetchPageSize, search, status)
-        : this.api.getBridgeEndTable(page, this.fetchPageSize, search);
+        ? this.api.getBridgeEndDraftTable(page, pageSize, search, status)
+        : this.api.getBridgeEndTable(page, pageSize, search, mainStatus);
     }
 
     if (layerKey === 'bridge_minor') {
       return isDraft
-        ? this.api.getBridgeMinorDraftTable(page, this.fetchPageSize, search, status)
-        : this.api.getBridgeMinorTable(page, this.fetchPageSize, search);
+        ? this.api.getBridgeMinorDraftTable(page, pageSize, search, status)
+        : this.api.getBridgeMinorTable(page, pageSize, search, mainStatus);
     }
 
     return isDraft
-      ? this.api.getLayerDraftTable(layerKey, page, this.fetchPageSize, search, status)
-      : this.api.getLayerTable(layerKey, page, this.fetchPageSize, search);
+      ? this.api.getLayerDraftTable(layerKey, page, pageSize, search, status)
+      : this.api.getLayerTable(layerKey, page, pageSize, search, mainStatus);
   }
 
   private applyPagination(): void {
@@ -1105,10 +1135,32 @@ export class EditPanel implements OnInit, OnDestroy {
       return;
     }
 
+    if (!this.shouldFetchAllPagesForCurrentView()) {
+      this.fetchCurrentLayerPage(layerKey, this.page, this.pageSize, this.search).subscribe({
+        next: (res) => {
+          if (seq !== this.loadSeq) return;
+          const rows: any[] = Array.isArray(res?.rows) ? res.rows : [];
+          this.allRows = rows;
+          this.filteredRows = rows.filter((r) => this.isVisibleForCurrentView(r));
+          this.rows = this.filteredRows;
+          this.total = Number(res?.total ?? this.filteredRows.length);
+          this.filteredTotal = this.total;
+          this.loading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          if (seq !== this.loadSeq) return;
+          console.error('getLayerTable failed', err);
+          this.allRows = []; this.filteredRows = []; this.rows = []; this.total = 0; this.filteredTotal = 0; this.loading = false; this.cdr.detectChanges();
+        },
+      });
+      return;
+    }
+
     const fetchOne = (p: number) => {
       if (seq !== this.loadSeq) return;
 
-      this.fetchCurrentLayerPage(layerKey, p, this.search).subscribe({
+      this.fetchCurrentLayerPage(layerKey, p, this.fetchPageSize, this.search).subscribe({
         next: (res) => {
           if (seq !== this.loadSeq) return;
           const rows = Array.isArray(res?.rows) ? res.rows : [];
@@ -1153,19 +1205,41 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   onSearchChange() { this.page = 1; this.load(true); }
-  nextPage() { if (this.page >= this.totalPages) return; this.page++; this.applyPagination(); this.cdr.detectChanges(); }
-  prevPage() { if (this.page <= 1) return; this.page--; this.applyPagination(); this.cdr.detectChanges(); }
+  nextPage() {
+    if (this.page >= this.totalPages) return;
+    this.page++;
+    if (this.shouldFetchAllPagesForCurrentView()) {
+      this.applyPagination();
+      this.cdr.detectChanges();
+      return;
+    }
+    this.load(false);
+  }
+
+  prevPage() {
+    if (this.page <= 1) return;
+    this.page--;
+    if (this.shouldFetchAllPagesForCurrentView()) {
+      this.applyPagination();
+      this.cdr.detectChanges();
+      return;
+    }
+    this.load(false);
+  }
 
   // ── Add Record Modal (File 2) ────────────────────────────────
   startAddRecord() {
     if (!this.currentTableLayer) return;
     this.showAddRecordModal = true;
     this.addRecordShapefileName = '';
+    this.clearAddRecordShapefileInput();
     this.cdr.detectChanges();
   }
 
   closeAddRecordModal(): void {
     this.showAddRecordModal = false;
+    this.addRecordShapefileName = '';
+    this.clearAddRecordShapefileInput();
   }
 
   cancelAddNewRecordDrawing(): void {
@@ -1205,9 +1279,16 @@ export class EditPanel implements OnInit, OnDestroy {
     const file = input?.files?.[0] || null;
     this.addRecordShapefileName = file?.name || '';
     if (!file) return;
+    this.clearAddRecordShapefileInput();
     this.showAddRecordModal = false;
     alert(`Selected shapefile: ${file.name}. Shapefile-based record creation UI is ready, but backend upload handling is not wired yet.`);
     this.cdr.detectChanges();
+  }
+
+  private clearAddRecordShapefileInput(): void {
+    if (this.addRecordShapefileInput?.nativeElement) {
+      this.addRecordShapefileInput.nativeElement.value = '';
+    }
   }
     // ────────────────────────────────────────────────────────────
 

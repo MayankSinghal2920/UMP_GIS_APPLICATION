@@ -317,7 +317,7 @@ export class StationViewingLayer implements MapLayer {
     this.addTo(map);
 
     const b = map.getBounds();
-    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
+    const bbox = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
     if (bbox === this.lastBbox) return;
     this.lastBbox = bbox;
@@ -410,6 +410,13 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     if (!this.visible) return;
 
     const zActual = map.getZoom();
+    if (zActual < this.minZoom) {
+      this.syncVisibility(map);
+      this.layer.clearLayers();
+      this.lastKey = '';
+      return;
+    }
+
     const zForQuery = Math.max(zActual, this.minZoom);
     const key = `${zForQuery}`;
 
@@ -553,6 +560,10 @@ export class LandOffsetLayer implements MapLayer {
     if (!this.visible) return;
 
     this.syncVisibility(map);
+    if (!this.canShow(map)) {
+      this.lastKey = '';
+      return;
+    }
 
     const b = map.getBounds();
     const z = map.getZoom();
@@ -699,6 +710,13 @@ export class LandBoundaryLayer implements MapLayer {
     if (!this.visible) return;
 
     const z = map.getZoom();
+    if (!this.canShow(map)) {
+      if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+      this.layer.clearLayers();
+      this.lastBbox = '';
+      return;
+    }
+
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
@@ -973,6 +991,13 @@ export class DynamicDepartmentLayer implements MapLayer {
     if (!this.visible) return;
 
     this.addTo(map);
+    if (!this.canShow(map)) {
+      this.layer.clearLayers();
+      this.renderedPointIndex.clear();
+      this.renderedPointFeatures = [];
+      this.lastBbox = '';
+      return;
+    }
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
@@ -1029,7 +1054,7 @@ export class DynamicDepartmentLayer implements MapLayer {
             map,
             features,
             legend: this.legend,
-            disableClusteringZoom: 15,
+            disableClusteringZoom: 13,
             minClusterCount: 80,
             pointFactory: (feature: any, latLng: L.LatLng) => {
               const featureLayer: any = pointLayerFromLegend(this.legend, latLng, paneNameForLegend(this.legend));

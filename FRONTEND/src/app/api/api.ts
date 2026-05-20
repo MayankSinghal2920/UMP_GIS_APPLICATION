@@ -84,20 +84,20 @@ export class Api {
     return this.ceaViewingApi.getBridgeMinor(bbox);
   }
 
-  getStationTable(page: number, pageSize: number, search: string) {
-    return this.ceaEditingApi.getStationTable(page, pageSize, search);
+  getStationTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.ceaEditingApi.getStationTable(page, pageSize, search, status);
   }
-  getBridgeStartTable(page: number, pageSize: number, search: string) {
-    return this.ceaEditingApi.getBridgeStartTable(page, pageSize, search);
+  getBridgeStartTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.ceaEditingApi.getBridgeStartTable(page, pageSize, search, status);
   }
-  getBridgeEndTable(page: number, pageSize: number, search: string) {
-    return this.ceaEditingApi.getBridgeEndTable(page, pageSize, search);
+  getBridgeEndTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.ceaEditingApi.getBridgeEndTable(page, pageSize, search, status);
   }
-  getBridgeMinorTable(page: number, pageSize: number, search: string) {
-    return this.ceaEditingApi.getBridgeMinorTable(page, pageSize, search);
+  getBridgeMinorTable(page: number, pageSize: number, search: string, status: string = '') {
+    return this.ceaEditingApi.getBridgeMinorTable(page, pageSize, search, status);
   }
-  getLayerTable(layer: string, page: number, pageSize: number, search: string) {
-    return this.ceaEditingApi.getLayerTable(layer, page, pageSize, search);
+  getLayerTable(layer: string, page: number, pageSize: number, search: string, status: string = '') {
+    return this.ceaEditingApi.getLayerTable(layer, page, pageSize, search, status);
   }
   getStationDraftTable(page: number, pageSize: number, search: string, status: string) {
     return this.ceaEditingApi.getStationDraftTable(page, pageSize, search, status);

@@ -171,7 +171,7 @@ export class LayerManager {
       this.loadFrame = null;
     }
 
-    const priorityLayers = layers.filter((layer) => layer.layerGroup === 'common' || layer.id === 'division_buffer');
+    const priorityLayers = layers.filter((layer) => layer.id === 'division_buffer' || layer.id === 'tracks');
     const deferredLayers = layers.filter((layer) => !priorityLayers.includes(layer));
 
     priorityLayers.forEach((layer) => {
@@ -214,6 +214,7 @@ setVisible(id: string, visible: boolean, map?: L.Map) {
   const layer = this.findById(id);
   if (!layer) return;
 
+  if (layer.visible === visible) return;
   layer.visible = visible;
 
   if (!map) return;

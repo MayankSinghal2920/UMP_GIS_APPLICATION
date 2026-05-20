@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEventType, HttpRequest } from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
+import { Observable, Subject, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -26,6 +26,8 @@ export interface ShapefileUploadResponse {
 export class FileUploadService {
 
   private readonly UPLOAD_URL = `${environment.apiUrl}/upload`;
+  private readonly shapefileUploadedSubject = new Subject<{ layerName: string; response: ShapefileUploadResponse }>();
+  readonly shapefileUploaded$ = this.shapefileUploadedSubject.asObservable();
 
   constructor(private http: HttpClient) {}
 
@@ -47,7 +49,13 @@ export class FileUploadService {
       `${this.UPLOAD_URL}/shapefile`,
       formData,
       onProgress
-    );
+    ).then((response) => {
+      this.shapefileUploadedSubject.next({
+        layerName,
+        response,
+      });
+      return response;
+    });
   }
 
   private uploadWithProgress<T>(
@@ -61,7 +69,7 @@ export class FileUploadService {
 
     return new Promise((resolve, reject) => {
       this.http.request(req).pipe(
-        catchError(err => throwError(() => new Error(err?.error?.message || 'Upload failed')))
+        catchError(err => throwError(() => new Error(this.getUploadErrorMessage(err))))
       ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress && event.total) {
@@ -73,6 +81,19 @@ export class FileUploadService {
         error: (err) => reject(err)
       });
     });
+  }
+
+  private getUploadErrorMessage(err: any): string {
+    const serverError = err?.error;
+    if (typeof serverError === 'string' && serverError.trim()) return serverError.trim();
+
+    const message =
+      serverError?.message ||
+      serverError?.error ||
+      err?.message ||
+      '';
+
+    return String(message || '').trim() || 'Upload failed';
   }
 
   getUploadedFiles(): Observable<UploadedFile[]> {

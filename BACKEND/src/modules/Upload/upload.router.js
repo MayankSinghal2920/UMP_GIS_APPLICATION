@@ -34,7 +34,9 @@ function withUpload(middleware, handler) {
       } catch (error) {
         console.error('Upload route error:', error);
         cleanupFiles(req.files);
-        return res.status(500).json({ error: error.message });
+        const status = Number.isInteger(error?.status) ? error.status : 500;
+        const message = error?.message || 'Upload failed';
+        return res.status(status).json({ error: message, message });
       }
     });
   };

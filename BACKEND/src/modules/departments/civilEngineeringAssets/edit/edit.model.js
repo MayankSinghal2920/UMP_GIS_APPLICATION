@@ -66,6 +66,8 @@ async function getNextManualId(client, qualifiedName, columnName) {
 }
 
 const FIELD_ALIASES = {
+  asset_id: ['asset_id', 'assetid'],
+  assetid: ['assetid', 'asset_id'],
   constituency: ['constituency', 'constituncy'],
   constituncy: ['constituncy', 'constituency'],
 };
@@ -345,6 +347,104 @@ function normalizeStationDraftPayload(data, originalRow) {
 function getWorkflowOriginalIdValue(config, originalRow) {
   if (!originalRow) return null;
   return originalRow?.gis_unique_id ?? null;
+}
+
+function getLayerNameFromConfig(config) {
+  return splitQualifiedName(config?.table || '').table;
+}
+
+function isValidatedAssetIdLayer(config) {
+  try {
+    getAssetValidationParam(getLayerNameFromConfig(config));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getAssetIdColumn(tableColumns) {
+  if (tableColumns.includes('asset_id')) return 'asset_id';
+  if (tableColumns.includes('assetid')) return 'assetid';
+  return null;
+}
+
+function getRecordAssetId(record, columnName = 'asset_id') {
+  const direct = getAliasedRecordValue(record, columnName);
+  if (direct.found && direct.value != null) return String(direct.value).trim();
+
+  const fallback = getAliasedRecordValue(record, columnName === 'assetid' ? 'asset_id' : 'assetid');
+  if (fallback.found && fallback.value != null) return String(fallback.value).trim();
+
+  return '';
+}
+
+function createDuplicateAssetIdError(assetId) {
+  const err = new Error(`Asset ID ${assetId} already exists. Please enter a different Asset ID.`);
+  err.status = 409;
+  return err;
+}
+
+async function ensureUniqueValidatedAssetId(client, config, record, options = {}) {
+  if (!isValidatedAssetIdLayer(config)) return;
+
+  const mainTableColumns = options.mainTableColumns || await getTableColumns(client, config.table);
+  const mainAssetIdColumn = getAssetIdColumn(mainTableColumns);
+  const assetId = getRecordAssetId(record, mainAssetIdColumn || 'asset_id');
+  if (!assetId) return;
+
+  if (mainAssetIdColumn) {
+    const values = [assetId];
+    let sql = `
+      SELECT ${config.idColumn}
+      FROM ${config.table}
+      WHERE TRIM(COALESCE(${mainAssetIdColumn}::text, '')) = TRIM($1)
+    `;
+
+    if (Number.isFinite(Number(options.excludeMainObjectId))) {
+      values.push(Number(options.excludeMainObjectId));
+      sql += ` AND ${config.idColumn} <> $${values.length}`;
+    }
+
+    sql += ' LIMIT 1';
+    const { rows } = await client.query(sql, values);
+    if (rows.length > 0) throw createDuplicateAssetIdError(assetId);
+  }
+
+  const workflow = config.draftWorkflow;
+  if (!workflow?.table) return;
+
+  const draftTableColumns = options.draftTableColumns || await getTableColumns(client, workflow.table);
+  const draftAssetIdColumn = getAssetIdColumn(draftTableColumns);
+  if (!draftAssetIdColumn) return;
+
+  const values = [assetId];
+  const conditions = [`TRIM(COALESCE(${draftAssetIdColumn}::text, '')) = TRIM($1)`];
+
+  if (Number.isFinite(Number(options.excludeDraftObjectId))) {
+    values.push(Number(options.excludeDraftObjectId));
+    conditions.push(`objectid <> $${values.length}`);
+  }
+
+  if (workflow.statusColumn && draftTableColumns.includes(workflow.statusColumn)) {
+    conditions.push(`
+      LOWER(TRIM(COALESCE(${workflow.statusColumn}::text, ''))) NOT IN (
+        'sent to database',
+        'asset deleted',
+        'sent to checker for deletion',
+        'sent to approver for deletion'
+      )
+    `);
+  }
+
+  const sql = `
+    SELECT objectid
+    FROM ${workflow.table}
+    WHERE ${conditions.join('\n      AND ')}
+    LIMIT 1
+  `;
+
+  const { rows } = await client.query(sql, values);
+  if (rows.length > 0) throw createDuplicateAssetIdError(assetId);
 }
 
 async function getNewDraftEditId(client, config, draftTableColumns) {
@@ -739,6 +839,11 @@ async function updateStationDraftStatus(config, draftObjectId, division, nextSta
       }
 
       if (!mainRecord) {
+        await ensureUniqueValidatedAssetId(client, config, baseRecord, {
+          mainTableColumns,
+          draftTableColumns,
+          excludeDraftObjectId: updatedDraft?.objectid ?? draft?.objectid,
+        });
         const nextMainId = await getNextManualId(client, config.table, config.idColumn);
         const insertMain = buildStationBaseInsert(mainTableColumns, config, baseRecord, nextMainId);
         const { rows: insertedMainRows } = await client.query(insertMain.sql, insertMain.values);
@@ -1056,6 +1161,7 @@ async function create(config, data, division) {
   const placeholders = [];
   const values = [];
   const tableColumns = await getTableColumns(pool, config.table);
+  await ensureUniqueValidatedAssetId(pool, config, data, { mainTableColumns: tableColumns });
 
   const nextId = config.idStrategy === 'manual'
     ? await getNextManualId(pool, config.table, config.idColumn)
@@ -1149,12 +1255,24 @@ async function remove(config, id, division) {
   return rowCount;
 }
 
-async function getTable(config, page, pageSize, q, division) {
+async function getTable(config, page, pageSize, q, division, status = '') {
   const limit = Math.min(200, Math.max(1, Number(pageSize)));
   const offset = (Number(page) - 1) * limit;
 
   const params = [division];
   let where = `UPPER(division) = UPPER($1)`;
+
+  if (status) {
+    const tableColumns = await getTableColumns(pool, config.table);
+    if (tableColumns.includes('status')) {
+      if (String(status).trim().toLowerCase() === '__empty__') {
+        where += ` AND TRIM(COALESCE(status::text, '')) = ''`;
+      } else {
+        params.push(status);
+        where += ` AND UPPER(status) = UPPER($${params.length})`;
+      }
+    }
+  }
 
   if (q && config.searchableFields?.length) {
     params.push(`%${q}%`);
@@ -1623,6 +1741,10 @@ async function sendStationEdit(config, id, division, data, makerUserId, submitti
     setWorkflowAssignmentFields(record, workflow, draftTableColumns, assignments);
 
     const { insertColumns, placeholders, values } = buildStationDraftInsert(draftTableColumns, config, record);
+    await ensureUniqueValidatedAssetId(client, config, record, {
+      draftTableColumns,
+      excludeMainObjectId: originalRow[config.idColumn],
+    });
 
     const insertSql = `
       INSERT INTO ${workflow.table} (
@@ -1714,6 +1836,7 @@ async function sendNewStationEdit(config, division, data, makerUserId, submittin
     setWorkflowAssignmentFields(record, workflow, draftTableColumns, assignments);
 
     const { insertColumns, placeholders, values } = buildStationDraftInsert(draftTableColumns, config, record);
+    await ensureUniqueValidatedAssetId(client, config, record, { draftTableColumns });
 
     const insertSql = `
       INSERT INTO ${workflow.table} (
