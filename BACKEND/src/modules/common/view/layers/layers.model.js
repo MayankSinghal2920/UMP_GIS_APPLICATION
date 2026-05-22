@@ -165,7 +165,7 @@ async function resolveDepartmentLayerConfig(departmentRef, layerKey) {
   };
 }
 
-async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 20000) {
+async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 20000, simplifyTolerance = 0, categories = []) {
   let divisionSql = '';
   const rowLimit = Math.min(20000, Math.max(1, Number(limit) || 20000));
 
@@ -173,6 +173,19 @@ async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 
     params.push(division);
     divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
   }
+
+  let categorySql = '';
+
+  if (Array.isArray(categories) && categories.length > 0 && layerConfig.table === 'sde.station') {
+    params.push(categories.map((category) => String(category).toUpperCase()));
+    categorySql = ` AND UPPER(category) = ANY($${params.length})`;
+  }
+
+  const tolerance = Number(simplifyTolerance) || 0;
+  const geometryExpression =
+    tolerance > 0
+      ? `ST_SimplifyPreserveTopology(${layerConfig.geometryColumn}, ${tolerance})`
+      : layerConfig.geometryColumn;
 
   const sql = `
     SELECT jsonb_build_object(
@@ -183,7 +196,7 @@ async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 
             'type','Feature',
             'id', ${layerConfig.idColumn},
             'properties', to_jsonb(t) - '${layerConfig.geometryColumn}',
-            'geometry', ST_AsGeoJSON(${layerConfig.geometryColumn})::jsonb
+            'geometry', ST_AsGeoJSON(${geometryExpression})::jsonb
           )
         ),
         '[]'::jsonb
@@ -192,7 +205,7 @@ async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 
     FROM (
       SELECT *
       FROM ${layerConfig.table}
-      WHERE ${whereSql} ${divisionSql}
+      WHERE ${whereSql} ${divisionSql} ${categorySql}
       LIMIT ${rowLimit}
     ) t;
   `;
@@ -276,6 +289,6 @@ module.exports = {
   getDepartmentLayerGeoJSON,
   resolveDepartmentLayerConfig,
   normalizeLayerKey,
-    searchStations,
+  searchStations,
 };
 

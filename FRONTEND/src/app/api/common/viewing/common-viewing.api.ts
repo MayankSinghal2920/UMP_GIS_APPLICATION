@@ -15,11 +15,14 @@ import {
 export class CommonViewingApi {
   constructor(private http: HttpClient) {}
 
- getStations(bbox: string, limit?: number) {
+ getStations(bbox: string, limit?: number, categories?: string[]) {
   const allIndia = isPortalAdminUser();
   if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
 
-  const params = limit ? { bbox, limit } : { bbox };
+  const params: Record<string, any> = { bbox };
+
+  if (limit) params['limit'] = limit;
+  if (categories?.length) params['categories'] = categories.join(',');
 
   return this.http.get<any>(`${BASE_URL}/api/common/view/layers/station`, {
     params: allIndia ? withAllIndia(params) : withDivision(params),
@@ -39,13 +42,16 @@ searchStations(q: string, limit = 10) {
 
 
 
-  getTracks(bbox: string) {
-    const allIndia = isPortalAdminUser();
-    if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
-    return this.http.get<any>(`${BASE_URL}/api/common/view/layers/railwayTrack`, {
-      params: allIndia ? withAllIndia({ bbox }) : withDivision({ bbox }),
-    });
-  }
+getTracks(bbox: string, z?: number) {
+  const allIndia = isPortalAdminUser();
+  if (!hasDivision() && !allIndia) return of(emptyFeatureCollection());
+
+  const params = z === undefined ? { bbox } : { bbox, z };
+
+  return this.http.get<any>(`${BASE_URL}/api/common/view/layers/railwayTrack`, {
+    params: allIndia ? withAllIndia(params) : withDivision(params),
+  });
+}
 
   getKmPosts(bbox: string) {
     if (!hasDivision()) return of(emptyFeatureCollection());

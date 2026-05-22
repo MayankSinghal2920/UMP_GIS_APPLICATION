@@ -26,6 +26,16 @@ const STATION_LEGEND: LayerLegend = defineLegend({
   imageHeight: 23,
 });
 
+const STATION_CATEGORY_ZOOM_TIERS = [
+  ['NSG1', 'NSG2', 'A1', 'A'],
+  ['NSG3', 'SG1', 'B'],
+  ['NSG4', 'NSG5', 'SG2', 'C'],
+  ['NSG6', 'SG3', 'HG1', 'D'],
+  ['HG2', 'HG3', 'E', 'F', 'NOT DEFINED'],
+] as const;
+
+const STATION_CATEGORY_ZOOM_BREAKS = [5, 7, 8.5, 10, 11.5];
+
 
 
 
@@ -121,13 +131,15 @@ export class StationViewingLayer implements MapLayer {
   visible = true;
   layerGroup = 'department' as const;
 
-  protected readonly MIN_RENDER_ZOOM = 7;
+  protected readonly MIN_RENDER_ZOOM = 5;
   protected readonly LABEL_ZOOM = 12;
 
   legend: LayerLegend = STATION_LEGEND;
 
   protected layer: L.FeatureGroup;
   private lastBbox = '';
+  private loadedBounds?: L.LatLngBounds;
+  private lastCategoryKey = '';
   private isOnMap = false;
   private onMoveStartHandler?: () => void;
   private onMoveEndHandler?: () => void;
@@ -136,14 +148,33 @@ export class StationViewingLayer implements MapLayer {
   private visibilitySub?: Subscription;
   private lastGeojson: any = null;
   private lastMap?: L.Map;
+  private responseCache = new Map<string, any>();
+  private readonly MAX_RESPONSE_CACHE_SIZE = 12;
 
-  protected getStationRequestLimit(map: L.Map): number {
-  const zoom = map.getZoom();
+  private getBufferedBounds(map: L.Map): L.LatLngBounds {
+    return map.getBounds().pad(0.5);
+  }
 
-  if (zoom < 9) return 500;
-  if (zoom < 11) return 1500;
-  return 5000;
-}
+  private rememberResponse(key: string, geojson: any): void {
+    if (!key || !geojson) return;
+
+    if (this.responseCache.has(key)) {
+      this.responseCache.delete(key);
+    }
+
+    this.responseCache.set(key, geojson);
+
+    while (this.responseCache.size > this.MAX_RESPONSE_CACHE_SIZE) {
+      const oldestKey = this.responseCache.keys().next().value;
+      if (!oldestKey) break;
+      this.responseCache.delete(oldestKey);
+    }
+  }
+
+
+  protected getStationRequestLimit(_map: L.Map): number | undefined {
+    return undefined;
+  }
 
 
   protected getStationLabel(feature: any): string {
@@ -151,6 +182,23 @@ export class StationViewingLayer implements MapLayer {
     const name = (p.sttnname || '').toString().trim();
     const code = (p.sttncode || '').toString().trim();
     return code && name ? code + ' : ' + name : code || name;
+  }
+
+  protected getAllowedStationCategories(map: L.Map): Set<string> {
+    const zoom = map.getZoom();
+    let maxTier = 0;
+
+    for (let i = 0; i < STATION_CATEGORY_ZOOM_BREAKS.length; i += 1) {
+      if (zoom >= STATION_CATEGORY_ZOOM_BREAKS[i]) {
+        maxTier = i;
+      }
+    }
+
+    const categories = STATION_CATEGORY_ZOOM_TIERS
+      .slice(0, maxTier + 1)
+      .flat();
+
+    return new Set(categories);
   }
 
   protected bindStationTooltip(marker: L.Marker, label: string, permanent: boolean): void {
@@ -185,9 +233,9 @@ export class StationViewingLayer implements MapLayer {
     });
   }
 
-  protected onMarkerCreated(_feature: any, _marker: L.Marker) {}
+  protected onMarkerCreated(_feature: any, _marker: L.Marker) { }
 
-  protected onFeatureReady(_feature: any, _layer: any) {}
+  protected onFeatureReady(_feature: any, _layer: any) { }
 
   addTo(map: L.Map) {
     if (this.visible && !this.isOnMap) {
@@ -294,7 +342,7 @@ export class StationViewingLayer implements MapLayer {
     });
   }
 
-  protected beforeRender(_geojson: any) {}
+  protected beforeRender(_geojson: any) { }
 
   protected createStationMarker(feature: any, latlng: L.LatLng): L.Layer {
     const p = feature?.properties || {};
@@ -336,52 +384,54 @@ export class StationViewingLayer implements MapLayer {
     return marker;
   }
 
-protected getStationCategoryLegend(category: string): LayerLegend {
-  const iconConfig = getStationCategoryIconConfig(category);
+  protected getStationCategoryLegend(category: string): LayerLegend {
+    const iconConfig = getStationCategoryIconConfig(category);
 
-  return defineLegend({
-    ...this.legend,
-    imageUrl: iconConfig.imageUrl,
-    imageWidth: iconConfig.imageWidth,
-    imageHeight: iconConfig.imageHeight,
-    label: `Railway Station ${category}`,
-  });
-}
+    return defineLegend({
+      ...this.legend,
+      imageUrl: iconConfig.imageUrl,
+      imageWidth: iconConfig.imageWidth,
+      imageHeight: iconConfig.imageHeight,
+      label: `Railway Station ${category}`,
+    });
+  }
 
 
 
-protected renderStationFeatures(map: L.Map, geojson: any): void {
-  const features = Array.isArray(geojson?.features) ? geojson.features : [];
-  const featuresByCategory = new Map<string, any[]>();
+  protected renderStationFeatures(map: L.Map, geojson: any): void {
+    const features = Array.isArray(geojson?.features) ? geojson.features : [];
+    const featuresByCategory = new Map<string, any[]>();
+    const allowedCategories = this.getAllowedStationCategories(map);
 
-  features.forEach((feature: any) => {
-    if (!this.isStationVisible(feature)) return;
+    features.forEach((feature: any) => {
+      const category = normalizeStationCategory(feature?.properties?.category);
 
-    const category = normalizeStationCategory(feature?.properties?.category);
-    const group = featuresByCategory.get(category) || [];
-    group.push(feature);
-    featuresByCategory.set(category, group);
-  });
+      if (!allowedCategories.has(category)) return;
+      if (!this.stationCategoryVisibility.isCategoryVisible(category)) return;
 
-  this.layer.clearLayers();
-
-  featuresByCategory.forEach((categoryFeatures, category) => {
-    const layers = buildClusteredPointLayers({
-      map,
-      features: categoryFeatures,
-      legend: this.getStationCategoryLegend(category),
-      pointFactory: (feature: any, latlng: L.LatLng) =>
-        this.createStationMarker(feature, latlng),
-      clusterRadiusPx: 56,
-      disableClusteringZoom: 13,
-      minClusterCount: 12,
-      clusterLabel: `${category} stations`,
-
+      const group = featuresByCategory.get(category) || [];
+      group.push(feature);
+      featuresByCategory.set(category, group);
     });
 
-    layers.forEach((layer) => this.layer.addLayer(layer));
-  });
-}
+    this.layer.clearLayers();
+
+    featuresByCategory.forEach((categoryFeatures, category) => {
+      const layers = buildClusteredPointLayers({
+        map,
+        features: categoryFeatures,
+        legend: this.getStationCategoryLegend(category),
+        pointFactory: (feature: any, latlng: L.LatLng) =>
+          this.createStationMarker(feature, latlng),
+        clusterRadiusPx: 56,
+        disableClusteringZoom: 13,
+        minClusterCount: 12,
+        clusterLabel: `${category} stations`,
+      });
+
+      layers.forEach((layer) => this.layer.addLayer(layer));
+    });
+  }
 
 
 
@@ -394,29 +444,63 @@ protected renderStationFeatures(map: L.Map, geojson: any): void {
     if (!this.visible) return;
 
     this.addTo(map);
-    
+
 
     if (map.getZoom() < this.MIN_RENDER_ZOOM) {
       this.lastBbox = '';
+      this.lastCategoryKey = '';
+      this.loadedBounds = undefined;
       this.lastGeojson = null;
+      this.responseCache.clear();
       this.layer.clearLayers();
       return;
     }
 
-    const b = map.getBounds();
-    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
+    const categories = Array.from(this.getAllowedStationCategories(map));
+    const categoryKey = categories.join(',');
+    const currentBounds = map.getBounds();
 
-    if (bbox === this.lastBbox) return;
-    this.lastBbox = bbox;
+    if (
+      this.loadedBounds &&
+      this.loadedBounds.contains(currentBounds) &&
+      this.lastCategoryKey === categoryKey &&
+      this.lastGeojson
+    ) {
+      this.renderStationFeatures(map, this.lastGeojson);
+      this.scheduleLabelUpdate(map);
+      return;
+    }
+
+    const b = this.getBufferedBounds(map);
+    const bbox = `${b.getWest().toFixed(3)},${b.getSouth().toFixed(3)},${b.getEast().toFixed(3)},${b.getNorth().toFixed(3)}`;
+    const requestKey = `${bbox}|${categoryKey}`;
+
+    const cachedGeojson = this.responseCache.get(requestKey);
+    if (cachedGeojson) {
+      this.lastBbox = requestKey;
+      this.lastCategoryKey = categoryKey;
+      this.loadedBounds = b;
+      this.lastGeojson = cachedGeojson;
+      this.lastMap = map;
+      this.renderStationFeatures(map, cachedGeojson);
+      this.scheduleLabelUpdate(map);
+      return;
+    }
+
+    if (requestKey === this.lastBbox) return;
+    this.lastBbox = requestKey;
+    this.lastCategoryKey = categoryKey;
     const requestId = ++this.requestSeq;
 
     const limit = this.getStationRequestLimit(map);
 
-    this.api.getStations(bbox, limit).subscribe({
+    this.api.getStations(bbox, limit, categories).subscribe({
       next: (geojson: any) => {
         if (requestId !== this.requestSeq) return;
+        this.loadedBounds = b;
         this.lastGeojson = geojson;
         this.lastMap = map;
+        this.rememberResponse(requestKey, geojson);
         this.zone.run(() => {
           this.beforeRender(geojson);
           this.renderStationFeatures(map, geojson);
@@ -433,6 +517,7 @@ protected renderStationFeatures(map: L.Map, geojson: any): void {
     this.visibilitySub = undefined;
     this.lastGeojson = null;
     this.lastMap = undefined;
+    this.responseCache.clear();
   }
 }
 
@@ -472,7 +557,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     return 'none';
   }
 
-  protected onFeatureReady(_feature: any, _layer: any): void {}
+  protected onFeatureReady(_feature: any, _layer: any): void { }
 
   private canShow(map: L.Map) {
     return this.visible && map.getZoom() >= this.minZoom;
@@ -509,13 +594,13 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
   loadForMap(map: L.Map) {
     if (!this.visible) return;
 
-     this.syncVisibility(map);
+    this.syncVisibility(map);
 
-  if (!this.canShow(map)) {
-    this.lastKey = '';
-    this.layer.clearLayers();
-    return;
-  }
+    if (!this.canShow(map)) {
+      this.lastKey = '';
+      this.layer.clearLayers();
+      return;
+    }
 
     const zActual = map.getZoom();
     const zForQuery = Math.max(zActual);
@@ -598,7 +683,7 @@ export class LandOffsetLayer implements MapLayer {
     return true;
   }
 
-  protected onFeatureReady(_feature: any, _layer: any): void {}
+  protected onFeatureReady(_feature: any, _layer: any): void { }
 
   private canShow(map: L.Map): boolean {
     return this.visible && map.getZoom() >= this.minZoom;
@@ -665,11 +750,11 @@ export class LandOffsetLayer implements MapLayer {
     this.syncVisibility(map);
 
     if (!this.canShow(map)) {
-    this.lastKey = '';
-    this.layer.clearLayers();
-    this.decorators.clearLayers();
-    return;
-  }
+      this.lastKey = '';
+      this.layer.clearLayers();
+      this.decorators.clearLayers();
+      return;
+    }
 
     const b = map.getBounds();
     const z = map.getZoom();
@@ -777,7 +862,7 @@ export class LandBoundaryLayer implements MapLayer {
     return true;
   }
 
-  protected onFeatureReady(_feature: any, _layer: any): void {}
+  protected onFeatureReady(_feature: any, _layer: any): void { }
 
   private canShow(map: L.Map) {
     return this.visible && map.getZoom() >= this.minZoom;
@@ -817,12 +902,12 @@ export class LandBoundaryLayer implements MapLayer {
 
     const z = map.getZoom();
 
-      if (!this.canShow(map)) {
-    this.lastBbox = '';
-    this.layer.clearLayers();
-    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
-    return;
-  }
+    if (!this.canShow(map)) {
+      this.lastBbox = '';
+      this.layer.clearLayers();
+      if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+      return;
+    }
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
@@ -905,7 +990,7 @@ export class DynamicDepartmentLayer implements MapLayer {
     return true;
   }
 
-  protected onFeatureReady(_feature: any, _layer: any): void {}
+  protected onFeatureReady(_feature: any, _layer: any): void { }
 
   getRenderedLatLngForKey(...keys: Array<string | number | null | undefined>): L.LatLng | null {
     for (const key of keys) {
@@ -1094,11 +1179,11 @@ export class DynamicDepartmentLayer implements MapLayer {
 
     this.addTo(map);
 
-      if (!this.canShow(map)) {
-    this.lastBbox = '';
-    this.layer.clearLayers();
-    return;
-  }
+    if (!this.canShow(map)) {
+      this.lastBbox = '';
+      this.layer.clearLayers();
+      return;
+    }
 
     const b = map.getBounds();
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;

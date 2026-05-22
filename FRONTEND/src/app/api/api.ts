@@ -28,8 +28,8 @@ export class Api {
     private superAdminUserManagementApi: SuperAdminUserManagementApi,
   ) {}
 
- getStations(bbox: string, limit?: number) {
-  return this.commonViewingApi.getStations(bbox, limit);
+getStations(bbox: string, limit?: number, categories?: string[]) {
+  return this.commonViewingApi.getStations(bbox, limit, categories);
 }
 
 searchStations(q: string, limit = 10) {
@@ -37,9 +37,9 @@ searchStations(q: string, limit = 10) {
 }
 
 
-  getTracks(bbox: string) {
-    return this.commonViewingApi.getTracks(bbox);
-  }
+  getTracks(bbox: string, z?: number) {
+  return this.commonViewingApi.getTracks(bbox, z);
+}
   getkmposts(bbox: string) {
     return this.commonViewingApi.getKmPosts(bbox);
   }

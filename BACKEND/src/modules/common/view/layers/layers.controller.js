@@ -6,6 +6,17 @@ function isTruthy(value) {
   return ['1', 'true', 'yes', 'y'].includes(String(value || '').trim().toLowerCase());
 }
 
+function getRailwayTrackSimplifyTolerance(z) {
+  const zoom = Number(z);
+
+  if (!Number.isFinite(zoom)) return 0;
+  if (zoom < 6) return 0.03;
+  if (zoom < 8) return 0.01;
+  if (zoom < 10) return 0.003;
+
+  return 0;
+}
+
 async function getDepartmentLayers(req, res, next) {
   try {
     const departmentRef = String(req.params.departmentRef || req.query.department || '').trim();
@@ -49,7 +60,7 @@ async function getDepartmentLayer(req, res, next) {
 async function getLayer(req, res, next) {
   try {
     const { layer } = req.params;
-    const { bbox, division, limit, allIndia } = req.query;
+    const { bbox, division, limit, allIndia, z, categories } = req.query;
     const useAllIndia = isTruthy(allIndia);
 
     const effectiveDivision = useAllIndia ? '' : String(division || req?.user?.division || '').trim();
@@ -63,20 +74,34 @@ async function getLayer(req, res, next) {
 
     const layerConfig = useAllIndia && baseLayerConfig.allIndiaTable
       ? {
-          ...baseLayerConfig,
-          table: baseLayerConfig.allIndiaTable,
-          hasDivision: false,
-        }
+        ...baseLayerConfig,
+        table: baseLayerConfig.allIndiaTable,
+        hasDivision: false,
+      }
       : baseLayerConfig;
 
     const { where, params } = parseBbox(bbox, layerConfig.geometryColumn);
+
+    const simplifyTolerance =
+      layer === 'railwayTrack' ? getRailwayTrackSimplifyTolerance(z) : 0;
+
+
+    const categoryList =
+      layer === 'station'
+        ? String(categories || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+        : [];
 
     const geojson = await model.getLayerGeoJSON(
       layerConfig,
       where,
       params,
       effectiveDivision,
-      limit
+      limit,
+      simplifyTolerance,
+      categoryList
     );
 
     res.json(
