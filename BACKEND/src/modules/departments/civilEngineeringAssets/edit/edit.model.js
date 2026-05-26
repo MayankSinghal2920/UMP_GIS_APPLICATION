@@ -124,6 +124,19 @@ function getMainSelectList(config, tableColumns = null) {
   return `*, ST_X(ST_PointOnSurface(${geometryColumn})) AS geom_lng, ST_Y(ST_PointOnSurface(${geometryColumn})) AS geom_lat, ST_AsGeoJSON(${geometryColumn})::json AS asset_geometry_geojson`;
 }
 
+function quoteIdentifier(identifier) {
+  return `"${String(identifier).replace(/"/g, '""')}"`;
+}
+
+function getTableSelectList(config, tableColumns = []) {
+  const geometryColumn = getGeometryReadColumn(config, tableColumns);
+  const selectableColumns = tableColumns
+    .filter((column) => column !== geometryColumn)
+    .map((column) => quoteIdentifier(column));
+
+  return selectableColumns.length ? selectableColumns.join(', ') : '*';
+}
+
 function getDivisionColumn(tableColumns) {
   return [
     'asset_division',
@@ -141,28 +154,23 @@ function getDivisionColumn(tableColumns) {
 }
 
 function normalizeDivisionSql(expression) {
-  return `REGEXP_REPLACE(UPPER(COALESCE(${expression}::text, '')), '[^A-Z0-9]', '', 'g')`;
+  return `UPPER(TRIM(COALESCE(${expression}::text, '')))`;
 }
 
-function buildDivisionWhereClause(columnName, paramIndex) {
+function normalizeDivisionValues(...values) {
+  return values
+    .flat()
+    .map((value) => String(value || '').trim())
+    .filter((value, index, list) => value && list.indexOf(value) === index);
+}
+
+function buildDivisionWhereClause(columnName, paramIndexes) {
   if (!columnName) return 'TRUE';
-  const columnValue = normalizeDivisionSql(columnName);
-  const paramValue = normalizeDivisionSql(`$${paramIndex}`);
-  const directMatch = `${columnValue} = ${paramValue}`;
-  const divisionLookup = `
-    ${columnValue} IN (
-      SELECT ${normalizeDivisionSql('divcode')}
-      FROM div_master
-      WHERE ${normalizeDivisionSql('divcode')} = ${paramValue}
-         OR ${normalizeDivisionSql('div_name')} = ${paramValue}
-      UNION
-      SELECT ${normalizeDivisionSql('div_name')}
-      FROM div_master
-      WHERE ${normalizeDivisionSql('divcode')} = ${paramValue}
-         OR ${normalizeDivisionSql('div_name')} = ${paramValue}
-    )
-  `;
-  return `(${directMatch} OR ${divisionLookup})`;
+  const indexes = Array.isArray(paramIndexes) ? paramIndexes : [paramIndexes];
+  const conditions = indexes
+    .filter((index) => Number.isFinite(Number(index)))
+    .map((index) => `${normalizeDivisionSql(columnName)} = ${normalizeDivisionSql(`$${index}`)}`);
+  return conditions.length ? `(${conditions.join(' OR ')})` : 'TRUE';
 }
 
 function getDraftSelectList(config, draftTableColumns, alias = '') {
@@ -204,16 +212,25 @@ function getDraftWithOriginalGeometrySelectList(config, draftTableColumns, mainT
   return `${draftAlias}.*, ST_X(${geometryExpression}) AS geom_lng, ST_Y(${geometryExpression}) AS geom_lat, FALSE AS draft_geometry_changed`;
 }
 
-async function getByIdWithClient(client, config, id, division, lock = false) {
+async function getByIdWithClient(client, config, id, division, lock = false, divisionAliases = []) {
+  const tableColumns = await getTableColumns(client, config.table);
+  const divisionColumn = getDivisionColumn(tableColumns);
+  const params = [id];
+  const divisions = normalizeDivisionValues(division, divisionAliases);
+  const divisionParamIndexes = divisions.map((value) => params.push(value));
+  const divisionWhere = divisionColumn && division
+    ? buildDivisionWhereClause(divisionColumn, divisionParamIndexes)
+    : 'TRUE';
+
   const sql = `
-    SELECT ${getMainSelectList(config)}
+    SELECT ${getMainSelectList(config, tableColumns)}
     FROM ${config.table}
     WHERE ${config.idColumn} = $1
-      AND UPPER(division) = UPPER($2)
+      AND ${divisionWhere}
     ${lock ? 'FOR UPDATE' : ''}
   `;
 
-  const { rows } = await client.query(sql, [id, division]);
+  const { rows } = await client.query(sql, params);
   return rows[0];
 }
 
@@ -666,15 +683,24 @@ function setWorkflowAssignmentFields(record, workflow, draftTableColumns, assign
   }
 }
 
-async function getById(config, id, division) {
+async function getById(config, id, division, divisionAliases = []) {
+  const tableColumns = await getTableColumns(pool, config.table);
+  const divisionColumn = getDivisionColumn(tableColumns);
+  const params = [id];
+  const divisions = normalizeDivisionValues(division, divisionAliases);
+  const divisionParamIndexes = divisions.map((value) => params.push(value));
+  const divisionWhere = divisionColumn && division
+    ? buildDivisionWhereClause(divisionColumn, divisionParamIndexes)
+    : 'TRUE';
+
   const sql = `
-    SELECT ${getMainSelectList(config)}
+    SELECT ${getMainSelectList(config, tableColumns)}
     FROM ${config.table}
     WHERE ${config.idColumn} = $1
-      AND UPPER(division) = UPPER($2)
+      AND ${divisionWhere}
   `;
 
-  const { rows } = await pool.query(sql, [id, division]);
+  const { rows } = await pool.query(sql, params);
   return rows[0];
 }
 
@@ -1306,7 +1332,7 @@ async function remove(config, id, division) {
   return rowCount;
 }
 
-async function getTable(config, page, pageSize, q, division, status = '') {
+async function getTable(config, page, pageSize, q, division, status = '', divisionAliases = []) {
   const limit = Math.min(200, Math.max(1, Number(pageSize)));
   const offset = (Number(page) - 1) * limit;
 
@@ -1316,14 +1342,15 @@ async function getTable(config, page, pageSize, q, division, status = '') {
   let where = 'TRUE';
 
   if (divisionColumn && division) {
-    params.push(division);
-    where = buildDivisionWhereClause(divisionColumn, params.length);
+    const divisions = normalizeDivisionValues(division, divisionAliases);
+    const divisionParamIndexes = divisions.map((value) => params.push(value));
+    where = buildDivisionWhereClause(divisionColumn, divisionParamIndexes);
   }
 
   if (status) {
     if (tableColumns.includes('status')) {
       if (String(status).trim().toLowerCase() === '__empty__') {
-        where += ` AND TRIM(COALESCE(status::text, '')) = ''`;
+        where += ` AND status IS NULL`;
       } else {
         params.push(status);
         where += ` AND UPPER(status) = UPPER($${params.length})`;
@@ -1343,27 +1370,27 @@ async function getTable(config, page, pageSize, q, division, status = '') {
   }
 
   const orderColumn = tableColumns.includes(config.idColumn) ? config.idColumn : tableColumns[0] || '1';
-
-  const totalSql = `
-    SELECT COUNT(*)::int AS total
-    FROM ${config.table}
-    WHERE ${where}
-  `;
+  const orderSql = tableColumns.includes(config.idColumn)
+    ? `${config.idColumn} DESC`
+    : tableColumns.includes('created_date')
+      ? `created_date DESC NULLS LAST, ${orderColumn} DESC`
+      : `${orderColumn} DESC`;
 
   const listSql = `
-    SELECT ${getMainSelectList(config, tableColumns)}
+    SELECT ${getTableSelectList(config, tableColumns)}
     FROM ${config.table}
     WHERE ${where}
-    ORDER BY ${orderColumn}
-    LIMIT ${limit} OFFSET ${offset}
+    ORDER BY ${orderSql}
+    LIMIT ${limit + 1} OFFSET ${offset}
   `;
 
-  const { rows: totalRows } = await pool.query(totalSql, params);
   const { rows } = await pool.query(listSql, params);
+  const pageRows = rows.slice(0, limit);
+  const hasNextPage = rows.length > limit;
 
   return {
-    rows,
-    total: totalRows[0]?.total || 0,
+    rows: pageRows,
+    total: hasNextPage ? offset + limit + 1 : offset + pageRows.length,
   };
 }
 

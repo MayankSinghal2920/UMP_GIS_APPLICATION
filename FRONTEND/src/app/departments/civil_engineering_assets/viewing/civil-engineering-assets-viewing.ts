@@ -67,7 +67,7 @@ const DEPARTMENT_POLYGON_PANE = 'DepartmentPolygonPane';
 const DEPARTMENT_LINE_PANE = 'DepartmentLinePane';
 const DEPARTMENT_DECORATOR_PANE = 'DepartmentDecoratorPane';
 const DEPARTMENT_POINT_PANE = 'DepartmentPointPane';
-const TOWN_LEVEL_MIN_ZOOM = 9;
+const TOWN_LEVEL_MIN_ZOOM = 11;
 
 function paneZIndex(paneName: string): number {
   if (paneName === DEPARTMENT_POLYGON_PANE) return 390;
@@ -320,7 +320,7 @@ export class StationViewingLayer implements MapLayer {
     const b = map.getBounds();
     const bbox = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
-    if (bbox === this.lastBbox) return;
+    if (bbox === this.lastBbox && this.layer.getLayers().length > 0) return;
     this.lastBbox = bbox;
     const requestId = ++this.requestSeq;
 
@@ -421,7 +421,7 @@ export class LandPlanOntrackViewingLayer implements MapLayer {
     const zForQuery = Math.max(zActual, this.minZoom);
     const key = `${zForQuery}`;
 
-    if (key === this.lastKey) return;
+    if (key === this.lastKey && this.layer.getLayers().length > 0) return;
     this.lastKey = key;
     const requestId = ++this.requestSeq;
 
@@ -572,7 +572,7 @@ export class LandOffsetLayer implements MapLayer {
     const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
     const key = `${bboxKey}`;
-    if (key === this.lastKey) return;
+    if (key === this.lastKey && this.layer.getLayers().length > 0) return;
     this.lastKey = key;
     const requestId = ++this.requestSeq;
 
@@ -722,7 +722,7 @@ export class LandBoundaryLayer implements MapLayer {
     const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
-    if (bboxKey === this.lastBbox) {
+    if (bboxKey === this.lastBbox && this.layer.getLayers().length > 0) {
       if (z < this.minZoom) {
         this.layer.clearLayers();
       } else {
@@ -761,6 +761,7 @@ export class DynamicDepartmentLayer implements MapLayer {
   private lastBbox = '';
   private lastRenderKey = '';
   private cachedGeojson: any = null;
+  private cachedBounds?: L.LatLngBounds;
   private requestSeq = 0;
   private activeRequest?: { unsubscribe(): void };
   private added = false;
@@ -975,6 +976,7 @@ export class DynamicDepartmentLayer implements MapLayer {
           this.renderedPointIndex.clear();
           this.renderedPointFeatures = [];
           this.cachedGeojson = null;
+          this.cachedBounds = undefined;
         }
       };
       map.on('zoomend', this.onZoomEndHandler);
@@ -1087,15 +1089,22 @@ export class DynamicDepartmentLayer implements MapLayer {
     }
 
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-    const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
     const zoom = map.getZoom();
     const zoomKey = Math.floor(zoom * 2) / 2;
+    const cachedBoundsContainsView =
+      !!this.cachedBounds &&
+      this.cachedBounds.contains(b.getNorthEast()) &&
+      this.cachedBounds.contains(b.getSouthWest());
+    const queryBounds = cachedBoundsContainsView ? this.cachedBounds! : b.pad(0.55);
+    const bbox = `${queryBounds.getWest()},${queryBounds.getSouth()},${queryBounds.getEast()},${queryBounds.getNorth()}`;
+    const bboxKey = `${queryBounds.getWest().toFixed(2)},${queryBounds.getSouth().toFixed(2)},${queryBounds.getEast().toFixed(2)},${queryBounds.getNorth().toFixed(2)}`;
     const renderKey = `${bboxKey}|${zoomKey}`;
-    if (renderKey === this.lastRenderKey) return;
+    const hasRenderedLayers = this.layer.getLayers().length > 0;
+    if (renderKey === this.lastRenderKey && hasRenderedLayers) return;
     this.lastRenderKey = renderKey;
 
-    if (bboxKey === this.lastBbox && this.cachedGeojson) {
+    if (this.cachedGeojson && cachedBoundsContainsView) {
+      if (!map.hasLayer(this.layer)) this.layer.addTo(map);
       this.renderGeojson(map, this.cachedGeojson, false);
       return;
     }
@@ -1108,6 +1117,7 @@ export class DynamicDepartmentLayer implements MapLayer {
         if (requestId !== this.requestSeq) return;
         this.activeRequest = undefined;
         this.lastBbox = bboxKey;
+        this.cachedBounds = queryBounds;
         this.cachedGeojson = geojson;
         this.renderGeojson(map, geojson);
       },

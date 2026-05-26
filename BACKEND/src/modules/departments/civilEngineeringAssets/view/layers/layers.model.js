@@ -13,12 +13,20 @@ function normalizeDivision(value) {
   return raw;
 }
 
+function normalizeDivisionSql(expression) {
+  return `REGEXP_REPLACE(UPPER(COALESCE(${expression}::text, '')), '[^A-Z0-9]', '', 'g')`;
+}
+
+function buildDivisionWhereClause(columnName, paramIndex) {
+  return `${normalizeDivisionSql(columnName)} = ${normalizeDivisionSql(`$${paramIndex}`)}`;
+}
+
 async function getLayerGeoJSON(layerConfig, whereSql, params, division) {
   let divisionSql = '';
 
   if (division && !layerConfig.ignoreDivision) {
     params.push(normalizeDivision(division));
-    divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
+    divisionSql = ` AND ${buildDivisionWhereClause('division', params.length)}`;
   }
 
   const sql = `
@@ -55,7 +63,7 @@ async function getDivisionBufferGeoJSON(division) {
 
   if (normalizedDivision) {
     params.push(normalizedDivision);
-    divisionSql = `AND UPPER(TRIM(division)) = UPPER(TRIM($${params.length}))`;
+    divisionSql = `AND ${buildDivisionWhereClause('division', params.length)}`;
   }
 
   const sql = `

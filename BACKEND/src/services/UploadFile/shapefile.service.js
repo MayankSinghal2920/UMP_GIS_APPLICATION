@@ -371,9 +371,7 @@ function getCastExpression(sourceCol, sourceType, targetType) {
 const AUTO_FILL_EXPRESSIONS = {
   created_date:        `NOW()`,
   final_modified_date: `NOW()`,
-  created_by:          `'UPLOAD'`,
-  final_modified_by:   `'UPLOAD'`,
-  status:              `'A'`,
+  status:              `NULL`,
   valid:               `'Y'`,
   expired_flag:        `'N'`,
   mapped_flag:         `'N'`,
@@ -381,9 +379,34 @@ const AUTO_FILL_EXPRESSIONS = {
 
 const FORCE_AUTO_FILL_COLUMNS = new Set(['globalid', ...Object.keys(AUTO_FILL_EXPRESSIONS)]);
 
+function sqlStringLiteral(value) {
+  return `'${String(value ?? '').replace(/'/g, "''")}'`;
+}
+
+function normalizeUploadContext(options = {}) {
+  return {
+    division: String(options?.division || '').trim(),
+    createdBy: String(options?.createdBy || '').trim(),
+    finalModifiedBy: String(options?.finalModifiedBy || '').trim(),
+  };
+}
+
+function getContextAutoFillExpression(targetName, uploadContext) {
+  if (['division', 'asset_division', 'div_name'].includes(targetName) && uploadContext?.division) {
+    return sqlStringLiteral(uploadContext.division);
+  }
+  if (targetName === 'created_by') {
+    return sqlStringLiteral(uploadContext?.createdBy || 'UPLOAD');
+  }
+  if (targetName === 'final_modified_by') {
+    return sqlStringLiteral(uploadContext?.finalModifiedBy || uploadContext?.createdBy || 'UPLOAD');
+  }
+  return null;
+}
+
 // Auto-map temp table columns to target SDE table columns.
 
-function autoMapColumns(sourceColumns, targetColumns) {
+function autoMapColumns(sourceColumns, targetColumns, uploadContext = {}) {
 
   const sourceLookup = {};
   for (const col of sourceColumns) {
@@ -398,21 +421,23 @@ function autoMapColumns(sourceColumns, targetColumns) {
 
   for (const target of targetColumns) {
     const targetName = target.column_name.toLowerCase();
+    const contextAutoFillExpr = getContextAutoFillExpression(targetName, uploadContext);
+    const forceAutoFill = FORCE_AUTO_FILL_COLUMNS.has(targetName) || !!contextAutoFillExpr;
 
     if (['objectid', 'shape', 'geom', 'the_geom', 'wkb_geometry', 'ogc_fid'].includes(targetName)) {
       continue;
     }
 
-    let sourceCol = FORCE_AUTO_FILL_COLUMNS.has(targetName) ? null : sourceLookup[targetName];
+    let sourceCol = forceAutoFill ? null : sourceLookup[targetName];
     let matchType = 'exact';
 
-    if (!sourceCol && !FORCE_AUTO_FILL_COLUMNS.has(targetName)) {
+    if (!sourceCol && !forceAutoFill) {
       const truncated = targetName.substring(0, 10);
       sourceCol = sourceLookup[truncated];
       matchType = 'truncation';
     }
 
-    if (!sourceCol && !FORCE_AUTO_FILL_COLUMNS.has(targetName)) {
+    if (!sourceCol && !forceAutoFill) {
       const prefix8 = targetName.substring(0, 8);
       sourceCol = Object.values(sourceLookup).find((s) =>
         s.column_name.toLowerCase().startsWith(prefix8),
@@ -451,7 +476,7 @@ function autoMapColumns(sourceColumns, targetColumns) {
             ? `NULLIF("__upload_globalid", '')::uuid`
             : `"__upload_globalid"::${target.data_type}`
         )
-        : AUTO_FILL_EXPRESSIONS[targetName];
+        : contextAutoFillExpr || AUTO_FILL_EXPRESSIONS[targetName];
 
       if (autoFillExpr) {
         autofillColumns.push(target.column_name);
@@ -533,7 +558,7 @@ async function ensureGeneratedGlobalIds(client, schema, table, geomColumn) {
   }
 }
 
-async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNew) {
+async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNew, uploadContext = {}) {
   const client = await pool.connect();
 
   try {
@@ -565,7 +590,7 @@ async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNe
       // Existing table — auto map source → target
       const sourceColumns = await getTableColumns(tempSchema, tempTable);
       const targetColumns = await getTableColumns(sdeSchema, sdeTable);
-      ({ mapping, nulledColumns, autofillColumns, ignoredColumns } = autoMapColumns(sourceColumns, targetColumns));
+      ({ mapping, nulledColumns, autofillColumns, ignoredColumns } = autoMapColumns(sourceColumns, targetColumns, uploadContext));
     }
 
     // ── Logging ────────────────────────────────────────────────────
@@ -617,6 +642,7 @@ async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNe
     console.log(`[Geometry] source:"${sourceGeomCol}" → target:"${targetGeomCol}"`);
 
     let query;
+    let insertedObjectIds = [];
 
     if (isNew) {
       query = `
@@ -648,9 +674,13 @@ async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNe
           ${selectExpressions.join(',\n          ')}
         FROM "${tempSchema}"."${tempTable}"
         WHERE "${sourceGeomCol}" IS NOT NULL
+        RETURNING objectid
       `;
 
-      await client.query(query);
+      const { rows: insertedRows } = await client.query(query);
+      insertedObjectIds = insertedRows
+        .map((row) => Number(row.objectid))
+        .filter((objectid) => Number.isFinite(objectid));
     }
 
     await client.query('COMMIT');
@@ -662,6 +692,7 @@ async function migrateTempToSde(tempSchema, tempTable, sdeSchema, sdeTable, isNe
     return {
       success: true,
       totalRows: Number(countRows[0]?.count || 0),
+      insertedObjectIds,
       mapping,
       nulledColumns,
       autofillColumns: autofillColumns || [],
@@ -739,9 +770,10 @@ async function dropTempTable(tempTable) {
 // MAIN EXPORT
 // ─────────────────────────────────────────────
 
-async function importShapefileToPostGIS(files, uploadId, layerNameFromRequest) {
+async function importShapefileToPostGIS(files, uploadId, layerNameFromRequest, options = {}) {
   const fallbackLayerName = `layer_${uploadId.replace(/-/g, '').slice(0, 12)}`;
   const requestedLayerName = sanitizeLayerName(layerNameFromRequest, fallbackLayerName);
+  const uploadContext = normalizeUploadContext(options);
 
   const target = await resolveTargetTable(requestedLayerName);
 
@@ -768,6 +800,7 @@ async function importShapefileToPostGIS(files, uploadId, layerNameFromRequest) {
       target.table_schema,
       target.table_name,
       !target.exists,
+      uploadContext,
     );
 
     await ensureStandardColumns(target.table_schema, target.table_name);
@@ -785,6 +818,7 @@ async function importShapefileToPostGIS(files, uploadId, layerNameFromRequest) {
       targetTable:    target.table_name,
       geometryColumn: await getGeometryColumn(target.table_schema, target.table_name),
       featureCount:   totalRows,
+      insertedObjectIds: migrationResult.insertedObjectIds || [],
       mapping: {
         mapped:   migrationResult.mapping.filter(m => m.status === 'mapped').length,
         autofill: migrationResult.autofillColumns || [],

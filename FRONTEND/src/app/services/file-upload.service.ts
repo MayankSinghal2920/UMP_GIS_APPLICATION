@@ -3,21 +3,30 @@ import { HttpClient, HttpEventType, HttpRequest } from '@angular/common/http';
 import { Observable, Subject, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { getDivision } from '../api/shared/api-utils';
 
 export interface UploadedFile {
   id: string;
   original_name: string;
-  upload_type: 'shapefile' | 'record_attachment';
+  upload_type: 'shapefile' | 'kml' | 'record_attachment';
   layer_name?: string;
   file_count?: number;
   created_at: string;
 }
 
-export interface ShapefileUploadResponse {
+export interface FileUploadResponse {
   message: string;
   uploadId: string;
   layerName: string;
   featureCount: number;
+  insertedObjectIds?: number[];
+  firstObjectId?: number | null;
+}
+
+export interface ShapefileUploadedEvent {
+  layerName: string;
+  uploadId?: string;
+  featureCount?: number;
 }
 
 @Injectable({
@@ -26,7 +35,7 @@ export interface ShapefileUploadResponse {
 export class FileUploadService {
 
   private readonly UPLOAD_URL = `${environment.apiUrl}/upload`;
-  private readonly shapefileUploadedSubject = new Subject<{ layerName: string; response: ShapefileUploadResponse }>();
+  private readonly shapefileUploadedSubject = new Subject<ShapefileUploadedEvent>();
   readonly shapefileUploaded$ = this.shapefileUploadedSubject.asObservable();
 
   constructor(private http: HttpClient) {}
@@ -38,24 +47,47 @@ export class FileUploadService {
     category: string,
     layerName: string,  // Added this parameter
     onProgress: (pct: number) => void
-  ): Promise<ShapefileUploadResponse> {
+  ): Promise<FileUploadResponse> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file, file.name));
     if (description) formData.append('description', description);
     if (category) formData.append('category', category);
     if (layerName) formData.append('layerName', layerName);  // Add layerName to form data
+    const division = String(getDivision() || '').trim();
+    if (division) formData.append('division', division);
 
-    return this.uploadWithProgress<ShapefileUploadResponse>(
+    return this.uploadWithProgress<FileUploadResponse>(
       `${this.UPLOAD_URL}/shapefile`,
       formData,
       onProgress
     ).then((response) => {
       this.shapefileUploadedSubject.next({
-        layerName,
-        response,
+        layerName: response?.layerName || layerName,
+        uploadId: response?.uploadId,
+        featureCount: response?.featureCount,
       });
       return response;
     });
+  }
+
+  uploadKmlFile(
+    file: File,
+    description: string,
+    category: string,
+    layerName: string,
+    onProgress: (pct: number) => void
+  ): Promise<FileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    if (description) formData.append('description', description);
+    if (category) formData.append('category', category);
+    if (layerName) formData.append('layerName', layerName);
+
+    return this.uploadWithProgress<FileUploadResponse>(
+      `${this.UPLOAD_URL}/kml`,
+      formData,
+      onProgress
+    );
   }
 
   private uploadWithProgress<T>(
@@ -69,7 +101,7 @@ export class FileUploadService {
 
     return new Promise((resolve, reject) => {
       this.http.request(req).pipe(
-        catchError(err => throwError(() => new Error(this.getUploadErrorMessage(err))))
+        catchError(err => throwError(() => new Error(err?.error?.message || err?.error?.error || 'Upload failed')))
       ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress && event.total) {
@@ -81,19 +113,6 @@ export class FileUploadService {
         error: (err) => reject(err)
       });
     });
-  }
-
-  private getUploadErrorMessage(err: any): string {
-    const serverError = err?.error;
-    if (typeof serverError === 'string' && serverError.trim()) return serverError.trim();
-
-    const message =
-      serverError?.message ||
-      serverError?.error ||
-      err?.message ||
-      '';
-
-    return String(message || '').trim() || 'Upload failed';
   }
 
   getUploadedFiles(): Observable<UploadedFile[]> {

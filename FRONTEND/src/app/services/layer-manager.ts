@@ -171,7 +171,8 @@ export class LayerManager {
       this.loadFrame = null;
     }
 
-    const priorityLayers = layers.filter((layer) => layer.id === 'division_buffer' || layer.id === 'tracks');
+    const priorityIds = new Set(['division_buffer', 'tracks', 'stations', 'landboundary']);
+    const priorityLayers = layers.filter((layer) => priorityIds.has(layer.id));
     const deferredLayers = layers.filter((layer) => !priorityLayers.includes(layer));
 
     priorityLayers.forEach((layer) => {
@@ -183,15 +184,18 @@ export class LayerManager {
     });
 
     let index = 0;
+    const layersPerFrame = label === 'loadForMap' ? 8 : 5;
     const runNext = () => {
       this.loadFrame = null;
       if (!map || index >= deferredLayers.length) return;
 
-      const layer = deferredLayers[index++];
-      try {
-        layer.loadForMap(map);
-      } catch (e) {
-        console.error(`Layer ${label} failed: ${layer.id}`, e);
+      for (let i = 0; i < layersPerFrame && index < deferredLayers.length; i++) {
+        const layer = deferredLayers[index++];
+        try {
+          layer.loadForMap(map);
+        } catch (e) {
+          console.error(`Layer ${label} failed: ${layer.id}`, e);
+        }
       }
 
       if (index < deferredLayers.length) {

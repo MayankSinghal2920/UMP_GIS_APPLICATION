@@ -130,7 +130,17 @@ export class EditPanel implements OnInit, OnDestroy {
 
   geomEditing = false;
   showAddRecordModal = false;
+  addRecordDrawingActive = false;
   addRecordShapefileName = '';
+  addRecordShapefileFiles: File[] = [];
+  addRecordShapefileUploading = false;
+  addRecordShapefileProgress = 0;
+  addRecordShapefileProcessing = false;
+  addRecordShapefileError: string | null = null;
+  uploadedShapefileRecordObjectId: number | null = null;
+  private addRecordUploadHandled = false;
+  private addRecordProcessingTimer?: ReturnType<typeof setTimeout>;
+  private addRecordPollTimer?: ReturnType<typeof setTimeout>;
   private dragSub?: Subscription;
   private stateSub?: Subscription;
   private createPointSub?: Subscription;
@@ -142,6 +152,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private allDistrictOptions: Array<LocationOption & { state?: string }> = [];
   private allConstituencyOptions: Array<LocationOption & { state?: string }> = [];
 
+// ── Attachment logic (from File 1) ──────────────────────────
   @ViewChild('attachmentInput') attachmentInput?: ElementRef<HTMLInputElement>;
   @ViewChild('addRecordShapefileInput') addRecordShapefileInput?: ElementRef<HTMLInputElement>;
   attachmentFiles: File[] = [];
@@ -263,12 +274,196 @@ export class EditPanel implements OnInit, OnDestroy {
 
   private refreshAfterShapefileUpload(layerName: string): void {
     if (!this.edit.enabled || !this.supportsCurrentLayerListing()) return;
+    if (this.addRecordShapefileUploading) return;
 
     const uploadedLayer = normalizeCivilEngineeringLayerId(layerName || '');
     const currentLayer = normalizeCivilEngineeringLayerId(this.currentTableLayer || '');
     if (uploadedLayer && currentLayer && uploadedLayer !== currentLayer) return;
 
-    this.load(false);
+    this.reloadCurrentTableAfterUpload();
+  }
+
+  private reloadCurrentTableAfterUpload(): void {
+    this.mode = 'table';
+    this.page = 1;
+    this.search = '';
+    this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+    this.total = 0;
+    this.filteredTotal = 0;
+    this.loading = true;
+    this.error = null;
+    this.cdr.detectChanges();
+    setTimeout(() => this.load(true), 150);
+  }
+
+  private openNewestRecordAfterUpload(): void {
+    const layerKey = this.getPersistenceLayerKey();
+    if (!layerKey || !this.supportsCurrentLayerListing()) {
+      this.reloadCurrentTableAfterUpload();
+      return;
+    }
+
+    this.mode = 'table';
+    this.page = 1;
+    this.search = '';
+    this.rows = [];
+    this.allRows = [];
+    this.filteredRows = [];
+    this.total = 0;
+    this.filteredTotal = 0;
+    this.loading = true;
+    this.error = null;
+    this.cdr.detectChanges();
+
+    const seq = ++this.loadSeq;
+    setTimeout(() => {
+      this.fetchCurrentLayerPage(layerKey, 1, this.pageSize, '').subscribe({
+        next: (res) => {
+          if (seq !== this.loadSeq) return;
+          const rows: any[] = Array.isArray(res?.rows) ? res.rows : [];
+          this.allRows = rows;
+          this.filteredRows = rows.filter((row) => this.isVisibleForCurrentView(row));
+          this.rows = this.filteredRows;
+          this.total = Number(res?.total ?? this.filteredRows.length);
+          this.filteredTotal = this.total;
+          this.loading = false;
+
+          const newestRow = this.filteredRows[0];
+          if (newestRow) {
+            this.openUploadedRecordForm(newestRow, true);
+          } else {
+            this.error = 'Upload completed, but no matching record was found in this layer table.';
+          }
+
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          if (seq !== this.loadSeq) return;
+          console.error('getLayerTable failed after shapefile upload', err);
+          this.allRows = [];
+          this.filteredRows = [];
+          this.rows = [];
+          this.total = 0;
+          this.filteredTotal = 0;
+          this.loading = false;
+          this.error = err?.error?.message || err?.error?.error || 'Upload completed, but the layer table could not be loaded.';
+          this.cdr.detectChanges();
+        },
+      });
+    }, 200);
+  }
+
+  private openUploadedRecordByObjectId(objectId: number): void {
+    const layerKey = this.getPersistenceLayerKey();
+    if (!layerKey || !Number.isFinite(objectId)) {
+      this.openNewestRecordAfterUpload();
+      return;
+    }
+
+    this.mode = 'table';
+    this.page = 1;
+    this.search = '';
+    this.loading = true;
+    this.error = null;
+    this.cdr.detectChanges();
+
+    this.api.getLayerById(layerKey, objectId).subscribe({
+      next: (full) => {
+        const row = full || { objectid: objectId };
+        this.rows = [row];
+        this.allRows = [row];
+        this.filteredRows = [row];
+        this.total = 1;
+        this.filteredTotal = 1;
+        this.loading = false;
+        this.openUploadedRecordForm(row, true);
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Failed to load newly uploaded asset by objectid:', err);
+        this.openNewestRecordAfterUpload();
+      },
+    });
+  }
+
+  private beginAddRecordBackgroundLookup(): void {
+    if (this.addRecordUploadHandled) return;
+    this.addRecordUploadHandled = true;
+    this.showAddRecordModal = false;
+    this.addRecordShapefileProcessing = false;
+    this.addRecordShapefileUploading = false;
+    this.mode = 'table';
+    this.page = 1;
+    this.search = '';
+    this.loading = false;
+    this.error = 'Upload is processing in the background. The layer table is being refreshed.';
+    this.cdr.detectChanges();
+    this.resetAddRecordShapefileState();
+    setTimeout(() => this.load(true), 250);
+  }
+
+  private openUploadedRecordForm(row: any, isUploadedShapefileRecord = false): void {
+    this.editRow(row);
+    const uploadedObjectId = Number(row?.objectid);
+    this.uploadedShapefileRecordObjectId = isUploadedShapefileRecord && Number.isFinite(uploadedObjectId)
+      ? uploadedObjectId
+      : null;
+
+    const layerKey = this.getPersistenceLayerKey();
+    const objectId = Number(row?.objectid);
+    if (!layerKey || !Number.isFinite(objectId)) {
+      this.zoomToFeatureShape(row);
+      return;
+    }
+
+    this.api.getLayerById(layerKey, objectId).subscribe({
+      next: (full) => this.zoomToFeatureShape(full || row),
+      error: (err) => {
+        console.error('Failed to load uploaded asset geometry for zoom:', err);
+        this.zoomToFeatureShape(row);
+      },
+    });
+  }
+
+  private zoomToFeatureShape(row: any): boolean {
+    const feature = this.buildFeatureFromRow(row);
+    if (!feature?.geometry) {
+      const normalized = this.normalizeCurrentLayerDraft(row);
+      const lat = Number(normalized?.lat);
+      const lng = Number(normalized?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        this.deferMapZoom({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
+        return true;
+      }
+      return false;
+    }
+    this.deferMapZoom({ type: 'feature', feature, pad: 0.24 } as any);
+    return true;
+  }
+
+  private getFeatureCenterLatLng(feature: any): { lat: number; lng: number } | null {
+    const geometry = feature?.geometry ?? feature;
+    if (!geometry?.type) return null;
+
+    const collect = (coords: any, points: Array<[number, number]>) => {
+      if (!Array.isArray(coords)) return;
+      if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+        points.push([Number(coords[0]), Number(coords[1])]);
+        return;
+      }
+      coords.forEach((child) => collect(child, points));
+    };
+
+    const points: Array<[number, number]> = [];
+    collect(geometry.coordinates, points);
+    const validPoints = points.filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+    if (!validPoints.length) return null;
+
+    const lng = validPoints.reduce((sum, point) => sum + point[0], 0) / validPoints.length;
+    const lat = validPoints.reduce((sum, point) => sum + point[1], 0) / validPoints.length;
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
   }
 
   private getRecordDisplayName(row: any): string {
@@ -404,6 +599,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.filteredTotal = 0;
     this.page = 1;
     this.search = '';
+    this.addRecordDrawingActive = false;
     this.error = null;
     this.draft = null;
     this.originalDraft = null;
@@ -440,6 +636,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.saving = false;
     this.deleting = false;
     this.showAddRecordModal = false;
+    this.addRecordDrawingActive = false;
     this.addRecordShapefileName = '';
         // ── reset attachment state (File 1 logic) ──
     this.attachmentFiles = [];
@@ -1113,6 +1310,16 @@ export class EditPanel implements OnInit, OnDestroy {
       : this.api.getLayerTable(layerKey, page, pageSize, search, mainStatus);
   }
 
+  private getTableLoadErrorMessage(err: any): string {
+    if (err?.name === 'TimeoutError') {
+      return 'Layer table request timed out. Please check that the backend API is running.';
+    }
+    if (err?.status === 0) {
+      return 'Backend API is not reachable. Please start/restart the backend server on port 4000.';
+    }
+    return err?.error?.message || err?.error?.error || err?.message || 'Failed to load layer table';
+  }
+
   private applyPagination(): void {
     const start = (this.page - 1) * this.pageSize;
     const end = start + this.pageSize;
@@ -1165,7 +1372,9 @@ export class EditPanel implements OnInit, OnDestroy {
         error: (err) => {
           if (seq !== this.loadSeq) return;
           console.error('getLayerTable failed', err);
-          this.allRows = []; this.filteredRows = []; this.rows = []; this.total = 0; this.filteredTotal = 0; this.loading = false; this.cdr.detectChanges();
+          this.allRows = []; this.filteredRows = []; this.rows = []; this.total = 0; this.filteredTotal = 0; this.loading = false;
+          this.error = this.getTableLoadErrorMessage(err);
+          this.cdr.detectChanges();
         },
       });
       return;
@@ -1192,7 +1401,9 @@ export class EditPanel implements OnInit, OnDestroy {
         error: (err) => {
           if (seq !== this.loadSeq) return;
           console.error('getLayerTable failed', err);
-          this.allRows = []; this.filteredRows = []; this.rows = []; this.total = 0; this.filteredTotal = 0; this.loading = false; this.cdr.detectChanges();
+          this.allRows = []; this.filteredRows = []; this.rows = []; this.total = 0; this.filteredTotal = 0; this.loading = false;
+          this.error = this.getTableLoadErrorMessage(err);
+          this.cdr.detectChanges();
         },
       });
     };
@@ -1244,27 +1455,27 @@ export class EditPanel implements OnInit, OnDestroy {
   // ── Add Record Modal (File 2) ────────────────────────────────
   startAddRecord() {
     if (!this.currentTableLayer) return;
+    this.addRecordDrawingActive = false;
     this.showAddRecordModal = true;
-    this.addRecordShapefileName = '';
-    this.clearAddRecordShapefileInput();
+    this.resetAddRecordShapefileState();
     this.cdr.detectChanges();
   }
 
   closeAddRecordModal(): void {
     this.showAddRecordModal = false;
-    this.addRecordShapefileName = '';
-    this.clearAddRecordShapefileInput();
+    this.addRecordUploadHandled = true;
+    this.loading = false;
+    this.resetAddRecordShapefileState();
+    this.cdr.detectChanges();
   }
 
-  cancelAddNewRecordDrawing(): void {
-    this.edit.cancelCreateStation();
-    this.mapZoom.clearHighlight();
-    this.error = null;
-    this.cdr.detectChanges();
+  get addRecordDrawingModeActive(): boolean {
+    return this.addRecordDrawingActive || this.edit.creatingStation;
   }
 
   startAddRecordWithDrawingTool(): void {
     if (!this.currentTableLayer) return;
+    this.addRecordDrawingActive = true;
     this.showAddRecordModal = false;
     this.error = null;
     this.mode = 'table';
@@ -1275,25 +1486,211 @@ export class EditPanel implements OnInit, OnDestroy {
     this.validating = false;
     this.saving = false;
     this.deleting = false;
+    this.attachmentFiles = [];
+    this.attachmentUploadError = null;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
     this.mapZoom.clearHighlight();
 
     this.edit.startCreateStation();
+    const layerLabel = this.currentLayerSchema?.label || this.selectedLayerLabel || 'asset';
+    alert(`Drawing mode is on. Double-click inside the division buffer to place the new ${layerLabel}.`);
 
+    this.cdr.detectChanges();
+  }
+
+  cancelAddNewRecordDrawing(): void {
+    this.addRecordDrawingActive = false;
+    this.edit.cancelCreateStation();
+    this.mode = 'table';
+    this.draft = null;
+    this.originalDraft = null;
+    this.error = null;
+    this.stationValidated = false;
+    this.validatedBridgeAssetId = null;
+    this.showAddRecordModal = false;
+    this.validating = false;
+    this.saving = false;
+    this.deleting = false;
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.clearHighlight();
     this.cdr.detectChanges();
   }
 
   onAddRecordShapefileSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
-    const file = input?.files?.[0] || null;
-    this.addRecordShapefileName = file?.name || '';
-    if (!file) return;
-    this.clearAddRecordShapefileInput();
-    this.showAddRecordModal = false;
-    alert(`Selected shapefile: ${file.name}. Shapefile-based record creation UI is ready, but backend upload handling is not wired yet.`);
+    const selectedFiles = input?.files ? Array.from(input.files) : [];
+    const allowedExtensions = this.getAllowedShapefileExtensions();
+    const validFiles = selectedFiles.filter((file) => allowedExtensions.includes(this.getFileExtension(file)));
+    const skippedCount = selectedFiles.length - validFiles.length;
+
+    this.addRecordShapefileFiles = validFiles;
+    this.addRecordShapefileName = validFiles.map((file) => file.name).join(', ');
+    this.addRecordShapefileProgress = 0;
+    this.addRecordShapefileError = skippedCount
+      ? `${skippedCount} file(s) skipped. Only shapefile parts are allowed.`
+      : null;
     this.cdr.detectChanges();
+  }
+
+  removeAddRecordShapefile(index: number): void {
+    if (index < 0 || index >= this.addRecordShapefileFiles.length) return;
+    this.addRecordShapefileFiles.splice(index, 1);
+    this.addRecordShapefileName = this.addRecordShapefileFiles.map((file) => file.name).join(', ');
+    this.addRecordShapefileError = null;
+    if (!this.addRecordShapefileFiles.length) this.clearAddRecordShapefileInput();
+    this.cdr.detectChanges();
+  }
+
+  async uploadAddRecordShapefile(): Promise<void> {
+    if (this.addRecordShapefileUploading) return;
+
+    const targetLayerName = this.getAddRecordShapefileTargetLayer();
+    if (!targetLayerName) {
+      this.addRecordShapefileError = 'Please select an assigned layer before uploading.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    if (!this.addRecordShapefileFiles.length) {
+      this.addRecordShapefileError = 'Please choose shapefile parts before uploading.';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const validationError = this.getMissingAddRecordShapefilePartsError();
+    if (validationError) {
+      this.addRecordShapefileError = validationError;
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.addRecordShapefileUploading = true;
+    this.addRecordShapefileProgress = 0;
+    this.addRecordShapefileError = null;
+    this.addRecordUploadHandled = false;
+    if (this.addRecordProcessingTimer) clearTimeout(this.addRecordProcessingTimer);
+    if (this.addRecordPollTimer) clearTimeout(this.addRecordPollTimer);
+    this.addRecordProcessingTimer = setTimeout(() => {
+      if (this.addRecordShapefileUploading || this.addRecordShapefileProcessing) {
+        this.beginAddRecordBackgroundLookup();
+      }
+    }, 7000);
+    this.error = null;
+    this.cdr.detectChanges();
+
+    try {
+      const result = await this.fileUploadService.uploadShapefiles(
+        this.addRecordShapefileFiles,
+        'Created from edit tool add record workflow',
+        'add-record',
+        targetLayerName,
+        (progress) => {
+          this.addRecordShapefileProgress = progress;
+          this.addRecordShapefileProcessing = progress >= 100;
+          this.cdr.detectChanges();
+        },
+      );
+
+      const firstObjectId = Number(result?.firstObjectId ?? result?.insertedObjectIds?.[0]);
+      if (this.addRecordProcessingTimer) {
+        clearTimeout(this.addRecordProcessingTimer);
+        this.addRecordProcessingTimer = undefined;
+      }
+      if (this.addRecordPollTimer) {
+        clearTimeout(this.addRecordPollTimer);
+        this.addRecordPollTimer = undefined;
+      }
+      this.addRecordShapefileUploading = false;
+      this.addRecordShapefileProcessing = false;
+      this.showAddRecordModal = false;
+      this.resetAddRecordShapefileState();
+      this.cdr.detectChanges();
+
+      setTimeout(() => {
+        if (Number.isFinite(firstObjectId)) {
+          this.addRecordUploadHandled = true;
+          this.openUploadedRecordByObjectId(firstObjectId);
+        } else if (!this.addRecordUploadHandled) {
+          this.addRecordUploadHandled = true;
+          this.openNewestRecordAfterUpload();
+        }
+      }, 0);
+    } catch (err: any) {
+      this.addRecordShapefileError = err?.message || 'Failed to upload shapefile';
+    } finally {
+      if (this.addRecordProcessingTimer && !this.showAddRecordModal) {
+        clearTimeout(this.addRecordProcessingTimer);
+        this.addRecordProcessingTimer = undefined;
+      }
+      if (this.showAddRecordModal) {
+        this.addRecordShapefileUploading = false;
+        this.addRecordShapefileProcessing = false;
+      }
+      this.cdr.detectChanges();
+    }
+  }
+
+  private getAddRecordShapefileTargetLayer(): string {
+    return String(this.currentTableLayer || '').trim().toLowerCase();
+  }
+
+  private getAllowedShapefileExtensions(): string[] {
+    return ['.shp', '.shx', '.dbf', '.prj', '.cpg', '.qpj', '.sbn', '.sbx'];
+  }
+
+  private getRequiredShapefileExtensions(): string[] {
+    return ['.shp', '.shx', '.dbf'];
+  }
+
+  private getFileExtension(file: File): string {
+    const name = String(file?.name || '').toLowerCase();
+    const dotIndex = name.lastIndexOf('.');
+    return dotIndex >= 0 ? name.slice(dotIndex) : '';
+  }
+
+  private getMissingAddRecordShapefilePartsError(): string | null {
+    const requiredExtensions = this.getRequiredShapefileExtensions();
+    const grouped = this.addRecordShapefileFiles.reduce((acc, file) => {
+      const ext = this.getFileExtension(file);
+      if (!requiredExtensions.includes(ext)) return acc;
+
+      const base = file.name.slice(0, file.name.length - ext.length).trim().toLowerCase();
+      if (!acc[base]) acc[base] = new Set<string>();
+      acc[base].add(ext);
+      return acc;
+    }, {} as Record<string, Set<string>>);
+
+    const hasValidBundle = Object.values(grouped).some((exts) =>
+      requiredExtensions.every((ext) => exts.has(ext)),
+    );
+    if (hasValidBundle) return null;
+
+    const missing = requiredExtensions.filter(
+      (ext) => !this.addRecordShapefileFiles.some((file) => this.getFileExtension(file) === ext),
+    );
+    return `Shapefile upload requires .shp, .shx and .dbf files. Missing: ${missing.join(', ') || 'required file parts'}.`;
+  }
+
+  private resetAddRecordShapefileState(): void {
+    if (this.addRecordProcessingTimer) {
+      clearTimeout(this.addRecordProcessingTimer);
+      this.addRecordProcessingTimer = undefined;
+    }
+    if (this.addRecordPollTimer) {
+      clearTimeout(this.addRecordPollTimer);
+      this.addRecordPollTimer = undefined;
+    }
+    this.addRecordShapefileFiles = [];
+    this.addRecordShapefileName = '';
+    this.addRecordShapefileProgress = 0;
+    this.addRecordShapefileProcessing = false;
+    this.addRecordShapefileError = null;
+    this.addRecordShapefileUploading = false;
+    this.clearAddRecordShapefileInput();
   }
 
   private clearAddRecordShapefileInput(): void {
@@ -1307,6 +1704,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const railway = this.getRailwayName();
     const department = localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '';
 
+    this.addRecordDrawingActive = false;
     this.mode = 'edit';
     this.ensureLocationOptionsLoaded();
     this.error = null;
@@ -1349,6 +1747,7 @@ export class EditPanel implements OnInit, OnDestroy {
     const layer = this.currentTableLayer;
     if (!layer || !this.currentLayerSchema) return;
 
+    this.addRecordDrawingActive = false;
     const division = String(this.currentUser.getSnapshot()?.division || localStorage.getItem('division') || '').trim();
     const department = String(localStorage.getItem('department') || this.currentUser.getSnapshot()?.department || '').trim();
     const railwayName = this.getRailwayName();
@@ -1394,12 +1793,20 @@ export class EditPanel implements OnInit, OnDestroy {
   editRow(row: any) {
     const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
+    this.uploadedShapefileRecordObjectId = null;
     this.mode = 'edit';
     this.error = null;
     this.draft = { ...row };
     this.originalDraft = { ...row };
     this.stationValidated = false;
     this.validatedBridgeAssetId = null;
+
+        // ── reset attachment state (File 1 logic) ──
+    this.attachmentFiles = [];
+    this.uploadingAttachments = false;
+    this.attachmentUploadError = null;
+    // ───────────────────────────────────────────
+
     this.ensureLocationOptionsLoaded();
     this.prepareLocationDropdownsForDraft(false);
     this.validating = false;
@@ -1451,8 +1858,8 @@ export class EditPanel implements OnInit, OnDestroy {
         this.prepareLocationDropdownsForDraft(false);
         const detailLat = Number.isFinite(n.lat) ? n.lat : null;
         const detailLng = Number.isFinite(n.lng) ? n.lng : null;
-        const detailFeature = isLandPlanOntrack ? this.buildFeatureFromRow(full) : null;
-        if (isLandPlanOntrack && detailFeature && this.shouldAutoZoomOnEditOpen()) {
+        const detailFeature = this.buildFeatureFromRow(full);
+        if (detailFeature && this.shouldAutoZoomOnEditOpen()) {
           this.deferMapZoom({ type: 'feature', feature: detailFeature, pad: 0.24 } as any);
         } else if ((loadDraftDetail || !renderedLatLng || isLandPlanOntrack) && detailLat != null && detailLng != null && this.shouldAutoZoomOnEditOpen()) {
           this.deferMapZoom({ type: 'latlng', lat: detailLat, lng: detailLng, zoom: this.getEditFocusZoom(), draggable: false } as any);
@@ -1527,14 +1934,15 @@ export class EditPanel implements OnInit, OnDestroy {
     const props = row?.properties ?? row ?? {};
     const feature = this.buildFeatureFromRow(row);
     const geometryCoords = Array.isArray(row?.geometry?.coordinates) ? row.geometry.coordinates : null;
-    const geometryLng = Number(geometryCoords?.[0]);
-    const geometryLat = Number(geometryCoords?.[1]);
-    const lat = Number.isFinite(geometryLat)
-      ? geometryLat
-      : Number(props?.geom_lat ?? props?.lat ?? props?.ycoord ?? props?.latitude);
-    const lng = Number.isFinite(geometryLng)
-      ? geometryLng
-      : Number(props?.geom_lng ?? props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude);
+    const directGeometryLng = Number(geometryCoords?.[0]);
+    const directGeometryLat = Number(geometryCoords?.[1]);
+    const featureCenter = this.getFeatureCenterLatLng(this.buildFeatureFromRow(row));
+    const lat = Number.isFinite(directGeometryLat)
+      ? directGeometryLat
+      : Number(props?.geom_lat ?? props?.lat ?? props?.ycoord ?? props?.latitude ?? featureCenter?.lat);
+    const lng = Number.isFinite(directGeometryLng)
+      ? directGeometryLng
+      : Number(props?.geom_lng ?? props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude ?? featureCenter?.lng);
     const constituency = this.normalizeLocationValue(this.getValueByNormalizedKey(props, [
       'constituncy',
       'constituency',
@@ -1567,8 +1975,9 @@ export class EditPanel implements OnInit, OnDestroy {
     if (this.currentTableLayer === 'landplan_ontrack') return this.normalizeLandPlan(row);
     const props = row?.properties ?? row ?? {};
     const geometryCoords = Array.isArray(row?.geometry?.coordinates) ? row.geometry.coordinates : null;
-    const geometryLng = Number(geometryCoords?.[0]);
-    const geometryLat = Number(geometryCoords?.[1]);
+    const directGeometryLng = Number(geometryCoords?.[0]);
+    const directGeometryLat = Number(geometryCoords?.[1]);
+    const featureCenter = this.getFeatureCenterLatLng(this.buildFeatureFromRow(row));
     const normalized: any = {};
     Object.keys(props).forEach((key) => {
       normalized[key] = props[key];
@@ -1592,8 +2001,12 @@ export class EditPanel implements OnInit, OnDestroy {
     normalized.rorno = normalized.rorno ?? normalized.bridgeno ?? '';
     normalized.objectid = props?.objectid ?? row?.id ?? row?.objectid ?? null;
     normalized.status = props?.status ?? row?.status ?? '';
-    normalized.lat = Number.isFinite(geometryLat) ? geometryLat : Number(props?.geom_lat ?? props?.lat ?? props?.ycoord ?? props?.latitude);
-    normalized.lng = Number.isFinite(geometryLng) ? geometryLng : Number(props?.geom_lng ?? props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude);
+    normalized.lat = Number.isFinite(directGeometryLat)
+      ? directGeometryLat
+      : Number(props?.geom_lat ?? props?.lat ?? props?.ycoord ?? props?.latitude ?? featureCenter?.lat);
+    normalized.lng = Number.isFinite(directGeometryLng)
+      ? directGeometryLng
+      : Number(props?.geom_lng ?? props?.lon ?? props?.lng ?? props?.xcoord ?? props?.longitude ?? featureCenter?.lng);
     return normalized;
   }
 
@@ -1935,7 +2348,9 @@ export class EditPanel implements OnInit, OnDestroy {
     this.stationValidated = false;
     this.validatedBridgeAssetId = null;
     this.showAddRecordModal = false;
+    this.addRecordDrawingActive = false;
     this.addRecordShapefileName = '';
+    this.uploadedShapefileRecordObjectId = null;
     this.geomEditing = false;
     this.dragSub?.unsubscribe();
     this.dragSub = undefined;
@@ -1947,7 +2362,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   cancelEdit() {
     if (this.originalDraft) this.draft = { ...this.originalDraft };
-    this.edit.cancelCreateStation(); this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
+    this.edit.cancelCreateStation(); this.addRecordDrawingActive = false; this.uploadedShapefileRecordObjectId = null; this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
   send() {
@@ -2016,6 +2431,7 @@ export class EditPanel implements OnInit, OnDestroy {
           : this.api.updateLayer(layerKey, this.draft.objectid, payload);
     request$.subscribe({
       next: (response: any) => {
+                // ── File 1 logic: upload attachments after save if any pending ──
         const savedId = Number(
           response?.objectid ??
           response?.id ??
@@ -2124,6 +2540,50 @@ export class EditPanel implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  isUploadedShapefileRecordForm(): boolean {
+    const currentObjectId = Number(this.draft?.objectid);
+    return this.mode === 'edit'
+      && Number.isFinite(currentObjectId)
+      && this.uploadedShapefileRecordObjectId === currentObjectId;
+  }
+
+  deleteUploadedShapefileRecord(): void {
+    if (!this.isUploadedShapefileRecordForm()) return;
+    const id = Number(this.draft?.objectid);
+    const layerKey = this.getPersistenceLayerKey();
+    if (!layerKey || !Number.isFinite(id)) return;
+
+    const name = this.getRecordDisplayName(this.draft);
+    if (!confirm(`Delete uploaded ${this.getCurrentLayerLabel()}${name ? ` "${name}"` : ''} directly from database?`)) return;
+
+    this.deleting = true;
+    this.error = null;
+    this.api.deleteLayer(layerKey, id).subscribe({
+      next: () => {
+        this.deleting = false;
+        this.uploadedShapefileRecordObjectId = null;
+        this.mode = 'table';
+        this.draft = null;
+        this.originalDraft = null;
+        this.stationValidated = false;
+        this.validatedBridgeAssetId = null;
+        this.geomEditing = false;
+        this.dragSub?.unsubscribe();
+        this.dragSub = undefined;
+        this.mapZoom.zoomHome();
+        this.mapZoom.clearHighlight();
+        alert('Uploaded asset deleted from database');
+        setTimeout(() => this.load(true), 0);
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.deleting = false;
+        this.error = err?.error?.message || err?.error?.error || 'Failed to delete uploaded asset';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
   private handleDeleteRequestError(err: any) {
     this.deleting = false;
     this.error = err?.error?.message || err?.error?.error || 'Failed to send deletion request';
@@ -2170,6 +2630,10 @@ export class EditPanel implements OnInit, OnDestroy {
 
   deleteDraft() {
     if (!this.draft?.objectid) return;
+    if (this.isUploadedShapefileRecordForm()) {
+      this.deleteUploadedShapefileRecord();
+      return;
+    }
     const name = this.getRecordDisplayName(this.draft);
     if (!confirm(`Delete ${this.getCurrentLayerLabel()}${name ? ` "${name}"` : ''}?`)) return;
     const isRejectedDraft = this.isMaker() && this.makerTab === 'rejected';
@@ -2226,7 +2690,7 @@ export class EditPanel implements OnInit, OnDestroy {
   rejectDeletionDraft() { if (!this.draft) return; this.rejectDeletionRow(this.draft); }
 
   private resetPanelState() {
-    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
+    this.mode = 'table'; this.rows = []; this.allRows = []; this.filteredRows = []; this.total = 0; this.filteredTotal = 0; this.page = 1; this.pageSize = 8; this.search = ''; this.loading = false; this.draft = null; this.originalDraft = null; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordDrawingActive = false; this.addRecordShapefileName = ''; this.uploadedShapefileRecordObjectId = null; this.saving = false; this.deleting = false; this.validating = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.error = null; this.edit.setLayer(null as any); this.mapZoom.clearHighlight();
   }
 
   close() {

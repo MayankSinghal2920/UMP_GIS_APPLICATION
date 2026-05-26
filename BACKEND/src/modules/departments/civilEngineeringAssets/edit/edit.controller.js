@@ -20,6 +20,50 @@ function resolveConfig(layer) {
   return config;
 }
 
+function parseDivisionAliases(query) {
+  const values = [
+    query?.division,
+    query?.asset_division,
+    query?.divisionAliases,
+  ];
+
+  return values
+    .flatMap((value) => Array.isArray(value) ? value : String(value || '').split(','))
+    .map((value) => String(value || '').trim())
+    .filter((value, index, list) => value && list.indexOf(value) === index);
+}
+
+function normalizeDivisionAlias(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+async function expandDivisionAliases(query) {
+  const aliases = parseDivisionAliases(query);
+  if (!aliases.length) return aliases;
+
+  try {
+    const { rows } = await pool.query(
+      `
+        SELECT DISTINCT divcode, div_name
+        FROM div_master
+        WHERE UPPER(TRIM(COALESCE(divcode::text, ''))) = ANY($1)
+           OR UPPER(TRIM(COALESCE(div_name::text, ''))) = ANY($1)
+      `,
+      [aliases.map(normalizeDivisionAlias)],
+    );
+
+    return [
+      ...aliases,
+      ...rows.flatMap((row) => [row.divcode, row.div_name]),
+    ]
+      .map((value) => String(value || '').trim())
+      .filter((value, index, list) => value && list.indexOf(value) === index);
+  } catch (err) {
+    console.warn('Division alias lookup failed; using request aliases only:', err.message);
+    return aliases;
+  }
+}
+
 async function getById(req, res, next) {
   try {
     const { layer, id } = req.params;
@@ -32,7 +76,7 @@ async function getById(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-    const row = await model.getById(config, Number(id), division);
+    const row = await model.getById(config, Number(id), division, await expandDivisionAliases(req.query));
 
     if (!row) {
       const err = new Error('Record not found');
@@ -157,7 +201,7 @@ async function getTable(req, res, next) {
     }
 
     const config = resolveConfig(layer);
-    const result = await model.getTable(config, page, pageSize, q, division, String(status || '').trim());
+    const result = await model.getTable(config, page, pageSize, q, division, String(status || '').trim(), await expandDivisionAliases(req.query));
     res.json(result);
   } catch (err) {
     next(err);

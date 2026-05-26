@@ -320,6 +320,86 @@
   word-break: break-word;
 }
 
+#panelEdit .add-record-shapefile-error{
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#panelEdit .add-record-file-list{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 110px;
+  margin: 10px 0 12px;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+#panelEdit .add-record-file-list li{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 12px;
+  color: #334155;
+}
+
+#panelEdit .add-record-file-list span{
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#panelEdit .add-record-file-list button{
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#panelEdit .add-record-progress{
+  margin: 10px 0 12px;
+}
+
+#panelEdit .add-record-progress-label{
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #475569;
+}
+
+#panelEdit .add-record-progress-track{
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dbe4ef;
+}
+
+#panelEdit .add-record-progress-bar{
+  height: 100%;
+  border-radius: inherit;
+  background: #1d4ed8;
+  transition: width 0.2s ease;
+}
+
 /* =========================================================
    CARD + TABLE
    ========================================================= */

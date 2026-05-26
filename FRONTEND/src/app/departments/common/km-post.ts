@@ -170,12 +170,18 @@ export class KmPostLayer implements MapLayer {
     const b = map.getBounds();
     const bbox = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
 
-    if (bbox === this.lastBbox) {
+    if (bbox === this.lastBbox && this.layer.getLayers().length > 0) {
       if (z < this.MIN_ZOOM) {
         this.layer.clearLayers();
       } else {
         this.addTo(map);
       }
+      return;
+    }
+
+    if (z < this.MIN_ZOOM) {
+      this.layer.clearLayers();
+      this.lastBbox = '';
       return;
     }
 

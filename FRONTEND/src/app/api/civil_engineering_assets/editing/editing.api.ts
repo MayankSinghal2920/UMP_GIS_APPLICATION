@@ -1,22 +1,43 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, timeout } from 'rxjs';
 import { BASE_URL, getDivision } from '../../shared/api-utils';
 
 @Injectable({ providedIn: 'root' })
 export class CivilEngineeringAssetsEditingApi {
   constructor(private http: HttpClient) {}
 
+  private getDivisionAliases(): string {
+    return [
+      getDivision(),
+      localStorage.getItem('asset_division'),
+      localStorage.getItem('division'),
+    ]
+      .map((value) => String(value || '').trim())
+      .filter((value, index, values) => value && values.indexOf(value) === index)
+      .join(',');
+  }
+
+  private getDivisionParams(): any {
+    return {
+      division: getDivision(),
+      divisionAliases: this.getDivisionAliases(),
+    };
+  }
+
   getLayerTable(layer: string, page: number, pageSize: number, search: string, status: string = '') {
     const params: any = {
       page,
       pageSize,
       division: getDivision(),
+      divisionAliases: this.getDivisionAliases(),
     };
     if (search) params.q = search;
     if (status) params.status = status;
 
-    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/table`, { params });
+    return this.http
+      .get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/table`, { params })
+      .pipe(timeout(60000));
   }
 
   getLayerDraftTable(layer: string, page: number, pageSize: number, search: string, status: string) {
@@ -24,16 +45,19 @@ export class CivilEngineeringAssetsEditingApi {
       page,
       pageSize,
       division: getDivision(),
+      divisionAliases: this.getDivisionAliases(),
     };
     if (search) params.q = search;
     if (status) params.status = status;
 
-    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/draft-table`, { params });
+    return this.http
+      .get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/draft-table`, { params })
+      .pipe(timeout(60000));
   }
 
   updateLayer(layer: string, id: number, payload: any) {
     return this.http.put(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/${id}`, payload, {
-      params: { division: getDivision() },
+      params: { division: getDivision(), divisionAliases: this.getDivisionAliases() },
     });
   }
 
@@ -93,8 +117,9 @@ export class CivilEngineeringAssetsEditingApi {
   }
 
   getLayerById(layer: string, id: number) {
-    const params = new HttpParams().set('division', getDivision());
-    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/${id}`, { params });
+    return this.http.get<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/${id}`, {
+      params: this.getDivisionParams(),
+    });
   }
 
   getLayerDraftById(layer: string, id: number) {

@@ -79,6 +79,14 @@ function pickFirstMatchingColumn(columns, candidates) {
   return null;
 }
 
+function normalizeDivisionSql(expression) {
+  return `REGEXP_REPLACE(UPPER(COALESCE(${expression}::text, '')), '[^A-Z0-9]', '', 'g')`;
+}
+
+function buildDivisionWhereClause(columnName, paramIndex) {
+  return `${normalizeDivisionSql(columnName)} = ${normalizeDivisionSql(`$${paramIndex}`)}`;
+}
+
 function resolveGeometryColumn(columns) {
   const preferred = pickFirstMatchingColumn(columns, ['shape', 'geom', 'geometry', 'wkb_geometry']);
   if (preferred) return preferred;
@@ -171,7 +179,7 @@ async function getLayerGeoJSON(layerConfig, whereSql, params, division, limit = 
 
   if (division && layerConfig.hasDivision !== false) {
     params.push(division);
-    divisionSql = ` AND UPPER(division) = UPPER($${params.length})`;
+    divisionSql = ` AND ${buildDivisionWhereClause('division', params.length)}`;
   }
 
   const sql = `

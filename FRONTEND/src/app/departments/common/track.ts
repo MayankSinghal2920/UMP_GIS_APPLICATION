@@ -22,7 +22,9 @@ export class TrackLayer implements MapLayer {
 
   private layer!: L.GeoJSON;
   private lastBbox = '';
+  private cachedBounds?: L.LatLngBounds;
   private requestSeq = 0;
+  private isOnMap = false;
 
   constructor(private api: Api, private onData?: (geojson: any) => void) {
     this.layer = L.geoJSON(null, {
@@ -35,14 +37,18 @@ export class TrackLayer implements MapLayer {
   }
 
   addTo(map: L.Map) {
-    if (this.visible) {
+    if (this.visible && !this.isOnMap) {
       this.layer.addTo(map);
       this.layer.bringToFront();
+      this.isOnMap = true;
     }
   }
 
   removeFrom(map: L.Map) {
-    map.removeLayer(this.layer);
+    if (map.hasLayer(this.layer)) map.removeLayer(this.layer);
+    this.isOnMap = false;
+    this.lastBbox = '';
+    this.cachedBounds = undefined;
   }
 
   loadForMap(map: L.Map) {
@@ -51,8 +57,19 @@ export class TrackLayer implements MapLayer {
     this.addTo(map);
 
     const b = map.getBounds();
-    const bbox = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
-    const bboxKey = `${b.getWest().toFixed(2)},${b.getSouth().toFixed(2)},${b.getEast().toFixed(2)},${b.getNorth().toFixed(2)}`;
+    const cachedBoundsContainsView =
+      !!this.cachedBounds &&
+      this.cachedBounds.contains(b.getNorthEast()) &&
+      this.cachedBounds.contains(b.getSouthWest());
+
+    if (cachedBoundsContainsView && this.layer.getLayers().length > 0) {
+      this.layer.bringToFront();
+      return;
+    }
+
+    const queryBounds = b.pad(0.45);
+    const bbox = `${queryBounds.getWest()},${queryBounds.getSouth()},${queryBounds.getEast()},${queryBounds.getNorth()}`;
+    const bboxKey = `${queryBounds.getWest().toFixed(2)},${queryBounds.getSouth().toFixed(2)},${queryBounds.getEast().toFixed(2)},${queryBounds.getNorth().toFixed(2)}`;
 
     if (bboxKey === this.lastBbox) return;
     this.lastBbox = bboxKey;
@@ -61,6 +78,7 @@ export class TrackLayer implements MapLayer {
     this.api.getTracks(bbox).subscribe({
       next: (geojson: GeoJsonObject) => {
         if (requestId !== this.requestSeq) return;
+        this.cachedBounds = queryBounds;
         this.layer.clearLayers();
         this.layer.addData(geojson);
         this.layer.bringToFront();
