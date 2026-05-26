@@ -7,17 +7,18 @@ import { environment } from '../../environments/environment';
 export interface UploadedFile {
   id: string;
   original_name: string;
-  upload_type: 'shapefile' | 'record_attachment';
+  upload_type: 'shapefile' | 'kml' | 'record_attachment';
   layer_name?: string;
   file_count?: number;
   created_at: string;
 }
 
-export interface ShapefileUploadResponse {
+export interface FileUploadResponse {
   message: string;
   uploadId: string;
   layerName: string;
   featureCount: number;
+  tempTable?: string;
 }
 
 @Injectable({
@@ -36,15 +37,35 @@ export class FileUploadService {
     category: string,
     layerName: string,  // Added this parameter
     onProgress: (pct: number) => void
-  ): Promise<ShapefileUploadResponse> {
+  ): Promise<FileUploadResponse> {
     const formData = new FormData();
     files.forEach(file => formData.append('files', file, file.name));
     if (description) formData.append('description', description);
     if (category) formData.append('category', category);
     if (layerName) formData.append('layerName', layerName);  // Add layerName to form data
 
-    return this.uploadWithProgress<ShapefileUploadResponse>(
+    return this.uploadWithProgress<FileUploadResponse>(
       `${this.UPLOAD_URL}/shapefile`,
+      formData,
+      onProgress
+    );
+  }
+
+  uploadKmlFile(
+    file: File,
+    description: string,
+    category: string,
+    layerName: string,
+    onProgress: (pct: number) => void
+  ): Promise<FileUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    if (description) formData.append('description', description);
+    if (category) formData.append('category', category);
+    if (layerName) formData.append('layerName', layerName);
+
+    return this.uploadWithProgress<FileUploadResponse>(
+      `${this.UPLOAD_URL}/kml`,
       formData,
       onProgress
     );
@@ -61,7 +82,7 @@ export class FileUploadService {
 
     return new Promise((resolve, reject) => {
       this.http.request(req).pipe(
-        catchError(err => throwError(() => new Error(err?.error?.message || 'Upload failed')))
+        catchError(err => throwError(() => new Error(err?.error?.message || err?.error?.error || 'Upload failed')))
       ).subscribe({
         next: (event) => {
           if (event.type === HttpEventType.UploadProgress && event.total) {
@@ -80,4 +101,35 @@ export class FileUploadService {
       catchError(err => throwError(() => new Error(err?.error?.message || 'Failed to fetch files')))
     );
   }
+
+  getKmlTempFeatures(uploadId: string, layerName: string): Promise<any> {
+    return this.http
+      .get<any>(`${this.UPLOAD_URL}/kml/temp/${uploadId}/features`, {
+        params: { layerName },
+      })
+      .pipe(
+        catchError(err => throwError(() => new Error(err?.error?.message || 'Failed to fetch KML temp features')))
+      )
+      .toPromise();
+  }
+
+  appendSelectedKmlLines(
+    uploadId: string,
+    layerName: string,
+    selectedIds: number[],
+    mergeGeometry: boolean = false
+  ): Promise<any> {
+    return this.http
+      .post<any>(`${this.UPLOAD_URL}/kml/temp/${uploadId}/append`, { selectedIds, mergeGeometry }, {
+        params: { layerName },
+      })
+      .pipe(
+        catchError(err => throwError(() => new Error(err?.error?.message || 'Failed to append selected KML lines')))
+      )
+      .toPromise();
+  }
 }
+
+
+
+
