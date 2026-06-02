@@ -430,6 +430,10 @@
             Save Geometry
           </button>
 
+          <button class="btn primary save-action" type="button" (click)="saveDraftOnly()" [disabled]="saving">
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
+
           <button class="btn primary send-action" type="button" (click)="send()" [disabled]="saving">
             {{ getSendButtonLabel() }}
           </button>

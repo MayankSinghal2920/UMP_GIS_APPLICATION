@@ -657,6 +657,123 @@ async function sendLayerEdit(req, res, next) {
   }
 }
 
+async function saveLayerDraft(req, res, next) {
+  try {
+    const { layer, id } = req.params;
+    const config = resolveConfig(layer);
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
+    const division = String(req.query.division || '').trim();
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) {
+      const err = new Error(`Invalid ${layer} id`);
+      err.status = 400;
+      throw err;
+    }
+    const result = await model.saveStationDraft(config, numericId, division, req.body || {}, makerUserId, submittingUserType);
+    if (!result?.draft) {
+      const err = new Error('Record not found');
+      err.status = 404;
+      throw err;
+    }
+    res.status(201).json({
+      success: true,
+      message: `${layer} saved`,
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateSavedLayerDraft(req, res, next) {
+  try {
+    const { layer, id } = req.params;
+    const config = resolveConfig(layer);
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
+    const division = String(req.query.division || '').trim();
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) {
+      const err = new Error('Invalid draft id');
+      err.status = 400;
+      throw err;
+    }
+    const result = await model.updateSavedStationDraft(config, numericId, division, req.body || {}, makerUserId, submittingUserType);
+    if (!result?.draft) {
+      const err = new Error('Saved draft not found');
+      err.status = 404;
+      throw err;
+    }
+    res.json({
+      success: true,
+      message: `${layer} saved`,
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function submitSavedLayerDraft(req, res, next) {
+  try {
+    const { layer, id } = req.params;
+    const config = resolveConfig(layer);
+    const makerUserId = String(req?.user?.sub || req?.user?.user_id || '').trim();
+    const submittingUserType = String(req?.user?.user_type || '').trim();
+    const division = String(req.query.division || '').trim();
+    if (!makerUserId) {
+      const err = new Error('Not authenticated');
+      err.status = 401;
+      throw err;
+    }
+    if (!division) {
+      const err = new Error('division is required');
+      err.status = 400;
+      throw err;
+    }
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) {
+      const err = new Error('Invalid draft id');
+      err.status = 400;
+      throw err;
+    }
+    const result = await model.submitSavedStationDraft(config, numericId, division, req.body || {}, makerUserId, submittingUserType);
+    if (!result?.draft) {
+      const err = new Error('Saved draft not found');
+      err.status = 404;
+      throw err;
+    }
+    res.status(201).json({
+      success: true,
+      message: `${layer} sent to checker`,
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function updateLayerDraftStatus(req, res, next) {
   try {
     const { layer, id } = req.params;
@@ -928,6 +1045,9 @@ module.exports = {
   getDraftTable,
   validateStation,
   validateAssetId,
+  saveLayerDraft,
+  updateSavedLayerDraft,
+  submitSavedLayerDraft,
   sendStationEdit,
   sendNewStationEdit,
   updateStationDraftStatus,

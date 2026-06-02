@@ -42,6 +42,32 @@ function getJwtSecret() {
   return String(process.env.JWT_SECRET || process.env.JWT_SECRET_KEY || '').trim();
 }
 
+function getAccessCookieOptions(maxAgeMs) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: maxAgeMs,
+    path: '/',
+  };
+}
+
+function setAccessCookie(res, token) {
+  const decoded = jwt.decode(token);
+  const expMs = Number(decoded?.exp || 0) * 1000;
+  const maxAgeMs = Math.max(0, expMs - Date.now());
+  res.cookie('access_token', token, getAccessCookieOptions(maxAgeMs));
+}
+
+function clearAccessCookie(res) {
+  res.clearCookie('access_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+  });
+}
+
 async function issueAccessToken(user) {
   const secret = getJwtSecret();
   if (!secret) {
@@ -111,10 +137,10 @@ async function login(req, res, next) {
     }
 
     const accessToken = await issueAccessToken(user);
+    setAccessCookie(res, accessToken);
 
     res.json({
       success: true,
-      accessToken,
       tokenType: 'Bearer',
       user: toUserPayload(user),
     });
@@ -143,12 +169,12 @@ async function requestOtp(req, res, next) {
 
     if (shouldBypassOtp(user)) {
       const accessToken = await issueAccessToken(user);
+      setAccessCookie(res, accessToken);
       return res.json({
         success: true,
         bypassOtp: true,
         otpRequired: false,
         message: 'OTP bypassed for this user. Logging in directly.',
-        accessToken,
         tokenType: 'Bearer',
         user: toUserPayload(user),
       });
@@ -279,10 +305,10 @@ async function verifyOtp(req, res, next) {
 
     await authModel.clearOtp(user_id);
     const accessToken = await issueAccessToken(user);
+    setAccessCookie(res, accessToken);
 
     return res.json({
       success: true,
-      accessToken,
       tokenType: 'Bearer',
       user: toUserPayload(user),
     });
@@ -376,6 +402,7 @@ async function logout(req, res, next) {
     if (userId) {
       await authModel.clearSession(userId);
     }
+    clearAccessCookie(res);
     return res.json({ success: true, message: 'Logged out' });
   } catch (err) {
     next(err);

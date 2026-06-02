@@ -10,6 +10,7 @@ import { MapZoomService } from 'src/app/services/map-zoom';
 import { CurrentUserService } from 'src/app/services/current-user';
 import { LayerManager } from 'src/app/services/layer-manager';
 import { FileUploadService } from 'src/app/services/file-upload.service';
+import { AppAlertService } from 'src/app/services/app-alert.service';
 import {
   CIVIL_ENGINEERING_ASSET_LAYER_OPTIONS,
   getCivilEngineeringAssetLayerDisplayName,
@@ -75,6 +76,7 @@ const RAILWAY_CODE_MAP: Record<string, string> = {
 })
 export class EditPanel implements OnInit, OnDestroy {
   private static readonly POINT_LAYER_ZOOM = 19;
+  private static readonly STATION_LAYER_ZOOM = 17.7;
   private static readonly NEW_ASSET_ZOOM = 10;
   private static readonly DEFAULT_LAYER_ZOOM = 17;
   private static readonly NON_POINT_LAYERS = new Set([
@@ -139,6 +141,7 @@ export class EditPanel implements OnInit, OnDestroy {
   addRecordShapefileError: string | null = null;
   uploadedShapefileRecordObjectId: number | null = null;
   private addRecordUploadHandled = false;
+  private addRecordUploadInFlight = false;
   private addRecordProcessingTimer?: ReturnType<typeof setTimeout>;
   private addRecordPollTimer?: ReturnType<typeof setTimeout>;
   private dragSub?: Subscription;
@@ -169,8 +172,24 @@ export class EditPanel implements OnInit, OnDestroy {
     private mapZoom: MapZoomService,
     private currentUser: CurrentUserService,
     private layerManager: LayerManager,
-    private fileUploadService: FileUploadService
+    private fileUploadService: FileUploadService,
+    private alerts: AppAlertService
   ) {}
+
+  private notifyAlert(message: string): void {
+    const text = String(message || '').trim();
+    if (!text) return;
+    const lower = text.toLowerCase();
+    if (lower.includes('failed') || lower.includes('not validated') || lower.includes('not wired') || lower.includes('not all')) {
+      this.alerts.error(text);
+      return;
+    }
+    if (lower.includes('please') || lower.includes('mode is on') || lower.includes('drawing mode')) {
+      this.alerts.warning(text);
+      return;
+    }
+    this.alerts.success(text);
+  }
 
   ngOnInit(): void {
     this.loadLocationOptions();
@@ -274,7 +293,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
   private refreshAfterShapefileUpload(layerName: string): void {
     if (!this.edit.enabled || !this.supportsCurrentLayerListing()) return;
-    if (this.addRecordShapefileUploading) return;
+    if (this.addRecordShapefileUploading || this.addRecordShapefileProcessing || this.addRecordUploadInFlight) return;
 
     const uploadedLayer = normalizeCivilEngineeringLayerId(layerName || '');
     const currentLayer = normalizeCivilEngineeringLayerId(this.currentTableLayer || '');
@@ -389,19 +408,11 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   private beginAddRecordBackgroundLookup(): void {
-    if (this.addRecordUploadHandled) return;
-    this.addRecordUploadHandled = true;
-    this.showAddRecordModal = false;
-    this.addRecordShapefileProcessing = false;
-    this.addRecordShapefileUploading = false;
-    this.mode = 'table';
-    this.page = 1;
-    this.search = '';
-    this.loading = false;
-    this.error = 'Upload is processing in the background. The layer table is being refreshed.';
+    if (this.addRecordUploadHandled || !this.addRecordUploadInFlight) return;
+    this.addRecordShapefileProcessing = true;
+    this.addRecordShapefileUploading = true;
+    this.addRecordShapefileError = 'Upload is still processing. The new asset form will open automatically after it finishes.';
     this.cdr.detectChanges();
-    this.resetAddRecordShapefileState();
-    setTimeout(() => this.load(true), 250);
   }
 
   private openUploadedRecordForm(row: any, isUploadedShapefileRecord = false): void {
@@ -1016,9 +1027,15 @@ export class EditPanel implements OnInit, OnDestroy {
   private getEditFocusZoom(): number {
     const layer = String(this.currentTableLayer || '').trim().toLowerCase();
     if (!layer) return EditPanel.DEFAULT_LAYER_ZOOM;
+    if (layer === 'stations' || layer === 'station') return EditPanel.STATION_LAYER_ZOOM;
     return EditPanel.NON_POINT_LAYERS.has(layer)
       ? EditPanel.DEFAULT_LAYER_ZOOM
       : EditPanel.POINT_LAYER_ZOOM;
+  }
+
+  private isCurrentLayerNonPoint(): boolean {
+    const layer = String(this.currentTableLayer || '').trim().toLowerCase();
+    return EditPanel.NON_POINT_LAYERS.has(layer);
   }
 
   private normalizeLayerValue(value: any): string {
@@ -1178,7 +1195,7 @@ export class EditPanel implements OnInit, OnDestroy {
   private updateReviewerDraftStatus(row: any, status: 'Sent to Approver' | 'Sent Back to Maker' | 'Sent to Database' | 'Sent to Approver for Deletion' | 'Asset Deleted') {
     if (!this.isReviewer()) return;
     if (!this.supportsCurrentLayerPersistence()) {
-      alert(`${this.currentLayerSchema?.label || 'This layer'} workflow is not wired yet.`);
+      this.notifyAlert(`${this.currentLayerSchema?.label || 'This layer'} workflow is not wired yet.`);
       return;
     }
 
@@ -1215,7 +1232,7 @@ export class EditPanel implements OnInit, OnDestroy {
               : status === 'Asset Deleted'
                 ? 'Asset Deleted'
                 : 'Asset Finalised';
-        alert(alertText);
+        this.notifyAlert(alertText);
 
         if (this.draft && Number(this.draft?.objectid) === updatedId) {
           this.mode = 'table';
@@ -1495,7 +1512,7 @@ export class EditPanel implements OnInit, OnDestroy {
 
     this.edit.startCreateStation();
     const layerLabel = this.currentLayerSchema?.label || this.selectedLayerLabel || 'asset';
-    alert(`Drawing mode is on. Double-click inside the division buffer to place the new ${layerLabel}.`);
+    this.notifyAlert(`Drawing mode is on. Double-click inside the division buffer to place the new ${layerLabel}.`);
 
     this.cdr.detectChanges();
   }
@@ -1569,6 +1586,7 @@ export class EditPanel implements OnInit, OnDestroy {
     }
 
     this.addRecordShapefileUploading = true;
+    this.addRecordUploadInFlight = true;
     this.addRecordShapefileProgress = 0;
     this.addRecordShapefileError = null;
     this.addRecordUploadHandled = false;
@@ -1622,6 +1640,7 @@ export class EditPanel implements OnInit, OnDestroy {
     } catch (err: any) {
       this.addRecordShapefileError = err?.message || 'Failed to upload shapefile';
     } finally {
+      this.addRecordUploadInFlight = false;
       if (this.addRecordProcessingTimer && !this.showAddRecordModal) {
         clearTimeout(this.addRecordProcessingTimer);
         this.addRecordProcessingTimer = undefined;
@@ -1791,7 +1810,8 @@ export class EditPanel implements OnInit, OnDestroy {
   }
 
   editRow(row: any) {
-    const loadDraftDetail = this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
+    const isSavedDraftRow = row?.__is_draft === true || String(row?.__is_draft || '').toLowerCase() === 'true';
+    const loadDraftDetail = isSavedDraftRow || this.isReviewer() || this.isMakerRejectedView() || this.isMakerSentForDeletionView();
 
     this.uploadedShapefileRecordObjectId = null;
     this.mode = 'edit';
@@ -1859,7 +1879,7 @@ export class EditPanel implements OnInit, OnDestroy {
         const detailLat = Number.isFinite(n.lat) ? n.lat : null;
         const detailLng = Number.isFinite(n.lng) ? n.lng : null;
         const detailFeature = this.buildFeatureFromRow(full);
-        if (detailFeature && this.shouldAutoZoomOnEditOpen()) {
+        if (detailFeature && this.isCurrentLayerNonPoint() && this.shouldAutoZoomOnEditOpen()) {
           this.deferMapZoom({ type: 'feature', feature: detailFeature, pad: 0.24 } as any);
         } else if ((loadDraftDetail || !renderedLatLng || isLandPlanOntrack) && detailLat != null && detailLng != null && this.shouldAutoZoomOnEditOpen()) {
           this.deferMapZoom({ type: 'latlng', lat: detailLat, lng: detailLng, zoom: this.getEditFocusZoom(), draggable: false } as any);
@@ -1877,7 +1897,7 @@ export class EditPanel implements OnInit, OnDestroy {
         next: (full) => {
           const n = this.normalizeCurrentLayerDraft(full);
           if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) return;
-          this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: 17, draggable: false } as any);
+          this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
         },
         error: (err) => { console.error('zoomToAssetFromRow/getLayerDraftById failed:', err); },
       });
@@ -1892,7 +1912,7 @@ export class EditPanel implements OnInit, OnDestroy {
         type: 'latlng',
         lat: renderedLatLng.lat,
         lng: renderedLatLng.lng,
-        zoom: 17,
+        zoom: this.getEditFocusZoom(),
         draggable: false,
         existingLayer: bestRenderedLayer,
       } as any);
@@ -1902,12 +1922,12 @@ export class EditPanel implements OnInit, OnDestroy {
     const lat = Number(row?.lat ?? row?.ycoord ?? row?.latitude);
     const lng = Number(row?.lon ?? row?.lng ?? row?.xcoord ?? row?.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: 17, draggable: false } as any);
+      this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: false } as any);
       return;
     }
     if (!Number.isFinite(id)) return;
     if (!layerKey) return;
-    this.api.getLayerById(layerKey, id).subscribe({ next: (full) => { const n = this.normalizeCurrentLayerDraft(full); if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) return; this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: 17, draggable: false } as any); }, error: (err) => { console.error('zoomToAssetFromRow/getLayerById failed:', err); } });
+    this.api.getLayerById(layerKey, id).subscribe({ next: (full) => { const n = this.normalizeCurrentLayerDraft(full); if (!Number.isFinite(n.lat) || !Number.isFinite(n.lng)) return; this.mapZoom.zoomTo({ type: 'latlng', lat: n.lat, lng: n.lng, zoom: this.getEditFocusZoom(), draggable: false } as any); }, error: (err) => { console.error('zoomToAssetFromRow/getLayerById failed:', err); } });
   }
 
   private normalizeStation(s: any) {
@@ -2091,7 +2111,7 @@ export class EditPanel implements OnInit, OnDestroy {
     if (this.isReviewer()) return;
     if (!this.draft) return;
     const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
-    alert('Edit Geometry Mode is ON. You can now move the asset point.');
+    this.notifyAlert('Edit Geometry Mode is ON. You can now move the asset point.');
     this.geomEditing = true;
     this.mapZoom.zoomTo({ type: 'latlng', lat, lng, zoom: this.getEditFocusZoom(), draggable: true });
     this.dragSub?.unsubscribe();
@@ -2101,7 +2121,7 @@ export class EditPanel implements OnInit, OnDestroy {
   saveGeometry() {
     if (this.isReviewer()) return;
     if (!this.geomEditing) return;
-    alert('Geometry is fixed and Edit Geometry Mode is OFF.');
+    this.notifyAlert('Geometry is fixed and Edit Geometry Mode is OFF.');
     this.geomEditing = false;
     this.edit.lockDrag();
     const lat = Number(this.draft?.lat); const lng = Number(this.draft?.lng);
@@ -2365,29 +2385,30 @@ export class EditPanel implements OnInit, OnDestroy {
     this.edit.cancelCreateStation(); this.addRecordDrawingActive = false; this.uploadedShapefileRecordObjectId = null; this.mode = 'table'; this.draft = null; this.originalDraft = null; this.error = null; this.validating = false; this.stationValidated = false; this.validatedBridgeAssetId = null; this.showAddRecordModal = false; this.addRecordShapefileName = ''; this.saving = false; this.deleting = false; this.geomEditing = false; this.dragSub?.unsubscribe(); this.dragSub = undefined; this.mapZoom.zoomHome(); this.mapZoom.clearHighlight();
   }
 
-  send() {
-    if (this.isReviewer()) return;
-    if (!this.supportsCurrentLayerPersistence()) {
-      alert(`${this.currentLayerSchema?.label || 'This layer'} form is configured, but save workflow is not wired yet.`);
-      return;
-    }
-    if (this.requiresStationValidationBeforeSend()) {
-      alert('Please validate the station before sending the record to checker');
-      return;
-    }
-    if (this.requiresBridgeAssetValidationBeforeSend()) {
-      alert('Please validate the Asset ID before sending the record to checker');
-      return;
-    }
-    if (this.hasMissingMandatoryFields()) {
-      alert('Not all mandatory fields are filled');
-      return;
-    }
-    const draftObjectId = this.draft?.objectid;
-    const hasExistingId = draftObjectId !== null && draftObjectId !== undefined && String(draftObjectId).trim() !== '' && Number.isFinite(Number(draftObjectId));
-    const isCreate = !hasExistingId;
-    const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
-    if (this.requiresGeometryForSave() && (!Number.isFinite(lat) || !Number.isFinite(lng))) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
+  private isSavedMakerDraft(): boolean {
+    const row = this.originalDraft || this.draft;
+    return row?.__is_draft === true || String(row?.__is_draft || '').toLowerCase() === 'true';
+  }
+
+  private returnToTableAfterDraftSave(): void {
+    this.edit.cancelCreateStation();
+    this.mode = 'table';
+    this.draft = null;
+    this.originalDraft = null;
+    this.stationValidated = false;
+    this.validatedBridgeAssetId = null;
+    this.uploadedShapefileRecordObjectId = null;
+    this.geomEditing = false;
+    this.dragSub?.unsubscribe();
+    this.dragSub = undefined;
+    this.mapZoom.zoomHome();
+    this.mapZoom.clearHighlight();
+    setTimeout(() => this.load(true), 0);
+  }
+
+  private buildCurrentDraftPayload(): any {
+    const lat = Number(this.draft?.lat);
+    const lng = Number(this.draft?.lng);
     const payload: any = {
       ...this.draft,
       railway: this.draft?.railway ?? this.getRailwayCode(),
@@ -2405,14 +2426,72 @@ export class EditPanel implements OnInit, OnDestroy {
       payload.xcoord = lng;
       payload.ycoord = lat;
     }
+    return payload;
+  }
+
+  saveDraftOnly(): void {
+    if (!this.isMaker() || !this.draft || !this.supportsCurrentLayerPersistence()) return;
+    const layerKey = this.getPersistenceLayerKey();
+    const id = Number(this.draft.objectid);
+    if (!layerKey || !Number.isFinite(id)) return;
+
+    this.saving = true;
+    this.error = null;
+    const payload = this.buildCurrentDraftPayload();
+    const request$ = this.isSavedMakerDraft()
+      ? this.api.updateSavedLayerDraft(layerKey, id, payload)
+      : this.api.saveLayerDraft(layerKey, id, payload);
+
+    request$.subscribe({
+      next: (res: any) => {
+        this.saving = false;
+        const draft = res?.draft || this.draft;
+        this.draft = { ...this.draft, ...draft, __is_draft: true };
+        this.originalDraft = { ...this.draft };
+        this.notifyAlert('Asset saved');
+        this.returnToTableAfterDraftSave();
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.saving = false;
+        this.error = err?.error?.message || err?.error?.error || 'Failed to save asset';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  send() {
+    if (this.isReviewer()) return;
+    if (!this.supportsCurrentLayerPersistence()) {
+      this.notifyAlert(`${this.currentLayerSchema?.label || 'This layer'} form is configured, but save workflow is not wired yet.`);
+      return;
+    }
+    if (this.requiresStationValidationBeforeSend()) {
+      this.notifyAlert('Please validate the station before sending the record to checker');
+      return;
+    }
+    if (this.requiresBridgeAssetValidationBeforeSend()) {
+      this.notifyAlert('Please validate the Asset ID before sending the record to checker');
+      return;
+    }
+    if (this.hasMissingMandatoryFields()) {
+      this.notifyAlert('Not all mandatory fields are filled');
+      return;
+    }
+    const draftObjectId = this.draft?.objectid;
+    const hasExistingId = draftObjectId !== null && draftObjectId !== undefined && String(draftObjectId).trim() !== '' && Number.isFinite(Number(draftObjectId));
+    const isCreate = !hasExistingId;
+    const lat = Number(this.draft.lat); const lng = Number(this.draft.lng);
+    if (this.requiresGeometryForSave() && (!Number.isFinite(lat) || !Number.isFinite(lng))) { this.error = 'New geometry not captured. Please drag the point and click Save Geometry.'; this.cdr.detectChanges(); return; }
+    const payload = this.buildCurrentDraftPayload();
     this.saving = true;
     const rawStatus = this.originalDraft?.status == null ? '' : String(this.originalDraft.status).trim().toLowerCase();
     const isMakerRejectedResend = !isCreate && this.isMaker() && rawStatus === 'sent back to maker';
     const isMakerSend = !isCreate && this.isMaker() && !rawStatus;
     if (isCreate) {
-      alert(`${this.currentLayerSchema?.label || 'Asset'} creation sent successfully to checker`);
+      this.notifyAlert(`${this.currentLayerSchema?.label || 'Asset'} creation sent successfully to checker`);
     } else if (isMakerRejectedResend || isMakerSend) {
-      alert('Message sent successfully to checker');
+      this.notifyAlert('Message sent successfully to checker');
     }
     const layerKey = this.getPersistenceLayerKey();
     if (!layerKey) {
@@ -2422,7 +2501,9 @@ export class EditPanel implements OnInit, OnDestroy {
       return;
     }
 
-    const request$ = isCreate
+    const request$ = this.isSavedMakerDraft()
+      ? this.api.submitSavedLayerDraft(layerKey, this.draft.objectid, payload)
+      : isCreate
       ? this.api.sendNewLayerEdit(layerKey, payload)
       : isMakerRejectedResend
         ? this.api.resendLayerDraft(layerKey, this.draft.objectid, payload)
@@ -2470,12 +2551,12 @@ export class EditPanel implements OnInit, OnDestroy {
         this.draft.category = validatedCategory;
         if (this.draft?.objectid && (nameChanged || categoryChanged) && !(this.isMaker() && String(this.originalDraft?.status || '').trim().toLowerCase() === 'sent back to maker')) {
           const payload = { distkm: this.draft.distkm, distm: this.draft.distm, state: this.draft.state, district: this.draft.district, constituncy: this.draft.constituncy, sttnname: this.draft.sttnname, category: this.draft.category, sttntype: this.draft.stationtype };
-          this.api.updateStation(this.draft.objectid, payload).subscribe({ next: () => { this.validating = false; this.stationValidated = true; alert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges(); }, error: (err: any) => { this.validating = false; alert(err?.error?.message || 'Station code validated but failed to update station details'); this.cdr.detectChanges(); } });
+          this.api.updateStation(this.draft.objectid, payload).subscribe({ next: () => { this.validating = false; this.stationValidated = true; this.notifyAlert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges(); }, error: (err: any) => { this.validating = false; this.notifyAlert(err?.error?.message || 'Station code validated but failed to update station details'); this.cdr.detectChanges(); } });
           return;
         }
-        this.validating = false; this.stationValidated = true; alert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges();
+        this.validating = false; this.stationValidated = true; this.notifyAlert(res?.message || 'Station code validated successfully'); this.cdr.detectChanges();
       },
-      error: (err: any) => { this.validating = false; this.stationValidated = false; alert(err?.error?.message || 'Station code validation failed'); this.cdr.detectChanges(); },
+      error: (err: any) => { this.validating = false; this.stationValidated = false; this.notifyAlert(err?.error?.message || 'Station code validation failed'); this.cdr.detectChanges(); },
     });
   }
 
@@ -2489,12 +2570,12 @@ export class EditPanel implements OnInit, OnDestroy {
 
     if (!layerKey) return;
     if (!assetId) {
-      alert('Please enter Asset ID');
+      this.notifyAlert('Please enter Asset ID');
       return;
     }
     if (this.isRejectedBridgeAssetIdUnchanged()) {
       this.validatedBridgeAssetId = assetId;
-      alert('Asset ID is unchanged for this rejected record, so validation is not required.');
+      this.notifyAlert('Asset ID is unchanged for this rejected record, so validation is not required.');
       return;
     }
 
@@ -2507,13 +2588,13 @@ export class EditPanel implements OnInit, OnDestroy {
         this.validating = false;
         this.applyValidatedBridgeAsset(res?.row || {});
         this.validatedBridgeAssetId = this.getNormalizedBridgeAssetId();
-        alert(res?.message || 'Asset ID is validated. Please fill the rest of the details.');
+        this.notifyAlert(res?.message || 'Asset ID is validated. Please fill the rest of the details.');
         this.cdr.detectChanges();
       },
       error: (err: any) => {
         this.validating = false;
         this.validatedBridgeAssetId = null;
-        alert(err?.error?.message || err?.error?.error || 'Asset ID not validated. Please enter a valid Asset ID.');
+        this.notifyAlert(err?.error?.message || err?.error?.error || 'Asset ID not validated. Please enter a valid Asset ID.');
         this.cdr.detectChanges();
       },
     });
@@ -2572,7 +2653,7 @@ export class EditPanel implements OnInit, OnDestroy {
         this.dragSub = undefined;
         this.mapZoom.zoomHome();
         this.mapZoom.clearHighlight();
-        alert('Uploaded asset deleted from database');
+        this.notifyAlert('Uploaded asset deleted from database');
         setTimeout(() => this.load(true), 0);
         this.cdr.detectChanges();
       },
@@ -2599,7 +2680,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.error = null;
     this.api.requestLayerDeletion(layerKey, id).subscribe({
       next: () => {
-        alert('Asset Sent to Checker for Deletion');
+        this.notifyAlert('Asset Sent to Checker for Deletion');
         this.completeDeleteRequestSuccess();
       },
       error: (err: any) => this.handleDeleteRequestError(err),
@@ -2615,7 +2696,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.error = null;
     this.api.requestLayerDraftDeletion(layerKey, id).subscribe({
       next: () => {
-        alert('Asset Sent to Checker for Deletion');
+        this.notifyAlert('Asset Sent to Checker for Deletion');
         this.completeDeleteRequestSuccess();
       },
       error: (err: any) => this.handleDeleteRequestError(err),
@@ -2665,7 +2746,7 @@ export class EditPanel implements OnInit, OnDestroy {
     this.api.resendLayerDraft(layerKey, id, payload).subscribe({
       next: () => {
         this.saving = false;
-        alert('Message sent successfully to checker');
+        this.notifyAlert('Message sent successfully to checker');
         setTimeout(() => this.load(false), 0);
         this.cdr.detectChanges();
       },

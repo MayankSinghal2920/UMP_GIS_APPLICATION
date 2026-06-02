@@ -5,6 +5,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Api } from 'src/app/api/api';
 import { CurrentUserService } from 'src/app/services/current-user';
+import { AppAlertService } from 'src/app/services/app-alert.service';
 
 
 @Component({
@@ -36,7 +37,8 @@ export class Feedback implements OnInit {
   constructor(
     private api: Api,
     private cd: ChangeDetectorRef,
-    private currentUser: CurrentUserService
+    private currentUser: CurrentUserService,
+    private alerts: AppAlertService
   ) {}
 
   ngOnInit(): void {
@@ -56,8 +58,9 @@ export class Feedback implements OnInit {
     this.api.addFeedBack(data).subscribe((res: any) => {
       if (res.status) {
         this.lastFeedback = res.data;
+        this.alerts.success('Feedback submitted successfully');
       } else {
-        alert('feedback not added');
+        this.alerts.error('Feedback not added');
       }
       this.message = '';
       this.cd.detectChanges();

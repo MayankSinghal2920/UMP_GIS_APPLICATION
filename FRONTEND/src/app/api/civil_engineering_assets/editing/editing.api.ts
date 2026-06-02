@@ -80,6 +80,24 @@ export class CivilEngineeringAssetsEditingApi {
     });
   }
 
+  saveLayerDraft(layer: string, id: number, payload: any) {
+    return this.http.post<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/${id}/save-draft`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
+  updateSavedLayerDraft(layer: string, id: number, payload: any) {
+    return this.http.post<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/draft/${id}/save`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
+  submitSavedLayerDraft(layer: string, id: number, payload: any) {
+    return this.http.post<any>(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/draft/${id}/send-saved`, payload, {
+      params: { division: getDivision() },
+    });
+  }
+
   requestLayerDeletion(layer: string, id: number) {
     return this.http.post(`${BASE_URL}/api/civil_engineering_assets/edit/${encodeURIComponent(layer)}/${id}/request-deletion`, null, {
       params: { division: getDivision() },

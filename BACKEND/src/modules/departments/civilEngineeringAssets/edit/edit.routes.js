@@ -12,9 +12,12 @@ router.post('/station/draft/:id/request-deletion', controller.requestStationDraf
 router.post('/station/draft/:id/resend', controller.resendStationDraft);
 router.post('/station/draft/:id/status', controller.updateStationDraftStatus);
 router.post('/:layer/send-new', controller.sendNewLayerEdit);
+router.post('/:layer/:id/save-draft', controller.saveLayerDraft);
 router.post('/:layer/:id/send', controller.sendLayerEdit);
 router.post('/:layer/:id/request-deletion', controller.requestLayerDeletion);
 router.post('/:layer/draft/:id/request-deletion', controller.requestLayerDraftDeletion);
+router.post('/:layer/draft/:id/save', controller.updateSavedLayerDraft);
+router.post('/:layer/draft/:id/send-saved', controller.submitSavedLayerDraft);
 router.post('/:layer/draft/:id/resend', controller.resendLayerDraft);
 router.post('/:layer/draft/:id/status', controller.updateLayerDraftStatus);
 router.get('/:layer/draft-table', controller.getDraftTable);

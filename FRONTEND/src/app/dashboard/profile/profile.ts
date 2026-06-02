@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { firstValueFrom, timeout } from 'rxjs';
 import { Api } from 'src/app/api/api';
 import { CurrentUserService } from 'src/app/services/current-user';
+import { AppAlertService } from 'src/app/services/app-alert.service';
 
 @Component({
   selector: 'app-profile',
@@ -30,7 +31,8 @@ export class ProfileComponent implements OnInit {
     private fb: FormBuilder,
     private currentUser: CurrentUserService,
     private api: Api,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private alerts: AppAlertService
   ) {}
 
   ngOnInit(): void {
@@ -190,7 +192,7 @@ export class ProfileComponent implements OnInit {
     if (this.profileForm.invalid || !this.passwordValidated) {
       if (!this.passwordValidated) {
         this.passwordError = 'Please validate password first';
-        alert('Please validate password first');
+        this.alerts.warning('Please validate password first');
       }
       return;
     }
@@ -212,7 +214,7 @@ export class ProfileComponent implements OnInit {
     this.api.updateProfile(data).subscribe({
       next: (res: any) => {
         if (res.status) {
-          alert('Profile updated successfully ');
+          this.alerts.success('Profile updated successfully');
           this.submitted = false;
           this.profileForm.patchValue({ password: '' });
           this.passwordValidated = false;

@@ -8,7 +8,6 @@ import {
   clearAccessToken,
   clearCurrentUserSnapshot,
   CurrentUser,
-  getAccessToken,
   getCurrentUserSnapshot,
   setAccessToken,
   setCurrentUserSnapshot,
@@ -41,7 +40,7 @@ export class CurrentUserService {
   }
 
   getAccessToken(): string {
-    return getAccessToken();
+    return '';
   }
 
   setUser(user: CurrentUser | null): void {
@@ -51,7 +50,7 @@ export class CurrentUserService {
   }
 
   setAuth(user: CurrentUser | null, token: string | null): void {
-    setAccessToken(token);
+    setAccessToken(null);
     this.setUser(user);
   }
 
@@ -62,11 +61,6 @@ export class CurrentUserService {
   }
 
   async loadMe(force = false): Promise<CurrentUser | null> {
-    if (!getAccessToken()) {
-      this.clear();
-      return null;
-    }
-
     if (!force) {
       const current = this.getSnapshot();
       if (current) return current;

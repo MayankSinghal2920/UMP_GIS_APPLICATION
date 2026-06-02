@@ -39,6 +39,7 @@ import { CurrentUserService } from '../../services/current-user';
 import { MapZoomService, ZoomTarget } from '../../services/map-zoom';
 import { Station } from '../../services/station.service';
 import { FileUploadService } from '../../services/file-upload.service';
+import { AppAlertService } from '../../services/app-alert.service';
 
 type EditableLayer = string | null;
 type DepartmentModuleKey = 'civil_engineering_assets' | 'civil_engineering_assets_offtrack' | 'unknown';
@@ -91,7 +92,9 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private createPointHintMarker?: L.Marker;
   private selectedStationMarker?: L.Layer;
   private highlightedMarkerElement?: HTMLElement | null;
+  private highlightedMarkerLayer?: any;
   private suppressReloadUntil = 0;
+  private initialLayerLoadStarted = false;
 
   private readonly departmentAliases: Record<string, DepartmentModuleKey> = {
     'civil engineering assets': 'civil_engineering_assets',
@@ -126,7 +129,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     private mapZoom: MapZoomService,
     private fileUploadService: FileUploadService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private alerts: AppAlertService
   ) {}
 
   ngAfterViewInit(): void {
@@ -136,7 +140,12 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.refreshAfterShapefileUpload(layerName);
     });
 
-    void this.currentUser.loadMe(true).then((user) => {
+    const cachedUser = this.currentUser.getSnapshot();
+    const userPromise = cachedUser?.user_id
+      ? Promise.resolve(cachedUser)
+      : this.currentUser.loadMe(true);
+
+    void userPromise.then((user) => {
       if (!user?.user_id) {
         this.zone.run(() => {
           this.router.navigateByUrl('/login');
@@ -147,11 +156,15 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       this.zone.runOutsideAngular(() => {
         requestAnimationFrame(() => this.initializeMapSafely());
       });
+
+      if (cachedUser?.user_id) {
+        void this.currentUser.loadMe(true);
+      }
     });
   }
 
   private forceMapResize(): void { if (!this.map) return; this.map.invalidateSize(); requestAnimationFrame(() => this.map?.invalidateSize()); setTimeout(() => this.map?.invalidateSize(), 350); }
-  private scheduleReload(): void { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } this.layerManager.reloadVisible(this.map); }, 180); }
+  private scheduleReload(): void { if (!this.map || !this.initialLayerLoadStarted) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } if (this.reloadTimer) clearTimeout(this.reloadTimer); this.reloadTimer = setTimeout(() => { if (!this.map) return; if (Date.now() < this.suppressReloadUntil) { this.scheduleReloadAfterSuppression(); return; } this.layerManager.reloadVisible(this.map); }, 180); }
   private scheduleReloadAfterProgrammaticZoom(): void { setTimeout(() => this.scheduleReload(), 220); }
   private scheduleReloadAfterSuppression(): void {
     if (!this.map) return;
@@ -189,18 +202,70 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   private zoomToHome(): void { if (!this.map) return; if (!this.homeCaptured || !this.homeCenter || typeof this.homeZoom !== 'number') return; this.map.invalidateSize(); this.map.setView(this.homeCenter, this.homeZoom, { animate: false }); }
+
+  private startInitialLayerLoad(): void {
+    if (!this.map || this.initialLayerLoadStarted) return;
+    this.initialLayerLoadStarted = true;
+    this.layerManager.applyVisibility(this.map);
+    this.layerManager.reloadVisible(this.map);
+  }
   private clearExistingMarkerHighlight(): void {
     if (this.highlightedMarkerElement) {
       this.highlightedMarkerElement.classList.remove('map-selected-symbol');
+      this.highlightedMarkerElement.classList.remove('map-selected-station-symbol');
       this.highlightedMarkerElement = null;
     }
+    if (this.highlightedMarkerLayer) {
+      (this.highlightedMarkerLayer as any).__selectedStation = false;
+      const label = String((this.highlightedMarkerLayer as any).__stationTooltipState?.label || '').trim();
+      if (label && this.highlightedMarkerLayer?.bindTooltip) {
+        this.highlightedMarkerLayer?.unbindTooltip?.();
+        this.highlightedMarkerLayer.bindTooltip(label, {
+          permanent: false,
+          direction: 'top',
+          offset: L.point(0, -8),
+          opacity: 0.95,
+          className: 'station-label',
+        });
+        (this.highlightedMarkerLayer as any).__stationTooltipState = { label, permanent: false };
+        this.highlightedMarkerLayer?.closeTooltip?.();
+      }
+    }
+    this.highlightedMarkerLayer?.setZIndexOffset?.(0);
+    this.highlightedMarkerLayer = undefined;
   }
   private applyExistingMarkerHighlight(layer: any): boolean {
     const element = layer?.getElement?.() as HTMLElement | null;
     if (!element) return false;
     this.clearExistingMarkerHighlight();
+    layer?.setZIndexOffset?.(5000);
+    layer?.bringToFront?.();
     element.classList.add('map-selected-symbol');
+    const isStationMarker = element.classList.contains('station-symbol-icon') || !!element.querySelector?.('.station-symbol-icon');
+    if (isStationMarker) {
+      element.classList.add('map-selected-station-symbol');
+      const tooltip = layer?.getTooltip?.();
+      const selectedStationLabel = String((layer as any).__stationTooltipState?.label || tooltip?.getContent?.() || '').trim();
+      (layer as any).__selectedStation = true;
+      if (selectedStationLabel) {
+        const label = selectedStationLabel;
+        layer?.unbindTooltip?.();
+        layer?.bindTooltip?.(label, {
+          permanent: true,
+          direction: 'top',
+          offset: L.point(0, -8),
+          opacity: 0.95,
+          className: 'station-label station-label-selected',
+        });
+        (layer as any).__stationTooltipState = { label, permanent: true };
+        layer?.openTooltip?.();
+      }
+      if (this.map && layer?.getLatLng) {
+        this.zoomHighlight = this.createFocusCircleMarker(layer.getLatLng()).addTo(this.map);
+      }
+    }
     this.highlightedMarkerElement = element;
+    this.highlightedMarkerLayer = layer;
     return true;
   }
   private clearZoomArtifacts(): void { if (!this.map) return; this.clearExistingMarkerHighlight(); if (this.zoomHighlight && this.map.hasLayer(this.zoomHighlight as any)) this.map.removeLayer(this.zoomHighlight as any); this.zoomHighlight = undefined; if (this.highlightLayer && this.map.hasLayer(this.highlightLayer)) this.map.removeLayer(this.highlightLayer); this.highlightLayer = undefined; if (this.dragMarker && this.map.hasLayer(this.dragMarker as any)) { this.dragMarker.off(); this.map.removeLayer(this.dragMarker as any); } this.dragMarker = undefined; }
@@ -239,15 +304,45 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     return m;
   }
 
-  private createFocusCircleMarker(ll: L.LatLng, size = 34, border = 5, fillOpacity = 0.6): L.Marker {
+  private createFocusCircleMarker(ll: L.LatLng, size = 34, border = 3, fillOpacity = 0.28): L.Marker {
+    this.ensureFocusHighlightPane();
     const icon = L.divIcon({
       className: 'focus-circle-icon',
-      html: `<div style="width:${size}px;height:${size}px;border:${border}px solid #7c3aed;background: rgba(167,139,250,${fillOpacity.toFixed(2)});border-radius: 50%;box-sizing: border-box;box-shadow: 0 2px 10px rgba(0,0,0,0.18);"></div>`,
+      html: `<div style="width:${size}px;height:${size}px;border:${border}px solid #7c3aed;background: rgba(167,139,250,${fillOpacity.toFixed(2)});border-radius: 50%;box-sizing: border-box;box-shadow: 0 1px 6px rgba(0,0,0,0.14);pointer-events:none;"></div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
     });
-    const marker = L.marker(ll, { draggable: false, icon, keyboard: false, interactive: false });
-    (marker as any).setZIndexOffset?.(9999);
+    const marker = L.marker(ll, { draggable: false, icon, keyboard: false, interactive: false, pane: 'FocusHighlightPane' });
+    return marker;
+  }
+
+  private ensureFocusHighlightPane(): void {
+    if (!this.map) return;
+    if (!this.map.getPane('FocusHighlightPane')) {
+      this.map.createPane('FocusHighlightPane');
+    }
+    const pane = this.map.getPane('FocusHighlightPane');
+    if (!pane) return;
+    pane.style.zIndex = '500';
+    pane.style.pointerEvents = 'none';
+  }
+
+  private createSelectedZoomLabel(ll: L.LatLng, label: string): L.Marker {
+    const safeLabel = String(label || '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char] || char));
+    const icon = L.divIcon({
+      className: 'selected-asset-label-icon',
+      html: `<div class="selected-asset-label">${safeLabel}</div>`,
+      iconSize: [1, 1],
+      iconAnchor: [0, 30],
+    });
+    const marker = L.marker(ll, { icon, interactive: false, keyboard: false });
+    (marker as any).setZIndexOffset?.(1300);
     return marker;
   }
 
@@ -343,7 +438,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     if (!this.edit.enabled || !this.edit.editLayer || !this.edit.creatingStation) return;
     const divisionBuffer = this.layerManager.findById('division_buffer') as DivisionBufferLayer | undefined;
     if (divisionBuffer?.containsLatLng && !divisionBuffer.containsLatLng(e.latlng)) {
-      this.zone.run(() => { alert('New asset can only be created inside the division buffer.'); });
+      this.zone.run(() => { this.alerts.warning('New asset can only be created inside the division buffer.'); });
       return;
     }
     const lat = Number(e.latlng.lat);
@@ -424,6 +519,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
         if (this.map) {
           if (this.edit.enabled) {
             this.handleEditStateChange();
+          } else if (!this.initialLayerLoadStarted) {
+            this.layerManager.applyVisibility(this.map);
           } else {
             this.layerManager.applyVisibility(this.map);
             this.layerManager.reloadAll(this.map);
@@ -450,8 +547,8 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       if (!this.map) return;
       setTimeout(() => {
         if (!this.map) return;
-        this.layerManager.reloadVisible(this.map);
-      }, 120);
+        this.startInitialLayerLoad();
+      }, 60);
     }));
     this.layerManager.registerOnce(new TrackLayer(this.api, (g) => this.attrTable.pushFeatureCollection('Railway Track', g)));
     if (department.key === 'civil_engineering_assets' || portalAdmin) {
@@ -573,7 +670,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
     base.once('load', () => { this.forceMapResize(); });
     this.registerDepartmentLayers();
     this.map.whenReady(() => {
-      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); this.layerManager.reloadAll(this.map!); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => this.handleEditStateChange()); this.handleEditStateChange(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'feature') { try { const gj = this.createAttributeHighlightLayer((t as any).feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); this.bringHighlightToFront(this.highlightLayer); if (bounds?.isValid()) { this.map.fitBounds(bounds.pad((t as any).pad ?? 0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } } catch (e) {} return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); this.scheduleReloadAfterProgrammaticZoom(); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { if (existingLayer) this.applyExistingMarkerHighlight(existingLayer); this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.scheduleReloadAfterProgrammaticZoom(); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); this.bringHighlightToFront(this.highlightLayer); if (bounds?.isValid()) { this.map.fitBounds(bounds.pad(0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
+      this.forceMapResize(); this.ui.activePanel = null; this.edit.disable(); this.clearZoomArtifacts(); this.mapZoom.clearHighlight(); const divisionBuffer = this.layerManager.findById('division_buffer'); divisionBuffer?.addTo(this.map!); divisionBuffer?.loadForMap(this.map!); this.layerManager.addAll(this.map!); setTimeout(() => this.startInitialLayerLoad(), 1600); this.captureHomeAfterFirstSettle(); this.initDeepLinking(); this.onMoveOrZoom = () => this.scheduleReload(); this.map!.on('moveend', this.onMoveOrZoom); this.editSuppressionSub?.unsubscribe(); this.editSuppressionSub = this.edit.stateChanged$.subscribe(() => this.handleEditStateChange()); this.handleEditStateChange(); this.lockDragSub?.unsubscribe(); this.lockDragSub = this.edit.lockDrag$.subscribe(() => { if (!this.dragMarker) return; this.dragMarker.dragging?.disable(); this.dragMarker.off('drag'); this.dragMarker.off('dragend'); }); this.mapZoomSub?.unsubscribe(); this.mapZoomSub = this.mapZoom.zoomTo$.subscribe((t: ZoomTarget) => { if (!this.map) return; this.clearZoomArtifacts(); if (t.type === 'clear') return; if (t.type === 'home') { this.zoomToHome(); return; } if (t.type === 'feature') { try { const gj = this.createAttributeHighlightLayer((t as any).feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); this.bringHighlightToFront(this.highlightLayer); if (bounds?.isValid()) { this.map.fitBounds(bounds.pad((t as any).pad ?? 0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } } catch (e) {} return; } if (t.type === 'latlng') { const z = t.zoom ?? 17; const ll = L.latLng(t.lat, t.lng); const draggable = !!(t as any).draggable; const existingLayer = (t as any).existingLayer; this.centerLatLngInVisibleMapArea(ll, z); this.scheduleReloadAfterProgrammaticZoom(); if (draggable) { this.dragMarker = this.createDraggableCircleMarker(ll).addTo(this.map); this.dragMarker.on('drag', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.dragMarker.on('dragend', () => { const p = this.dragMarker!.getLatLng(); this.edit.emitDragEnd(p.lat, p.lng); }); this.zoomHighlight = this.dragMarker; } else { const highlightedExisting = existingLayer ? this.applyExistingMarkerHighlight(existingLayer) : false; if (!highlightedExisting) this.zoomHighlight = this.createFocusCircleMarker(ll).addTo(this.map); } return; } if (t.type === 'xy') { const ll = L.CRS.EPSG3857.unproject(L.point(t.x, t.y)); const z = t.zoom ?? 17; this.centerLatLngInVisibleMapArea(ll, z); this.scheduleReloadAfterProgrammaticZoom(); this.zoomHighlight = this.createFocusCircleMarker(ll, 24, 3, 0.2).addTo(this.map); return; } if (t.type === 'bounds') { const b = L.latLngBounds(L.latLng(t.south, t.west), L.latLng(t.north, t.east)); this.map.invalidateSize(); this.map.fitBounds(b.pad(t.pad ?? 0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } }); this.zoomSub?.unsubscribe(); this.zoomSub = this.attrTable.zoomTo$.subscribe(({ feature }) => { if (!this.map) return; try { this.clearZoomArtifacts(); const gj = this.createAttributeHighlightLayer(feature); const bounds = gj.getBounds(); this.highlightLayer = gj.addTo(this.map); this.bringHighlightToFront(this.highlightLayer); if (bounds?.isValid()) { this.map.fitBounds(bounds.pad(0.2), { animate: false }); this.scheduleReloadAfterProgrammaticZoom(); } } catch (e) {} }); this.clearSelectionSub?.unsubscribe(); this.clearSelectionSub = this.attrTable.clearSelection$.subscribe(() => { if (!this.map) return; this.clearZoomArtifacts(); this.zoomToHome(); });
     });
   }
 

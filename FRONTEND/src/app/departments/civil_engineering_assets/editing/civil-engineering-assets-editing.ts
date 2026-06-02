@@ -102,7 +102,7 @@ export function getCivilEngineeringAssetLayerDisplayName(layerId: string, layerN
 }
 
 export class StationLayer extends StationViewingLayer {
-  private markerIndex = new Map<number, L.Marker>();
+  private markerIndex = new Map<string, L.Marker>();
 
   constructor(
     api: Api,
@@ -115,8 +115,18 @@ export class StationLayer extends StationViewingLayer {
   }
 
   protected override onMarkerCreated(feature: any, marker: L.Marker) {
-    const id = feature?.properties?.objectid;
-    if (id) this.markerIndex.set(id, marker);
+    const props = feature?.properties || {};
+    [
+      props.objectid,
+      props.OBJECTID,
+      props.gid,
+      props.sttncode,
+      props.assetid,
+      feature?.id,
+    ].forEach((key) => {
+      const normalized = String(key ?? '').trim().toLowerCase();
+      if (normalized) this.markerIndex.set(normalized, marker);
+    });
   }
 
   protected override onFeatureReady(feature: any, layer: any) {
@@ -131,7 +141,39 @@ export class StationLayer extends StationViewingLayer {
   }
 
   getMarkerById(id: number): L.Marker | null {
-    return this.markerIndex.get(id) || null;
+    return this.markerIndex.get(String(id).trim().toLowerCase()) || null;
+  }
+
+  getRenderedLatLngForKey(...keys: any[]): L.LatLng | null {
+    for (const key of keys) {
+      const normalized = String(key ?? '').trim().toLowerCase();
+      if (!normalized) continue;
+      const marker = this.markerIndex.get(normalized);
+      if (marker?.getLatLng) return marker.getLatLng();
+    }
+    return null;
+  }
+
+  getBestRenderedLayer(row: any): L.Marker | null {
+    const keys = [
+      row?.objectid,
+      row?.OBJECTID,
+      row?.gid,
+      row?.sttncode,
+      row?.assetid,
+      row?.asset_id,
+    ];
+    for (const key of keys) {
+      const normalized = String(key ?? '').trim().toLowerCase();
+      if (!normalized) continue;
+      const marker = this.markerIndex.get(normalized);
+      if (marker) return marker;
+    }
+    return null;
+  }
+
+  getBestRenderedLatLng(row: any): L.LatLng | null {
+    return this.getBestRenderedLayer(row)?.getLatLng?.() || null;
   }
 }
 

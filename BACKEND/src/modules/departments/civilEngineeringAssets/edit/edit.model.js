@@ -137,6 +137,41 @@ function getTableSelectList(config, tableColumns = []) {
   return selectableColumns.length ? selectableColumns.join(', ') : '*';
 }
 
+function getMakerTableColumns(config, tableColumns = [], geometryColumn = null) {
+  const preferred = [
+    config.idColumn,
+    'objectid',
+    'status',
+    'asset_id',
+    'assetid',
+    'sttncode',
+    'sttnname',
+    'bridgeno',
+    'robno',
+    'rubno',
+    'rorno',
+    'distkm',
+    'distm',
+    'distfromkm',
+    'distfromm',
+    'disttokm',
+    'disttom',
+    'state',
+    'district',
+    'constituncy',
+    'constituency',
+    'division',
+    'asset_division',
+    ...(config.searchableFields || []),
+    ...(config.insertFields || []),
+    ...(config.updateFields || []),
+  ];
+
+  return preferred
+    .filter((column) => column && column !== geometryColumn && tableColumns.includes(column))
+    .filter((column, index, list) => list.indexOf(column) === index);
+}
+
 function getDivisionColumn(tableColumns) {
   return [
     'asset_division',
@@ -1333,6 +1368,10 @@ async function remove(config, id, division) {
 }
 
 async function getTable(config, page, pageSize, q, division, status = '', divisionAliases = []) {
+  if (String(status || '').trim().toLowerCase() === '__empty__' && config.draftWorkflow) {
+    return getMakerEditTable(config, page, pageSize, q, division, divisionAliases);
+  }
+
   const limit = Math.min(200, Math.max(1, Number(pageSize)));
   const offset = (Number(page) - 1) * limit;
 
@@ -1388,6 +1427,127 @@ async function getTable(config, page, pageSize, q, division, status = '', divisi
   const pageRows = rows.slice(0, limit);
   const hasNextPage = rows.length > limit;
 
+  return {
+    rows: pageRows,
+    total: hasNextPage ? offset + limit + 1 : offset + pageRows.length,
+  };
+}
+
+async function getMakerEditTable(config, page, pageSize, q, division, divisionAliases = []) {
+  const limit = Math.min(200, Math.max(1, Number(pageSize)));
+  const offset = (Number(page) - 1) * limit;
+  const fetchLimit = offset + limit + 1;
+  const mainTableColumns = await getTableColumns(pool, config.table);
+  const workflow = config.draftWorkflow;
+  const draftTableColumns = await getTableColumns(pool, workflow.table);
+  const divisionColumn = getDivisionColumn(mainTableColumns);
+  const draftDivisionColumn = getDivisionColumn(draftTableColumns);
+  const geometryColumn = getGeometryReadColumn(config, mainTableColumns);
+  const selectColumns = getMakerTableColumns(config, mainTableColumns, geometryColumn);
+  const params = [];
+  const divisions = normalizeDivisionValues(division, divisionAliases);
+  const divisionIndexes = divisions.map((value) => params.push(value));
+  const mainDivisionWhere = divisionColumn
+    ? buildDivisionWhereClause(`m.${quoteIdentifier(divisionColumn)}`, divisionIndexes)
+    : 'TRUE';
+  const draftDivisionWhere = draftDivisionColumn
+    ? buildDivisionWhereClause(`d.${quoteIdentifier(draftDivisionColumn)}`, divisionIndexes)
+    : 'TRUE';
+
+  const mainSelect = selectColumns
+    .map((column) => `(m.${quoteIdentifier(column)})::text AS ${quoteIdentifier(column)}`)
+    .join(',\n        ');
+
+  const draftSelect = selectColumns
+    .map((column) => {
+      if (column === config.idColumn && draftTableColumns.includes('objectid')) {
+        return `(d.objectid)::text AS ${quoteIdentifier(column)}`;
+      }
+      if (draftTableColumns.includes(column)) {
+        return `(d.${quoteIdentifier(column)})::text AS ${quoteIdentifier(column)}`;
+      }
+      if (mainTableColumns.includes(column)) {
+        return `(m.${quoteIdentifier(column)})::text AS ${quoteIdentifier(column)}`;
+      }
+      return `NULL::text AS ${quoteIdentifier(column)}`;
+    })
+    .join(',\n        ');
+
+  const draftStatusWhere = draftTableColumns.includes(workflow.statusColumn)
+    ? `TRIM(COALESCE(d.${quoteIdentifier(workflow.statusColumn)}::text, '')) = ''`
+    : 'TRUE';
+  const mainStatusWhere = mainTableColumns.includes('status')
+    ? `(m.status IS NULL OR TRIM(COALESCE(m.status::text, '')) = '')`
+    : 'TRUE';
+  const mainSearchConditions = [];
+  const draftSearchConditions = [];
+  if (q && config.searchableFields?.length) {
+    params.push(`%${q}%`);
+    const qIndex = params.length;
+    config.searchableFields
+      .filter((field) => selectColumns.includes(field))
+      .forEach((field) => {
+        mainSearchConditions.push(`LOWER(m.${quoteIdentifier(field)}::text) LIKE LOWER($${qIndex})`);
+        if (draftTableColumns.includes(field)) {
+          draftSearchConditions.push(`LOWER(d.${quoteIdentifier(field)}::text) LIKE LOWER($${qIndex})`);
+        } else if (mainTableColumns.includes(field)) {
+          draftSearchConditions.push(`LOWER(m.${quoteIdentifier(field)}::text) LIKE LOWER($${qIndex})`);
+        }
+      });
+  }
+  const mainSearchWhere = mainSearchConditions.length ? `AND (${mainSearchConditions.join(' OR ')})` : '';
+  const draftSearchWhere = draftSearchConditions.length ? `AND (${draftSearchConditions.join(' OR ')})` : '';
+
+  const draftJoin = workflow.editIdColumn && draftTableColumns.includes(workflow.editIdColumn)
+    ? `LEFT JOIN ${config.table} m ON m.${quoteIdentifier(config.idColumn)}::text = d.${quoteIdentifier(workflow.editIdColumn)}::text AND ${mainDivisionWhere}`
+    : '';
+
+  const mainSql = `
+    SELECT
+        ${mainSelect},
+        FALSE AS "__is_draft",
+        m.${quoteIdentifier(config.idColumn)} AS "__main_objectid",
+        NULL::bigint AS "__draft_objectid",
+        m.${quoteIdentifier(config.idColumn)} AS "__sort_objectid"
+      FROM ${config.table} m
+      WHERE ${mainDivisionWhere}
+        AND ${mainStatusWhere}
+        ${mainSearchWhere}
+      ORDER BY m.${quoteIdentifier(config.idColumn)} DESC
+      LIMIT ${fetchLimit}
+  `;
+
+  const editIdSortExpr = workflow.editIdColumn && draftTableColumns.includes(workflow.editIdColumn)
+    ? `NULLIF(REGEXP_REPLACE(d.${quoteIdentifier(workflow.editIdColumn)}::text, '[^0-9]', '', 'g'), '')::bigint`
+    : 'NULL::bigint';
+  const draftSql = `
+    SELECT
+        ${draftSelect},
+        TRUE AS "__is_draft",
+        ${editIdSortExpr} AS "__main_objectid",
+        d.objectid AS "__draft_objectid",
+        COALESCE(${editIdSortExpr}, d.objectid) AS "__sort_objectid"
+      FROM ${workflow.table} d
+      ${draftJoin}
+      WHERE ${draftDivisionWhere}
+        AND ${draftStatusWhere}
+        ${draftSearchWhere}
+      ORDER BY "__sort_objectid" DESC, "__is_draft" DESC
+      LIMIT ${fetchLimit}
+  `;
+
+  const [{ rows: mainRows }, { rows: draftRows }] = await Promise.all([
+    pool.query(mainSql, params),
+    pool.query(draftSql, params),
+  ]);
+  const rows = [...mainRows, ...draftRows].sort((a, b) => {
+    const aSort = Number(a.__sort_objectid ?? a.objectid ?? 0);
+    const bSort = Number(b.__sort_objectid ?? b.objectid ?? 0);
+    if (bSort !== aSort) return bSort - aSort;
+    return Number(Boolean(b.__is_draft)) - Number(Boolean(a.__is_draft));
+  });
+  const pageRows = rows.slice(offset, offset + limit);
+  const hasNextPage = rows.length > offset + limit;
   return {
     rows: pageRows,
     total: hasNextPage ? offset + limit + 1 : offset + pageRows.length,
@@ -1701,25 +1861,20 @@ async function validateAssetId(config, layer, division, assetId, objectId = null
   }
 
   if (config?.table && config?.idColumn) {
-    const duplicateParams = [trimmedAssetId];
-    let duplicateSql = `
-      SELECT ${config.idColumn}
+    const mainTableColumns = await getTableColumns(pool, config.table);
+    const assetIdColumn = getAssetIdColumn(mainTableColumns);
+    if (assetIdColumn) {
+      const duplicateSql = `
+      SELECT ${quoteIdentifier(config.idColumn)}
       FROM ${config.table}
-      WHERE TRIM(COALESCE(asset_id::text, '')) = TRIM($1)
+      WHERE TRIM(COALESCE(${quoteIdentifier(assetIdColumn)}::text, '')) = TRIM($1)
     `;
-
-    if (Number.isFinite(Number(objectId))) {
-      duplicateParams.push(Number(objectId));
-      duplicateSql += ` AND ${config.idColumn} <> $2`;
-    }
-
-    duplicateSql += ' LIMIT 1';
-
-    const { rows: existingRows } = await pool.query(duplicateSql, duplicateParams);
-    if (existingRows.length > 0) {
-      const err = new Error('Asset ID already exists. Please enter a different Asset ID.');
-      err.status = 409;
-      throw err;
+      const { rows: existingRows } = await pool.query(duplicateSql, [trimmedAssetId]);
+      if (existingRows.length > 1) {
+        const err = new Error('Asset ID already exists more than once in the main table. Please correct duplicate records before validating.');
+        err.status = 409;
+        throw err;
+      }
     }
   }
 
@@ -1777,6 +1932,77 @@ function buildStationDraftInsert(draftTableColumns, config, record) {
   }
 
   return { insertColumns, placeholders, values };
+}
+
+function buildStationDraftUpdate(draftTableColumns, config, record, targetDraftObjectId, division) {
+  const setClauses = [];
+  const values = [];
+  draftTableColumns.forEach((column) => {
+    if (column === 'objectid' || column === 'globalid') return;
+    if (column === config.geometry?.column) return;
+    if (!Object.prototype.hasOwnProperty.call(record, column)) return;
+    const value = record[column];
+    if (value === undefined) return;
+    if (value === '__NOW__') {
+      setClauses.push(`${quoteIdentifier(column)} = NOW()::timestamp without time zone`);
+      return;
+    }
+    values.push(value);
+    setClauses.push(`${quoteIdentifier(column)} = $${values.length}`);
+  });
+
+  if (config.geometry?.enabled && draftTableColumns.includes(config.geometry.column)) {
+    const x = Number(record[config.geometry.xField]);
+    const y = Number(record[config.geometry.yField]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      setClauses.push(`${quoteIdentifier(config.geometry.column)} = ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326)`);
+    }
+  }
+
+  values.push(targetDraftObjectId);
+  values.push(division);
+  return {
+    setClauses,
+    values,
+    sql: `
+      UPDATE ${config.draftWorkflow.table}
+      SET ${setClauses.join(', ')}
+      WHERE objectid = $${values.length - 1}
+        AND UPPER(division) = UPPER($${values.length})
+      RETURNING *
+    `,
+  };
+}
+
+function buildMakerSavedDraftRecord(config, draftTableColumns, sourceRow, data, division, assignments, makerUserName, draftObjectId = null) {
+  const workflow = config.draftWorkflow;
+  const merged = normalizeStationDraftPayload(data || {}, sourceRow || {});
+  const record = {
+    ...merged,
+    division,
+    railway: draftTableColumns.includes('railway')
+      ? (assignments.makerRailwayCode ?? data?.railway ?? sourceRow?.railway ?? null)
+      : undefined,
+    zone_name: draftTableColumns.includes('zone_name') ? (data?.zone_name ?? sourceRow?.zone_name ?? sourceRow?.railway ?? null) : undefined,
+    fname: draftTableColumns.includes('fname') ? (data?.fname ?? data?.zone_name ?? sourceRow?.fname ?? sourceRow?.railway ?? null) : undefined,
+    div_name: draftTableColumns.includes('div_name') ? (assignments.makerDivisionName ?? data?.div_name ?? sourceRow?.div_name ?? division ?? null) : undefined,
+    department: draftTableColumns.includes('department') ? (data?.department ?? assignments.makerDepartment ?? sourceRow?.department ?? null) : undefined,
+    [workflow.statusColumn]: null,
+    edited_by: draftTableColumns.includes('edited_by') ? makerUserName : undefined,
+    edited_at: draftTableColumns.includes('edited_at') ? '__NOW__' : undefined,
+    modified_by: draftTableColumns.includes('modified_by') ? makerUserName : undefined,
+    modified_date: draftTableColumns.includes('modified_date') ? '__NOW__' : undefined,
+  };
+
+  if (workflow.editIdColumn && draftTableColumns.includes(workflow.editIdColumn)) {
+    record[workflow.editIdColumn] = sourceRow?.[workflow.editIdColumn] ?? sourceRow?.[config.idColumn] ?? sourceRow?.__main_objectid ?? null;
+  }
+  if (workflow.originalIdColumn && draftTableColumns.includes(workflow.originalIdColumn)) {
+    record[workflow.originalIdColumn] = sourceRow?.[workflow.originalIdColumn] ?? getWorkflowOriginalIdValue(config, sourceRow);
+  }
+  if (draftObjectId != null && draftTableColumns.includes('objectid')) record.objectid = draftObjectId;
+  setWorkflowAssignmentFields(record, workflow, draftTableColumns, assignments);
+  return record;
 }
 
 async function sendStationEdit(config, id, division, data, makerUserId, submittingUserType) {
@@ -1880,6 +2106,217 @@ async function sendStationEdit(config, id, division, data, makerUserId, submitti
   }
 }
 
+async function saveStationDraft(config, id, division, data, makerUserId, submittingUserType) {
+  if (!config.draftWorkflow) {
+    const err = new Error('Draft workflow config not found for layer');
+    err.status = 400;
+    throw err;
+  }
+
+  if (String(submittingUserType || '').trim().toLowerCase() !== 'maker') {
+    const err = new Error('Only maker can save draft records');
+    err.status = 403;
+    throw err;
+  }
+
+  const workflow = config.draftWorkflow;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const originalRow = await getByIdWithClient(client, config, id, division, true);
+    if (!originalRow) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const draftTableColumns = await getTableColumns(client, workflow.table);
+    const assignments = await getDraftAssignments(client, makerUserId, division);
+    const makerUserName = await getUserNameByUserId(client, makerUserId);
+
+    let draft = null;
+    if (workflow.editIdColumn && draftTableColumns.includes(workflow.editIdColumn)) {
+      const { rows: draftRows } = await client.query(
+        `
+          SELECT *
+          FROM ${workflow.table}
+          WHERE ${quoteIdentifier(workflow.editIdColumn)}::text = $1::text
+            AND UPPER(division) = UPPER($2)
+            AND TRIM(COALESCE(${quoteIdentifier(workflow.statusColumn)}::text, '')) = ''
+          ORDER BY objectid DESC
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [id, division],
+      );
+      draft = draftRows[0] || null;
+    }
+
+    let savedDraft = null;
+    if (draft) {
+      const record = buildMakerSavedDraftRecord(config, draftTableColumns, draft, data, division, assignments, makerUserName, draft.objectid);
+      await ensureUniqueValidatedAssetId(client, config, record, {
+        draftTableColumns,
+        excludeMainObjectId: originalRow[config.idColumn],
+        excludeDraftObjectId: draft.objectid,
+      });
+      const update = buildStationDraftUpdate(draftTableColumns, config, record, draft.objectid, division);
+      const { rows } = await client.query(update.sql, update.values);
+      savedDraft = rows[0] || draft;
+    } else {
+      const nextDraftObjectId = draftTableColumns.includes('objectid')
+        ? await getNextManualId(client, workflow.table, 'objectid')
+        : undefined;
+      const record = {
+        ...buildMakerSavedDraftRecord(config, draftTableColumns, originalRow, data, division, assignments, makerUserName, nextDraftObjectId),
+        globalid: draftTableColumns.includes('globalid') ? generateGUID() : undefined,
+      };
+      await ensureUniqueValidatedAssetId(client, config, record, {
+        draftTableColumns,
+        excludeMainObjectId: originalRow[config.idColumn],
+      });
+      const { insertColumns, placeholders, values } = buildStationDraftInsert(draftTableColumns, config, record);
+      const insertSql = `
+        INSERT INTO ${workflow.table} (
+          ${insertColumns.join(',')}
+        )
+        VALUES (
+          ${placeholders.join(',')}
+        )
+        RETURNING *
+      `;
+      const { rows } = await client.query(insertSql, values);
+      savedDraft = rows[0] || null;
+    }
+
+    const original = await updateMainWorkflowStatus(client, config, id, division, 'Asset Saved');
+    await client.query('COMMIT');
+    return {
+      draft: savedDraft,
+      original,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function updateSavedStationDraft(config, draftObjectId, division, data, makerUserId, submittingUserType) {
+  if (!config.draftWorkflow) {
+    const err = new Error('Draft workflow config not found for layer');
+    err.status = 400;
+    throw err;
+  }
+  if (String(submittingUserType || '').trim().toLowerCase() !== 'maker') {
+    const err = new Error('Only maker can save draft records');
+    err.status = 403;
+    throw err;
+  }
+
+  const workflow = config.draftWorkflow;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const draftTableColumns = await getTableColumns(client, workflow.table);
+    const { rows: draftRows } = await client.query(
+      `
+        SELECT *
+        FROM ${workflow.table}
+        WHERE objectid = $1
+          AND UPPER(division) = UPPER($2)
+          AND TRIM(COALESCE(${quoteIdentifier(workflow.statusColumn)}::text, '')) = ''
+        FOR UPDATE
+      `,
+      [draftObjectId, division],
+    );
+    const draft = draftRows[0];
+    if (!draft) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const assignments = await getDraftAssignments(client, makerUserId, division);
+    const makerUserName = await getUserNameByUserId(client, makerUserId);
+    const record = buildMakerSavedDraftRecord(config, draftTableColumns, draft, data, division, assignments, makerUserName, draft.objectid);
+    await ensureUniqueValidatedAssetId(client, config, record, {
+      draftTableColumns,
+      excludeMainObjectId: draft?.[workflow.editIdColumn],
+      excludeDraftObjectId: draft.objectid,
+    });
+    const update = buildStationDraftUpdate(draftTableColumns, config, record, draft.objectid, division);
+    const { rows } = await client.query(update.sql, update.values);
+    const main = await updateMainStatusFromDraft(client, config, workflow, draft, division, 'Asset Saved');
+    await client.query('COMMIT');
+    return {
+      draft: rows[0],
+      original: main,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function submitSavedStationDraft(config, draftObjectId, division, data, makerUserId, submittingUserType) {
+  const saved = await updateSavedStationDraft(config, draftObjectId, division, data, makerUserId, submittingUserType);
+  if (!saved?.draft) return saved;
+  const workflow = config.draftWorkflow;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const draftTableColumns = await getTableColumns(client, workflow.table);
+    const assignments = await getDraftAssignments(client, makerUserId, division);
+    const makerUserName = await getUserNameByUserId(client, makerUserId);
+    const params = [workflow.draftStatusValue];
+    const setClauses = [`${quoteIdentifier(workflow.statusColumn)} = $1`];
+    if (draftTableColumns.includes('edited_by')) {
+      params.push(makerUserName);
+      setClauses.push(`edited_by = $${params.length}`);
+    }
+    if (draftTableColumns.includes('edited_at')) setClauses.push('edited_at = NOW()::timestamp without time zone');
+    if (draftTableColumns.includes('modified_by')) {
+      params.push(makerUserName);
+      setClauses.push(`modified_by = $${params.length}`);
+    }
+    if (draftTableColumns.includes('modified_date')) setClauses.push('modified_date = NOW()::timestamp without time zone');
+    if (workflow.checkerColumn && draftTableColumns.includes(workflow.checkerColumn)) {
+      params.push(assignments.checkerUserId);
+      setClauses.push(`${quoteIdentifier(workflow.checkerColumn)} = $${params.length}`);
+    }
+    if (workflow.approverColumn && draftTableColumns.includes(workflow.approverColumn)) {
+      params.push(assignments.approverUserId);
+      setClauses.push(`${quoteIdentifier(workflow.approverColumn)} = $${params.length}`);
+    }
+    params.push(draftObjectId);
+    params.push(division);
+    const { rows } = await client.query(
+      `
+        UPDATE ${workflow.table}
+        SET ${setClauses.join(', ')}
+        WHERE objectid = $${params.length - 1}
+          AND UPPER(division) = UPPER($${params.length})
+        RETURNING *
+      `,
+      params,
+    );
+    const main = await updateMainStatusFromDraft(client, config, workflow, rows[0] || saved.draft, division, workflow.originalStatusValue);
+    await client.query('COMMIT');
+    return {
+      draft: rows[0],
+      original: main,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function sendNewStationEdit(config, division, data, makerUserId, submittingUserType) {
   if (!config.draftWorkflow) {
     const err = new Error('Draft workflow config not found for layer');
@@ -1968,6 +2405,9 @@ module.exports = {
   updateRecordAttachmentUrl,
   validateStation,
   validateAssetId,
+  saveStationDraft,
+  updateSavedStationDraft,
+  submitSavedStationDraft,
   sendStationEdit,
   sendNewStationEdit,
 };

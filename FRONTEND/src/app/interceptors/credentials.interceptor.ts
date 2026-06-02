@@ -1,7 +1,6 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
-import { getAccessToken } from '../services/current-user.store';
 import { CurrentUserService } from '../services/current-user';
 
 const LAST_AUTH_FAILURE_KEY = 'ump_last_auth_failure';
@@ -16,6 +15,7 @@ function isSessionAuthFailure(error: any): boolean {
 
   return (
     message.includes('missing bearer token') ||
+    message.includes('missing authentication token') ||
     message.includes('invalid or expired token') ||
     message.includes('token payload invalid') ||
     message.includes('session not found') ||
@@ -28,19 +28,12 @@ function isSessionAuthFailure(error: any): boolean {
 
 export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {
   const currentUser = inject(CurrentUserService);
-  const token = getAccessToken();
   const isAuthRequest = req.url.includes('/api/auth/');
-  const request = token
-    ? req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-    : req;
+  const request = req.clone({ withCredentials: true });
 
   return next(request).pipe(
     catchError((error) => {
-      if (error?.status === 401 && !isAuthRequest && token && isSessionAuthFailure(error)) {
+      if (error?.status === 401 && !isAuthRequest && isSessionAuthFailure(error)) {
         const reason = String(
           error?.error?.message ||
             error?.error?.error ||

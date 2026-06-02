@@ -201,7 +201,7 @@ this.api
             this.loginFlowInProgress = false;
 
             if (res?.success) {
-              if (res?.accessToken || res?.bypassOtp) {
+              if (res?.bypassOtp || res?.user) {
                 this.zone.run(() => {
                   this.infoMsg = res?.message || 'Logging in...';
                   this.cdr.detectChanges();

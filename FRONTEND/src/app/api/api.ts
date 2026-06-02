@@ -129,6 +129,15 @@ export class Api {
   sendLayerEdit(layer: string, id: number, payload: any) {
     return this.ceaEditingApi.sendLayerEdit(layer, id, payload);
   }
+  saveLayerDraft(layer: string, id: number, payload: any) {
+    return this.ceaEditingApi.saveLayerDraft(layer, id, payload);
+  }
+  updateSavedLayerDraft(layer: string, id: number, payload: any) {
+    return this.ceaEditingApi.updateSavedLayerDraft(layer, id, payload);
+  }
+  submitSavedLayerDraft(layer: string, id: number, payload: any) {
+    return this.ceaEditingApi.submitSavedLayerDraft(layer, id, payload);
+  }
   requestStationDeletion(id: number) {
     return this.ceaEditingApi.requestStationDeletion(id);
   }

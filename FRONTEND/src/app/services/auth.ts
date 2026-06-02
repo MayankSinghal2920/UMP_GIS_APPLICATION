@@ -19,15 +19,7 @@ export class Auth {
   ) {}
 
   private extractToken(res: any): string | null {
-    return (
-      res?.accessToken ||
-      res?.access_token ||
-      res?.token ||
-      res?.data?.accessToken ||
-      res?.data?.access_token ||
-      res?.data?.token ||
-      null
-    );
+    return null;
   }
 
   private extractUser(res: any): any {
@@ -37,9 +29,8 @@ export class Auth {
   requestOtp(username: string, password: string): Observable<any> {
     return this.authApi.requestOtp(username, password).pipe(
       tap((res: any) => {
-        const token = this.extractToken(res);
-        if (res?.success && token) {
-          this.currentUser.setAuth(this.extractUser(res), token);
+        if (res?.success) {
+          this.currentUser.setAuth(this.extractUser(res), null);
         }
         console.log('REQUEST OTP RESPONSE FROM SERVER:', res);
       }),
@@ -50,7 +41,7 @@ export class Auth {
     return this.authApi.verifyOtp(user_id, otp).pipe(
       tap((res: any) => {
         if (res?.success) {
-          this.currentUser.setAuth(this.extractUser(res), this.extractToken(res));
+          this.currentUser.setAuth(this.extractUser(res), null);
         }
       }),
     );
@@ -73,7 +64,7 @@ export class Auth {
   }
 
   isLoggedIn(): boolean {
-    return !!this.currentUser.getSnapshot()?.user_id && !!this.currentUser.getAccessToken();
+    return !!this.currentUser.getSnapshot()?.user_id;
   }
 
   getUserType(): string {

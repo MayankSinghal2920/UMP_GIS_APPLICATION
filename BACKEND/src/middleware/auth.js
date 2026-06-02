@@ -13,10 +13,12 @@ function getIdleTimeoutMs() {
 async function authenticateToken(req, res, next) {
   try {
     const header = req.headers.authorization || '';
-    const [scheme, token] = header.split(' ');
+    const [scheme, bearerToken] = header.split(' ');
+    const cookieToken = String(req.cookies?.access_token || '').trim();
+    const token = cookieToken || (scheme === 'Bearer' ? bearerToken : '');
 
-    if (scheme !== 'Bearer' || !token) {
-      return res.status(401).json({ success: false, message: 'Missing Bearer token' });
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Missing authentication token' });
     }
 
     const secret = getJwtSecret();

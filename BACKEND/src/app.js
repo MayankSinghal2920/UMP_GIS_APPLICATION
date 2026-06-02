@@ -24,6 +24,23 @@ const uploadRoutes = require("./modules/Upload/upload.router");
 
 const app = express();
 
+function parseCookies(req, _res, next) {
+  const header = String(req.headers.cookie || '');
+  req.cookies = header
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce((cookies, part) => {
+      const index = part.indexOf('=');
+      if (index < 0) return cookies;
+      const key = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      if (key) cookies[key] = decodeURIComponent(value);
+      return cookies;
+    }, {});
+  next();
+}
+
 function formatIstTimestamp(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kolkata",
@@ -75,6 +92,7 @@ app.use((req, res, next) => {
 });
 
 /* ---------- Middlewares ---------- */
+app.use(parseCookies);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(compression());

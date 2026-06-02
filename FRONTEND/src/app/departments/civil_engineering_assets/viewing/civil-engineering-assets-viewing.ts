@@ -205,6 +205,11 @@ export class StationViewingLayer implements MapLayer {
     this.layer.eachLayer((l: any) => {
       const label = (l as any).__stationTooltipState?.label || '';
       if (!label) return;
+      if ((l as any).__selectedStation) {
+        this.bindStationTooltip(l, label, true);
+        l.openTooltip?.();
+        return;
+      }
       this.bindStationTooltip(l, label, false);
       if (l.getTooltip?.()) l.closeTooltip();
     });
@@ -232,6 +237,11 @@ export class StationViewingLayer implements MapLayer {
       const label = (l as any).__stationTooltipState?.label || '';
       if (!label || !l.getLatLng) return;
       if (!map.hasLayer(l)) return;
+      if ((l as any).__selectedStation) {
+        this.bindStationTooltip(l, label, true);
+        l.openTooltip?.();
+        return;
+      }
       if (!show) {
         this.bindStationTooltip(l, label, false);
         l.closeTooltip();

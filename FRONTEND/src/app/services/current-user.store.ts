@@ -15,11 +15,14 @@ export type CurrentUser = {
 
 const USER_KEY = 'ump_current_user';
 const USER_FALLBACK_KEY = 'ump_current_user_fallback';
-const TOKEN_KEY = 'ump_access_token';
-const TOKEN_FALLBACK_KEY = 'ump_access_token_fallback';
 const DIVISION_KEY = 'division';
 const ASSET_DIVISION_KEY = 'asset_division';
 const DEPARTMENT_KEY = 'department';
+
+function clearLegacyAccessTokenStorage(): void {
+  sessionStorage.removeItem('ump_access_token');
+  localStorage.removeItem('ump_access_token_fallback');
+}
 
 function readUserFromSession(): CurrentUser | null {
   try {
@@ -40,6 +43,8 @@ function readUserFromLocalStorage(): CurrentUser | null {
     return null;
   }
 }
+
+clearLegacyAccessTokenStorage();
 
 let snapshot: CurrentUser | null = readUserFromSession();
 
@@ -119,27 +124,13 @@ export function clearCurrentUserSnapshot(): void {
 }
 
 export function setAccessToken(token: string | null): void {
-  const normalized = String(token || '').trim();
-  if (normalized) {
-    sessionStorage.setItem(TOKEN_KEY, normalized);
-    localStorage.setItem(TOKEN_FALLBACK_KEY, normalized);
-  } else {
-    sessionStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(TOKEN_FALLBACK_KEY);
-  }
+  clearAccessToken();
 }
 
 export function getAccessToken(): string {
-  const sessionToken = (sessionStorage.getItem(TOKEN_KEY) || '').trim();
-  if (sessionToken) return sessionToken;
-  const fallbackToken = (localStorage.getItem(TOKEN_FALLBACK_KEY) || '').trim();
-  if (fallbackToken) {
-    sessionStorage.setItem(TOKEN_KEY, fallbackToken);
-  }
-  return fallbackToken;
+  return '';
 }
 
 export function clearAccessToken(): void {
-  sessionStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(TOKEN_FALLBACK_KEY);
+  clearLegacyAccessTokenStorage();
 }

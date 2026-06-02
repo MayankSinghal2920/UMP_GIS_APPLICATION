@@ -32,6 +32,7 @@ export class DivisionBufferLayer implements MapLayer {
   legend = DIVISION_BUFFER_LEGEND;
   private layer: L.FeatureGroup;
   private lastKey = '';
+  private loadingKey = '';
   private fittedOnce = false;
   private geometries: any[] = [];
 
@@ -314,11 +315,13 @@ export class DivisionBufferLayer implements MapLayer {
 
     const z = map.getZoom();
     const key = this.api.getDivisionBufferKey(z);
-    if (key === this.lastKey) return;
+    if (key === this.lastKey || key === this.loadingKey) return;
+    this.loadingKey = key;
 
     this.api.getDivisionBuffer().subscribe({
       next: (res: any) => {
         this.lastKey = key;
+        this.loadingKey = '';
         const geojson = this.normalizeGeoJson(res);
         console.info('Division buffer features loaded:', geojson.features?.length || 0);
         this.geometries = Array.isArray(geojson?.features)
@@ -355,6 +358,7 @@ export class DivisionBufferLayer implements MapLayer {
       },
       error: (err: any) => {
         this.lastKey = '';
+        this.loadingKey = '';
         console.error('Division buffer error', err);
       },
     });

@@ -1,6 +1,5 @@
 import * as L from 'leaflet';
 import { BASE_URL, getDivision } from '../../api/shared/api-utils';
-import { getAccessToken } from '../../services/current-user.store';
 
 type PopupProperties = Record<string, any>;
 type PopupEntry = {
@@ -757,7 +756,6 @@ function renderAssetDetails(row: any): string {
 }
 
 async function loadAssetIdDetails(layerKey: string, assetId: string, objectId: string): Promise<any> {
-  const token = getAccessToken();
   const division = getDivision();
   const params = new URLSearchParams();
   if (division) params.set('division', division);
@@ -768,7 +766,6 @@ async function loadAssetIdDetails(layerKey: string, assetId: string, objectId: s
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       credentials: 'include',
       body: JSON.stringify({

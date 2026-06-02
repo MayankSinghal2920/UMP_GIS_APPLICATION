@@ -140,11 +140,38 @@
 :host ::ng-deep .map-selected-symbol::after {
   content: '';
   position: absolute;
-  inset: -8px;
-  border: 4px solid #7c3aed;
+  inset: -10px;
+  border: 3px solid #7c3aed;
   border-radius: 999px;
   background: rgba(167, 139, 250, 0.18);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 1px 7px rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+}
+
+:host ::ng-deep .map-selected-station-symbol::after {
+  display: none;
+}
+
+:host ::ng-deep .map-selected-station-symbol img {
+  position: relative;
+  z-index: 2;
+}
+
+:host ::ng-deep .selected-asset-label-icon {
+  pointer-events: none;
+}
+
+:host ::ng-deep .selected-asset-label {
+  transform: translate(-50%, -34px);
+  white-space: nowrap;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow:
+    0 1px 0 #fff,
+    1px 0 0 #fff,
+    0 -1px 0 #fff,
+    -1px 0 0 #fff;
   pointer-events: none;
 }
 

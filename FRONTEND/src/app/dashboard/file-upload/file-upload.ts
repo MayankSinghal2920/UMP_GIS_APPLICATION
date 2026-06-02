@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { FileUploadService, UploadedFile } from '../../services/file-upload.service';
 import { Api } from '../../api/api';
 import { CurrentUserService } from '../../services/current-user';
@@ -19,7 +20,7 @@ type UploadFormat = 'shapefile' | 'kml';
 })
 export class FileUploadComponent implements OnInit {
   @ViewChild('shapefileInput') shapefileInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('kmlInput') kmlInput?: ElementRef<HTMLInputElement>;
+ 
 
   isModalOpen = false;
   currentView: ModalView = 'layer-select';
@@ -29,10 +30,12 @@ layerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_OPTIONS];
 filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_OPTIONS];
 
   shapeFiles: File[] = [];
-  kmlFiles: File[] = [];
   shapefileDragOver = false;
-  kmlDragOver = false;
   selectedUploadFormat: UploadFormat = 'shapefile';
+
+  kmlUploadId = '';
+  kmlTempTable = '';
+
 
   isUploading = false;
   uploadProgress = 0;
@@ -42,12 +45,12 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
 
   fileDescription = '';
   fileCategory = '';
-  kmlDescription = '';
-  kmlTargetLayer = 'kml_upload';
-  kmlUploading = false;
-  kmlUploadProgress = 0;
-  kmlUploadSuccess = false;
-  kmlUploadError = '';
+  // kmlDescription = '';
+  // kmlTargetLayer = 'kml_upload';
+  // kmlUploading = false;
+  // kmlUploadProgress = 0;
+  // kmlUploadSuccess = false;
+  // kmlUploadError = '';
 
   readonly SHAPEFILE_EXTENSIONS = ['.shp', '.shx', '.dbf', '.prj', '.cpg', '.qpj', '.sbn', '.sbx'];
   readonly REQUIRED_SHAPEFILE_EXTENSIONS = ['.shp', '.shx', '.dbf'];
@@ -59,6 +62,7 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
     private fileUploadService: FileUploadService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
+     private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -86,10 +90,17 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
   }
 
   selectLayer(): void {
+    if (this.selectedUploadFormat === 'kml') {
+      this.selectedLayer = 'track_table';
+      this.currentView = 'shapefile';
+      return;
+    }
+
     if (this.selectedLayer) {
       this.currentView = 'shapefile';
     }
   }
+
 
   goBackToLayers(): void {
     this.currentView = 'layer-select';
@@ -97,10 +108,10 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
     this.filteredLayerOptions = [...this.layerOptions];
   }
 
-  goBackToUpload(): void {
-    this.currentView = 'shapefile';
-    this.resetFileState();
-  }
+  // goBackToUpload(): void {
+  //   this.currentView = 'shapefile';
+  //   this.resetFileState();
+  // }
 
   filterLayers(event: Event): void {
     const searchTerm = String((event.target as HTMLInputElement)?.value || '').toLowerCase();
@@ -136,28 +147,6 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
     }
   }
 
-  onKmlDragOver(event: DragEvent): void {
-    event.preventDefault();
-    this.kmlDragOver = true;
-  }
-
-  onKmlDragLeave(): void {
-    this.kmlDragOver = false;
-  }
-
-  onKmlDrop(event: DragEvent): void {
-    event.preventDefault();
-    this.kmlDragOver = false;
-    this.addKmlFiles(Array.from(event.dataTransfer?.files || []));
-  }
-
-  onKmlFileSelect(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files) {
-      this.addKmlFiles(Array.from(input.files));
-    }
-  }
-
   removeFile(file: File): void {
     const index = this.shapeFiles.indexOf(file);
     if (index > -1) {
@@ -165,62 +154,110 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
     }
   }
 
-  removeKmlFile(file: File): void {
-    const index = this.kmlFiles.indexOf(file);
-    if (index > -1) {
-      this.kmlFiles.splice(index, 1);
-    }
-    if (!this.kmlFiles.length) this.clearNativeKmlInput();
+  selectShapefileLayer(layerValue: string): void {
+    this.activateUploadFormat('shapefile');
+    this.selectedLayer = layerValue;
+  }
+
+  onShapefileDragOver(event: DragEvent): void {
+    this.activateUploadFormat('shapefile');
+    this.onDragOver(event);
+  }
+
+  onKmlDragOver(event: DragEvent): void {
+    this.activateUploadFormat('kml');
+    this.onDragOver(event);
+  }
+
+  onShapefileDrop(event: DragEvent): void {
+    this.activateUploadFormat('shapefile');
+    this.onDrop(event);
+  }
+
+  onKmlDrop(event: DragEvent): void {
+    this.activateUploadFormat('kml');
+    this.onDrop(event);
+  }
+
+  onShapefileFileSelect(event: Event): void {
+    this.activateUploadFormat('shapefile');
+    this.onFileSelect(event);
+  }
+
+  onKmlFileSelect(event: Event): void {
+    this.activateUploadFormat('kml');
+    this.onFileSelect(event);
   }
 
   uploadShapefile(): void {
-    this.selectedUploadFormat = 'shapefile';
+    this.activateUploadFormat('shapefile', false);
     this.uploadFiles();
   }
 
   uploadKml(): void {
-    void this.uploadKmlFile();
+    this.activateUploadFormat('kml', false);
+    this.selectedLayer = 'track_table';
+    this.uploadFiles();
   }
 
   selectUploadFormat(format: UploadFormat): void {
     if (this.selectedUploadFormat === format || this.isUploading) return;
+    this.activateUploadFormat(format);
+
+    if (format === 'kml') {
+      this.selectedLayer = 'track_table';
+      this.currentView = 'shapefile';
+      return;
+    }
+
+    if (this.currentView === 'layer-select') {
+      this.selectedLayer = '';
+    }
+  }
+
+  private activateUploadFormat(format: UploadFormat, resetFiles = true): void {
+    if (this.selectedUploadFormat === format) return;
     this.selectedUploadFormat = format;
-    this.shapeFiles = [];
     this.uploadError = '';
     this.uploadSuccess = false;
     this.uploadProgress = 0;
-    this.clearNativeFileInput();
+
+    if (resetFiles) {
+      this.shapeFiles = [];
+      this.clearNativeFileInput();
+    }
+
+    if (format === 'kml') {
+      this.selectedLayer = 'track_table';
+    } else if (this.selectedLayer === 'track_table') {
+      this.selectedLayer = '';
+    }
   }
 
+
   private addShapefiles(files: File[]): void {
-    const allowedExtensions = this.SHAPEFILE_EXTENSIONS;
+    const allowedExtensions = this.getAllowedUploadExtensions();
     const valid = files.filter((file) => {
       const ext = '.' + file.name.split('.').pop()?.toLowerCase();
       return allowedExtensions.includes(ext);
     });
 
     const invalid = files.length - valid.length;
-    this.uploadError = invalid > 0 ? `${invalid} file(s) skipped. Only shapefile parts are allowed.` : '';
+    this.uploadError = invalid > 0 ? `${invalid} file(s) skipped. Only ${this.uploadFormatLabelLower} files are allowed.` : '';
+
+    if (this.selectedUploadFormat === 'kml') {
+      this.shapeFiles = valid.slice(0, 1);
+      if (valid.length > 1) {
+        this.uploadError = 'Only one KML or KMZ file can be uploaded at a time.';
+      }
+      return;
+    }
 
     this.shapeFiles = [...this.shapeFiles, ...valid];
   }
 
-  private addKmlFiles(files: File[]): void {
-    const valid = files.filter((file) => this.KML_EXTENSIONS.includes(this.getFileExtension(file)));
-    const invalid = files.length - valid.length;
-
-    this.kmlUploadError = invalid > 0 ? `${invalid} file(s) skipped. Only KML/KMZ files are allowed.` : '';
-    this.kmlFiles = valid.slice(0, 1);
-    this.kmlUploadSuccess = false;
-    this.kmlUploadProgress = 0;
-
-    if (valid.length > 1) {
-      this.kmlUploadError = 'Only one KML or KMZ file can be uploaded at a time.';
-    }
-  }
-
-  async uploadFiles(): Promise<void> {
-    if (!this.shapeFiles.length || !this.selectedLayer) return;
+   async uploadFiles(): Promise<void> {
+    if (!this.shapeFiles.length || (this.selectedUploadFormat === 'shapefile' && !this.selectedLayer)) return;
 
     const validationError = this.getUploadValidationError();
     if (validationError) {
@@ -242,22 +279,33 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
       };
 
       if (this.selectedUploadFormat === 'kml') {
-        await this.fileUploadService.uploadKmlFile(
+        const result = await this.fileUploadService.uploadKmlFile(
           this.shapeFiles[0],
           this.fileDescription,
           this.fileCategory,
           targetLayerName,
           onProgress,
         );
-      } else {
-        await this.fileUploadService.uploadShapefiles(
-          this.shapeFiles,
-          this.fileDescription,
-          this.fileCategory,
-          targetLayerName,
-          onProgress,
-        );
+
+        this.kmlUploadId = result.uploadId;
+        this.kmlTempTable = result.tempTable || this.kmlTempTable;
+        await this.router.navigate(['/dashboard/kml-geometry-selector'], {
+          queryParams: {
+            uploadId: this.kmlUploadId,
+            layerName: targetLayerName,
+            tempTable: this.kmlTempTable,
+          },
+        });
+        return;
       }
+
+      await this.fileUploadService.uploadShapefiles(
+        this.shapeFiles,
+        this.fileDescription,
+        this.fileCategory,
+        targetLayerName,
+        onProgress,
+      );
 
       this.uploadSuccess = true;
       this.loadUploadedFiles();
@@ -266,63 +314,6 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
       this.uploadError = err?.message || 'Upload failed. Please try again.';
     } finally {
       this.isUploading = false;
-      this.cdr.markForCheck();
-    }
-  }
-
-  async uploadKmlFile(): Promise<void> {
-    if (this.kmlUploading) return;
-
-    const targetLayerName = String(this.kmlTargetLayer || '').trim();
-    if (!targetLayerName) {
-      this.kmlUploadError = 'Enter a target table for KML upload.';
-      return;
-    }
-
-    if (this.kmlFiles.length !== 1) {
-      this.kmlUploadError = 'Choose one KML or KMZ file before uploading.';
-      return;
-    }
-
-    const ext = this.getFileExtension(this.kmlFiles[0]);
-    if (!this.KML_EXTENSIONS.includes(ext)) {
-      this.kmlUploadError = 'KML upload requires a .kml or .kmz file.';
-      return;
-    }
-
-    this.kmlUploading = true;
-    this.kmlUploadProgress = 0;
-    this.kmlUploadError = '';
-
-    try {
-      await this.fileUploadService.uploadKmlFile(
-        this.kmlFiles[0],
-        this.kmlDescription,
-        'kml',
-        targetLayerName,
-        (progress) => {
-          this.ngZone.run(() => {
-            this.kmlUploadProgress = progress;
-            this.cdr.markForCheck();
-          });
-        },
-      );
-
-      this.kmlUploadSuccess = true;
-      this.kmlFiles = [];
-      this.kmlDescription = '';
-      this.kmlUploadProgress = 0;
-      this.clearNativeKmlInput();
-      this.loadUploadedFiles();
-
-      setTimeout(() => {
-        this.kmlUploadSuccess = false;
-        this.cdr.markForCheck();
-      }, 1200);
-    } catch (err: any) {
-      this.kmlUploadError = err?.message || 'KML upload failed. Please try again.';
-    } finally {
-      this.kmlUploading = false;
       this.cdr.markForCheck();
     }
   }
@@ -344,23 +335,17 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
 
   private resetFileState(): void {
     this.shapeFiles = [];
-    this.kmlFiles = [];
     this.selectedUploadFormat = 'shapefile';
     this.uploadProgress = 0;
     this.uploadSuccess = false;
     this.uploadError = '';
     this.fileDescription = '';
     this.fileCategory = '';
-    this.kmlDescription = '';
-    this.kmlUploadProgress = 0;
-    this.kmlUploadSuccess = false;
-    this.kmlUploadError = '';
-    this.kmlUploading = false;
     this.isUploading = false;
     this.shapefileDragOver = false;
-    this.kmlDragOver = false;
+    this.kmlUploadId = '';
+    this.kmlTempTable = '';
     this.clearNativeFileInput();
-    this.clearNativeKmlInput();
   }
 
   private resetAfterSuccessfulUpload(): void {
@@ -388,11 +373,11 @@ filteredLayerOptions: Array<{ value: string; label: string }> = [...EDIT_LAYER_O
     }
   }
 
-  private clearNativeKmlInput(): void {
-    if (this.kmlInput?.nativeElement) {
-      this.kmlInput.nativeElement.value = '';
-    }
-  }
+  // private clearNativeKmlInput(): void {
+  //   if (this.kmlInput?.nativeElement) {
+  //     this.kmlInput.nativeElement.value = '';
+  //   }
+  // }
 
   private getMissingShapefilePartsError(): string | null {
     const grouped = this.shapeFiles.reduce((acc, file) => {
